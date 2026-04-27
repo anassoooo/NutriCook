@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import AuthPage from './pages/AuthPage'
+import OnboardingPage from './pages/OnboardingPage'
 import DashboardPage from './pages/DashboardPage'
 import ProfilePage from './pages/ProfilePage'
 import DietPlanPage from './pages/DietPlanPage'
@@ -17,14 +18,22 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <Routes>
+      {/* Public */}
       <Route path="/auth" element={<AuthPage />} />
-      <Route
-        element={
-          <RequireAuth>
-            <Layout />
-          </RequireAuth>
-        }
-      >
+
+      {/* Onboarding — auth required, no navbar */}
+      <Route path="/onboarding" element={
+        <RequireAuth>
+          <OnboardingPage />
+        </RequireAuth>
+      } />
+
+      {/* Main app — auth required, with navbar */}
+      <Route element={
+        <RequireAuth>
+          <Layout />
+        </RequireAuth>
+      }>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"    element={<DashboardPage />} />
         <Route path="profile"      element={<ProfilePage />} />
@@ -33,6 +42,7 @@ export default function App() {
         <Route path="achievements" element={<AchievementsPage />} />
         <Route path="restaurants"  element={<RestaurantsPage />} />
       </Route>
+
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
