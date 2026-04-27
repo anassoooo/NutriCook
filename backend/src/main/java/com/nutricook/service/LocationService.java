@@ -3,6 +3,8 @@ package com.nutricook.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nutricook.dto.response.LocationDTO;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +47,8 @@ public class LocationService {
     headers.set("User-Agent", userAgent);
     headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
-    HttpEntity<String> entity = new HttpEntity<>("data=" + query, headers);
+    String encoded = "data=" + URLEncoder.encode(query, StandardCharsets.UTF_8);
+    HttpEntity<String> entity = new HttpEntity<>(encoded, headers);
 
     try {
       ResponseEntity<String> response =
