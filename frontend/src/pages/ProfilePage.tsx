@@ -16,32 +16,64 @@ interface FormData {
   healthGoal: HealthGoal
 }
 
-const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; sub: string }[] = [
-  { value: 'SEDENTARY',        label: 'Sedentary',          sub: 'Desk job, little exercise' },
-  { value: 'LIGHTLY_ACTIVE',   label: 'Lightly active',     sub: '1–3 workouts / week' },
-  { value: 'MODERATELY_ACTIVE',label: 'Moderately active',  sub: '3–5 workouts / week' },
-  { value: 'VERY_ACTIVE',      label: 'Very active',        sub: '6–7 workouts / week' },
-  { value: 'EXTRA_ACTIVE',     label: 'Extra active',       sub: 'Athlete / physical job' },
+const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; sub: string; icon: string }[] = [
+  { value: 'SEDENTARY',         label: 'Sedentary',         sub: 'Desk job, little exercise',  icon: '🪑' },
+  { value: 'LIGHTLY_ACTIVE',    label: 'Lightly active',    sub: '1–3 workouts / week',        icon: '🚶' },
+  { value: 'MODERATELY_ACTIVE', label: 'Moderately active', sub: '3–5 workouts / week',        icon: '🏃' },
+  { value: 'VERY_ACTIVE',       label: 'Very active',       sub: '6–7 workouts / week',        icon: '⚡' },
+  { value: 'EXTRA_ACTIVE',      label: 'Extra active',      sub: 'Athlete / physical job',     icon: '🏋️' },
 ]
 
-const GOAL_OPTIONS: { value: HealthGoal; label: string; icon: string }[] = [
-  { value: 'LOSE_WEIGHT',    label: 'Lose weight',         icon: '⬇️' },
-  { value: 'MAINTAIN_WEIGHT',label: 'Maintain weight',     icon: '⚖️' },
-  { value: 'GAIN_MUSCLE',    label: 'Gain muscle',         icon: '💪' },
-  { value: 'IMPROVE_HEALTH', label: 'Improve overall health', icon: '❤️' },
+const GOAL_OPTIONS: { value: HealthGoal; label: string; icon: string; color: string }[] = [
+  { value: 'LOSE_WEIGHT',     label: 'Lose weight',         icon: '⬇️', color: '#3b82f6' },
+  { value: 'MAINTAIN_WEIGHT', label: 'Maintain weight',     icon: '⚖️', color: '#16a34a' },
+  { value: 'GAIN_MUSCLE',     label: 'Gain muscle',         icon: '💪', color: '#f97316' },
+  { value: 'IMPROVE_HEALTH',  label: 'Improve health',      icon: '❤️', color: '#ef4444' },
+]
+
+function bmiInfo(weight: number, height: number) {
+  const bmi = weight / Math.pow(height / 100, 2)
+  const value = bmi.toFixed(1)
+  if (bmi < 18.5) return { value, label: 'Underweight', color: '#3b82f6', bg: '#eff6ff', bar: 20 }
+  if (bmi < 25)   return { value, label: 'Normal',      color: '#16a34a', bg: '#f0fdf4', bar: 45 }
+  if (bmi < 30)   return { value, label: 'Overweight',  color: '#f59e0b', bg: '#fffbeb', bar: 68 }
+                  return { value, label: 'Obese',        color: '#ef4444', bg: '#fef2f2', bar: 88 }
+}
+
+const COMPLETION_STEPS = [
+  { key: 'firstName',     label: 'Name' },
+  { key: 'weightKg',      label: 'Weight' },
+  { key: 'heightCm',      label: 'Height' },
+  { key: 'dateOfBirth',   label: 'Birthday' },
+  { key: 'activityLevel', label: 'Activity' },
+  { key: 'healthGoal',    label: 'Goal' },
 ]
 
 export default function ProfilePage() {
-  const { userId } = useAuth()
-  const [saved, setSaved]   = useState(false)
+  const { userId, email } = useAuth()
+  const [saved,   setSaved]   = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState('')
+  const [error,   setError]   = useState('')
 
   const { register, handleSubmit, reset, watch, formState: { errors } } =
     useForm<FormData>({ defaultValues: { gender: 'MALE', activityLevel: 'SEDENTARY', healthGoal: 'IMPROVE_HEALTH' } })
 
-  const selectedGoal    = watch('healthGoal')
+  const selectedGoal     = watch('healthGoal')
   const selectedActivity = watch('activityLevel')
+  const watchWeight      = watch('weightKg')
+  const watchHeight      = watch('heightCm')
+  const watchFirst       = watch('firstName')
+
+  const bmi = watchWeight && watchHeight && watchWeight > 0 && watchHeight > 0
+    ? bmiInfo(Number(watchWeight), Number(watchHeight))
+    : null
+
+  const initial = (watchFirst || email || 'U').charAt(0).toUpperCase()
+
+  const completedSteps = COMPLETION_STEPS.filter(s => {
+    const v = watch(s.key as keyof FormData)
+    return v !== undefined && v !== '' && v !== null
+  }).length
 
   useEffect(() => {
     if (!userId) return
@@ -68,26 +100,67 @@ export default function ProfilePage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch {
-      setError('Failed to save profile. Please try again.')
-    } finally {
-      setLoading(false)
-    }
+      setError('Failed to save. Please check your inputs and try again.')
+    } finally { setLoading(false) }
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
 
-      {/* Header */}
-      <div>
-        <h1 className="page-title">Your Profile</h1>
-        <p className="page-subtitle">Used to calculate your personalised daily calorie target (TDEE).</p>
+      {/* ── Profile header card ─────────────────── */}
+      <div className="relative overflow-hidden rounded-3xl p-7 text-white"
+           style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#1e40af 50%,#1d4ed8 100%)' }}>
+        <div className="absolute inset-0 opacity-10"
+             style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
+
+        <div className="relative z-10 flex items-center gap-5 flex-wrap">
+          {/* Avatar */}
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black shrink-0 shadow-lg"
+               style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}>
+            {initial}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl font-black tracking-tight">
+              {watchFirst || 'Your'} Profile
+            </h1>
+            <p className="text-blue-200 text-sm mt-0.5 truncate">{email}</p>
+
+            {/* Completion steps */}
+            <div className="flex items-center gap-1.5 mt-3 flex-wrap">
+              {COMPLETION_STEPS.map(s => {
+                const v = watch(s.key as keyof FormData)
+                const done = v !== undefined && v !== '' && v !== null
+                return (
+                  <span key={s.key}
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{
+                          background: done ? 'rgba(255,255,255,.25)' : 'rgba(255,255,255,.08)',
+                          color: done ? 'white' : 'rgba(255,255,255,.4)',
+                        }}>
+                    {done ? '✓ ' : ''}{s.label}
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Completion pct */}
+          <div className="text-center shrink-0">
+            <p className="text-3xl font-black">{Math.round((completedSteps / COMPLETION_STEPS.length) * 100)}%</p>
+            <p className="text-blue-200 text-xs mt-0.5">complete</p>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
 
         {/* Personal info */}
         <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-900">Personal information</h2>
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+            <span className="text-lg">👤</span>
+            <h2 className="section-title">Personal information</h2>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">First name</label>
@@ -107,14 +180,12 @@ export default function ProfilePage() {
               <label className="label">Gender</label>
               <div className="flex gap-2">
                 {(['MALE', 'FEMALE'] as const).map(g => (
-                  <label
-                    key={g}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-medium cursor-pointer transition-all ${
+                  <label key={g}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-all ${
                       watch('gender') === g
                         ? 'border-brand-500 bg-brand-50 text-brand-700'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
+                        : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
+                    }`}>
                     <input type="radio" value={g} {...register('gender')} className="sr-only" />
                     {g === 'MALE' ? '♂ Male' : '♀ Female'}
                   </label>
@@ -126,50 +197,74 @@ export default function ProfilePage() {
 
         {/* Body metrics */}
         <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-900">Body metrics</h2>
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+            <span className="text-lg">📏</span>
+            <h2 className="section-title">Body metrics</h2>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Weight (kg)</label>
-              <input
-                className="input"
-                type="number"
-                step="0.1"
-                placeholder="70"
-                {...register('weightKg', { required: 'Required', min: 20, max: 300, valueAsNumber: true })}
-              />
-              {errors.weightKg && <p className="text-red-500 text-xs mt-1">Valid weight required (20–300 kg)</p>}
+              <input className="input" type="number" step="0.1" placeholder="70"
+                {...register('weightKg', { required: 'Required', min: 20, max: 500, valueAsNumber: true })} />
+              {errors.weightKg && <p className="text-red-500 text-xs mt-1">Enter a valid weight (20–500 kg)</p>}
             </div>
             <div>
               <label className="label">Height (cm)</label>
-              <input
-                className="input"
-                type="number"
-                placeholder="175"
-                {...register('heightCm', { required: 'Required', min: 50, max: 300, valueAsNumber: true })}
-              />
-              {errors.heightCm && <p className="text-red-500 text-xs mt-1">Valid height required (50–300 cm)</p>}
+              <input className="input" type="number" placeholder="175"
+                {...register('heightCm', { required: 'Required', min: 50, max: 300, valueAsNumber: true })} />
+              {errors.heightCm && <p className="text-red-500 text-xs mt-1">Enter a valid height (50–300 cm)</p>}
             </div>
           </div>
+
+          {/* Live BMI */}
+          {bmi && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="rounded-xl p-4"
+              style={{ background: bmi.bg, border: `1px solid ${bmi.color}30` }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <p className="section-label">BMI Index</p>
+                  <p className="text-2xl font-black mt-1" style={{ color: bmi.color }}>{bmi.value}</p>
+                </div>
+                <span className="text-sm font-bold px-3 py-1 rounded-full"
+                      style={{ background: `${bmi.color}20`, color: bmi.color }}>
+                  {bmi.label}
+                </span>
+              </div>
+              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-500"
+                     style={{ width: `${bmi.bar}%`, background: bmi.color }} />
+              </div>
+              <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                <span>Underweight</span><span>Normal</span><span>Overweight</span><span>Obese</span>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         {/* Activity level */}
         <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-900">Activity level</h2>
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+            <span className="text-lg">⚡</span>
+            <h2 className="section-title">Activity level</h2>
+          </div>
           <div className="space-y-2">
-            {ACTIVITY_OPTIONS.map(({ value, label, sub }) => (
-              <label
-                key={value}
-                className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all ${
+            {ACTIVITY_OPTIONS.map(({ value, label, sub, icon }) => (
+              <label key={value}
+                className={`flex items-center gap-4 p-3.5 rounded-xl border cursor-pointer transition-all ${
                   selectedActivity === value
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <input type="radio" value={value} {...register('activityLevel')} className="accent-brand-600" />
-                <div>
+                    ? 'border-brand-400 bg-brand-50/70 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                }`}>
+                <span className="text-xl shrink-0">{icon}</span>
+                <div className="flex-1">
                   <p className={`text-sm font-semibold ${selectedActivity === value ? 'text-brand-700' : 'text-slate-900'}`}>{label}</p>
                   <p className="text-xs text-slate-400">{sub}</p>
                 </div>
+                <input type="radio" value={value} {...register('activityLevel')} className="accent-brand-600" />
               </label>
             ))}
           </div>
@@ -177,27 +272,38 @@ export default function ProfilePage() {
 
         {/* Health goal */}
         <div className="card space-y-4">
-          <h2 className="font-semibold text-slate-900">Health goal</h2>
+          <div className="flex items-center gap-2 pb-2 border-b border-slate-50">
+            <span className="text-lg">🎯</span>
+            <h2 className="section-title">Health goal</h2>
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            {GOAL_OPTIONS.map(({ value, label, icon }) => (
-              <label
-                key={value}
-                className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+            {GOAL_OPTIONS.map(({ value, label, icon, color }) => (
+              <label key={value}
+                className={`relative flex flex-col items-center gap-2 p-5 rounded-xl border cursor-pointer transition-all text-center ${
                   selectedGoal === value
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
-              >
-                <input type="radio" value={value} {...register('healthGoal')} className="accent-brand-600 sr-only" />
-                <span className="text-2xl">{icon}</span>
-                <span className={`text-sm font-medium ${selectedGoal === value ? 'text-brand-700' : 'text-slate-700'}`}>{label}</span>
+                    ? 'border-brand-400 bg-brand-50/70 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                }`}>
+                <input type="radio" value={value} {...register('healthGoal')} className="sr-only" />
+                <span className="text-3xl">{icon}</span>
+                <span className={`text-sm font-semibold leading-tight ${selectedGoal === value ? 'text-brand-700' : 'text-slate-700'}`}>
+                  {label}
+                </span>
+                {selectedGoal === value && (
+                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
+                       style={{ background: color }}>
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </div>
+                )}
               </label>
             ))}
           </div>
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+          <div className="banner-error">
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
@@ -205,7 +311,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 pb-4">
           <button type="submit" disabled={loading} className="btn-primary px-8">
             {loading ? 'Saving…' : 'Save profile'}
           </button>
@@ -213,12 +319,12 @@ export default function ProfilePage() {
             <motion.div
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-1.5 text-brand-600 text-sm font-medium"
+              className="flex items-center gap-1.5 text-brand-600 text-sm font-semibold"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
               </svg>
-              Profile saved
+              Profile saved!
             </motion.div>
           )}
         </div>
