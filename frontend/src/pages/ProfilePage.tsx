@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
-import type { UserProfile, ActivityLevel, HealthGoal } from '../types'
+import type { UserProfile, ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition } from '../types'
 
 interface FormData {
   firstName:     string
@@ -34,6 +34,13 @@ const GOAL_OPTIONS: { value: HealthGoal; label: string; icon: string; color: str
 ]
 
 /* Fields the user must actively fill — radio defaults don't count */
+const RESTRICTION_STYLE: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  PREFERENCE:  { bg: '#f0fdf4', text: '#16a34a', border: '#86efac', label: 'Diet'      },
+  INTOLERANCE: { bg: '#fffbeb', text: '#d97706', border: '#fcd34d', label: 'Intolerance' },
+  ALLERGY:     { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5', label: 'Allergy'   },
+  RELIGIOUS:   { bg: '#eff6ff', text: '#2563eb', border: '#93c5fd', label: 'Religious' },
+}
+
 const COMPLETION_STEPS = [
   { key: 'firstName',   label: 'Name'     },
   { key: 'weightKg',    label: 'Weight'   },
@@ -71,6 +78,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
 
+  const [allRestrictions,      setAllRestrictions]      = useState<DietaryRestriction[]>([])
+  const [allConditions,        setAllConditions]        = useState<HealthCondition[]>([])
+  const [selectedRestrictions, setSelectedRestrictions] = useState<Set<number>>(new Set())
+  const [selectedConditions,   setSelectedConditions]   = useState<Set<number>>(new Set())
+
   const { control, register, handleSubmit, reset, formState: { errors } } =
     useForm<FormData>({ defaultValues: { gender: 'MALE', activityLevel: 'SEDENTARY', healthGoal: 'IMPROVE_HEALTH' } })
 
@@ -95,9 +107,40 @@ export default function ProfilePage() {
   const completionPct  = Math.round((completedCount / COMPLETION_STEPS.length) * 100)
 
   useEffect(() => {
+    api.get<DietaryRestriction[]>('/dietary-restrictions').then(r => setAllRestrictions(r.data)).catch(() => {})
+    api.get<HealthCondition[]>('/health-conditions').then(r => setAllConditions(r.data)).catch(() => {})
+  }, [])
+
+  const toggleRestriction = async (id: number) => {
+    const isSelected = selectedRestrictions.has(id)
+    setSelectedRestrictions(prev => { const s = new Set(prev); isSelected ? s.delete(id) : s.add(id); return s })
+    try {
+      isSelected
+        ? await api.delete(`/users/${userId}/profile/dietary-restrictions/${id}`)
+        : await api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)
+    } catch {
+      setSelectedRestrictions(prev => { const s = new Set(prev); isSelected ? s.add(id) : s.delete(id); return s })
+    }
+  }
+
+  const toggleCondition = async (id: number) => {
+    const isSelected = selectedConditions.has(id)
+    setSelectedConditions(prev => { const s = new Set(prev); isSelected ? s.delete(id) : s.add(id); return s })
+    try {
+      isSelected
+        ? await api.delete(`/users/${userId}/profile/health-conditions/${id}`)
+        : await api.post(`/users/${userId}/profile/health-conditions/${id}`)
+    } catch {
+      setSelectedConditions(prev => { const s = new Set(prev); isSelected ? s.add(id) : s.delete(id); return s })
+    }
+  }
+
+  useEffect(() => {
     if (!userId) return
     api.get<UserProfile>(`/users/${userId}/profile`).then(r => {
       const p = r.data
+      setSelectedRestrictions(new Set((p.dietaryRestrictions ?? []).map(r => r.id)))
+      setSelectedConditions(new Set((p.healthConditions ?? []).map(c => c.id)))
       reset({
         firstName:     p.firstName     ?? '',
         lastName:      p.lastName      ?? '',
@@ -347,6 +390,87 @@ export default function ProfilePage() {
               </label>
             ))}
           </div>
+        </div>
+
+        {/* Dietary restrictions */}
+        <div className="card space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <span className="text-lg">🥗</span>
+            <div>
+              <h2 className="section-title">Dietary preferences</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Groq AI respects these when building your meal plan</p>
+            </div>
+          </div>
+
+          {allRestrictions.length === 0 ? (
+            <p className="text-sm text-slate-400">Loading options…</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allRestrictions.map(r => {
+                const selected = selectedRestrictions.has(r.id)
+                const style    = RESTRICTION_STYLE[r.type] ?? RESTRICTION_STYLE.PREFERENCE
+                return (
+                  <Tooltip key={r.id} title={r.description ?? ''} placement="top" arrow>
+                    <button
+                      type="button"
+                      onClick={() => toggleRestriction(r.id)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-150"
+                      style={selected
+                        ? { background: style.bg, color: style.text, borderColor: style.border }
+                        : { background: 'white', color: '#94a3b8', borderColor: '#e2e8f0' }}
+                    >
+                      {selected && (
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
+                        </svg>
+                      )}
+                      {r.name}
+                    </button>
+                  </Tooltip>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Health conditions */}
+        <div className="card space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <span className="text-lg">🩺</span>
+            <div>
+              <h2 className="section-title">Health conditions</h2>
+              <p className="text-xs text-slate-400 mt-0.5">AI will limit sugar and fat per meal based on your conditions</p>
+            </div>
+          </div>
+
+          {allConditions.length === 0 ? (
+            <p className="text-sm text-slate-400">Loading options…</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {allConditions.map(c => {
+                const selected = selectedConditions.has(c.id)
+                return (
+                  <Tooltip key={c.id} title={c.description ?? ''} placement="top" arrow>
+                    <button
+                      type="button"
+                      onClick={() => toggleCondition(c.id)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-150"
+                      style={selected
+                        ? { background: '#faf5ff', color: '#7c3aed', borderColor: '#c4b5fd' }
+                        : { background: 'white',   color: '#94a3b8', borderColor: '#e2e8f0' }}
+                    >
+                      {selected && (
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
+                        </svg>
+                      )}
+                      {c.name}
+                    </button>
+                  </Tooltip>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {error && (
