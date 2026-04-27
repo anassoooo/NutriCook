@@ -78,10 +78,12 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
 
-  const [allRestrictions,      setAllRestrictions]      = useState<DietaryRestriction[]>([])
-  const [allConditions,        setAllConditions]        = useState<HealthCondition[]>([])
-  const [selectedRestrictions, setSelectedRestrictions] = useState<Set<number>>(new Set())
-  const [selectedConditions,   setSelectedConditions]   = useState<Set<number>>(new Set())
+  const [allRestrictions,        setAllRestrictions]        = useState<DietaryRestriction[]>([])
+  const [allConditions,          setAllConditions]          = useState<HealthCondition[]>([])
+  const [selectedRestrictions,   setSelectedRestrictions]   = useState<Set<number>>(new Set())
+  const [selectedConditions,     setSelectedConditions]     = useState<Set<number>>(new Set())
+  const [restrictionsStatus,     setRestrictionsStatus]     = useState<'loading' | 'ok' | 'error'>('loading')
+  const [conditionsStatus,       setConditionsStatus]       = useState<'loading' | 'ok' | 'error'>('loading')
 
   const { control, register, handleSubmit, reset, formState: { errors } } =
     useForm<FormData>({ defaultValues: { gender: 'MALE', activityLevel: 'SEDENTARY', healthGoal: 'IMPROVE_HEALTH' } })
@@ -107,8 +109,12 @@ export default function ProfilePage() {
   const completionPct  = Math.round((completedCount / COMPLETION_STEPS.length) * 100)
 
   useEffect(() => {
-    api.get<DietaryRestriction[]>('/dietary-restrictions').then(r => setAllRestrictions(r.data)).catch(() => {})
-    api.get<HealthCondition[]>('/health-conditions').then(r => setAllConditions(r.data)).catch(() => {})
+    api.get<DietaryRestriction[]>('/dietary-restrictions')
+      .then(r => { setAllRestrictions(r.data); setRestrictionsStatus('ok') })
+      .catch(() => setRestrictionsStatus('error'))
+    api.get<HealthCondition[]>('/health-conditions')
+      .then(r => { setAllConditions(r.data); setConditionsStatus('ok') })
+      .catch(() => setConditionsStatus('error'))
   }, [])
 
   const toggleRestriction = async (id: number) => {
@@ -158,7 +164,14 @@ export default function ProfilePage() {
     if (!userId) return
     setLoading(true); setError('')
     try {
-      await api.put(`/users/${userId}/profile`, data)
+      await api.put(`/users/${userId}/profile`, {
+        ...data,
+        firstName:   data.firstName   || null,
+        lastName:    data.lastName    || null,
+        dateOfBirth: data.dateOfBirth || null,
+        weightKg:    isNaN(data.weightKg) ? null : data.weightKg,
+        heightCm:    isNaN(data.heightCm) ? null : data.heightCm,
+      })
       setSaved(true)
       setTimeout(() => navigate(-1), 1500)
     } catch {
@@ -398,12 +411,16 @@ export default function ProfilePage() {
             <span className="text-lg">🥗</span>
             <div>
               <h2 className="section-title">Dietary preferences</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Groq AI respects these when building your meal plan</p>
+              <p className="text-xs text-slate-400 mt-0.5">The AI will use these to personalise your meal plan</p>
             </div>
           </div>
 
-          {allRestrictions.length === 0 ? (
+          {restrictionsStatus === 'loading' ? (
             <p className="text-sm text-slate-400">Loading options…</p>
+          ) : restrictionsStatus === 'error' ? (
+            <p className="text-sm text-amber-600">
+              Could not load options — make sure the backend is running, then refresh this page.
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {allRestrictions.map(r => {
@@ -443,8 +460,12 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {allConditions.length === 0 ? (
+          {conditionsStatus === 'loading' ? (
             <p className="text-sm text-slate-400">Loading options…</p>
+          ) : conditionsStatus === 'error' ? (
+            <p className="text-sm text-amber-600">
+              Could not load options — make sure the backend is running, then refresh this page.
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {allConditions.map(c => {

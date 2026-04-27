@@ -46,7 +46,7 @@ export default function AuthPage() {
         isLogin ? '/auth/login' : '/auth/register', data
       )
       login(res.data)
-      navigate(isLogin ? '/dashboard' : '/profile')
+      navigate(isLogin ? '/dashboard' : '/onboarding')
     } catch (err: any) {
       const msg = err.response?.data?.message ?? err.response?.data ?? 'Something went wrong.'
       setServerError(typeof msg === 'string' ? msg : 'Request failed.')
