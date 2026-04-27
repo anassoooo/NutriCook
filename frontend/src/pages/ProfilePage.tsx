@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
@@ -65,6 +66,7 @@ function RequiredDot() {
 
 export default function ProfilePage() {
   const { userId, email } = useAuth()
+  const navigate = useNavigate()
   const [saved,   setSaved]   = useState(false)
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
@@ -115,7 +117,7 @@ export default function ProfilePage() {
     try {
       await api.put(`/users/${userId}/profile`, data)
       setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      setTimeout(() => navigate(-1), 1500)
     } catch {
       setError('Failed to save. Please check your inputs and try again.')
     } finally { setLoading(false) }
@@ -138,8 +140,10 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex-1 min-w-0">
-            {/* Name updates live as user types */}
-            <h1 className="text-2xl font-black tracking-tight">{displayName} Profile</h1>
+            {/* Shows name once firstName is typed, otherwise generic title */}
+            <h1 className="text-2xl font-black tracking-tight">
+              {watchFirst ? displayName : 'Your Profile'}
+            </h1>
             <p className="text-blue-200 text-sm mt-0.5 truncate">{email}</p>
 
             {/* Completion pills — only track explicitly-filled fields */}
