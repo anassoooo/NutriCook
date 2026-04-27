@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: nutricook-backend
+  profiles:
+    active: local
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  ai:
+    openai:
+      api-key: ${GROQ_API_KEY:dummy-key-replace-me}
+      base-url: https://api.groq.com/openai
+      chat:
+        options:
+          model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+          temperature: 0.7
+          max-tokens: 1024
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:devOnlySecretKeyMustBeAtLeast32CharactersLong!!}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  osm:
+    user-agent: "NutriCook Diet Assistant / anasbougrine63@gmail.com"
+    overpass-url: https://overpass-api.de/api/interpreter
+    nominatim-url: https://nominatim.openstreetmap.org
+    search-radius-meters: 2000
+  cache:
+    location-ttl-minutes: 60
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+  api-docs:
+    path: /api-docs
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:h2:mem:nutricookdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${SUPABASE_DATABASE_URL}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false

@@ -1,0 +1,13 @@
+@echo off
+REM Copy this file to run.bat and fill in your values.
+REM run.bat is gitignored so your secrets stay local.
+
+set "JAVA_HOME=C:\Program Files\Microsoft\jdk-21.0.10.7-hotspot"
+set "GROQ_API_KEY=YOUR_GROQ_API_KEY_HERE"
+set "JWT_SECRET=YOUR_JWT_SECRET_HERE"
+set "SPRING_PROFILES_ACTIVE=local"
+set "M2_HOME=C:\Users\YOU\.m2\wrapper\dists\apache-maven-3.9.9-bin\apache-maven-3.9.9"
+cd /d "%~dp0"
+set "PROJECT_DIR=%CD%"
+
+"%JAVA_HOME%\bin\java" -classpath "%M2_HOME%\boot\plexus-classworlds-2.8.0.jar" -Dclassworlds.conf="%M2_HOME%\bin\m2.conf" -Dmaven.home="%M2_HOME%" -Dmaven.multiModuleProjectDirectory="%PROJECT_DIR%" org.codehaus.plexus.classworlds.launcher.Launcher spring-boot:run
