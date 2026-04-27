@@ -35,11 +35,14 @@ export type HealthGoal =
 export interface HealthCondition {
   id: number
   name: string
+  description: string | null
 }
 
 export interface DietaryRestriction {
   id: number
   name: string
+  type: 'PREFERENCE' | 'INTOLERANCE' | 'ALLERGY' | 'RELIGIOUS'
+  description: string | null
 }
 
 export interface MealFoodItem {
