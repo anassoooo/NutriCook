@@ -1,176 +1,178 @@
-# AI Diet Assistant
+# NutriCook — AI-Powered Diet Assistant
 
-Transform your health journey with a full-stack AI-powered diet and nutrition assistant. This project leverages modern web technologies and local LLMs to deliver personalized meal plans, nutrition analysis, and smart recommendations, all in a beautiful, user-friendly interface.
-
----
-
-## 🚀 Project Overview
-AI Diet Assistant is a full-stack application that helps users:
-- Generate personalized diet plans based on their profile, restrictions, and health goals
-- Get AI-powered meal suggestions and explanations (using local LLM via LM Studio)
-- Find nearby healthy restaurants and grocery stores (Google Places API)
-- Track progress and celebrate achievements
+A full-stack web application that generates personalized AI meal plans, tracks macros and progress, awards achievements, and finds nearby healthy restaurants — all at zero cost.
 
 ---
 
-## 📸 Project Screenshots
+## Features
 
-### 1. Login & Welcome Page
-![Login and Welcome](assets/screenshots/login.png)
-*Modern, user-friendly login page with social sign-in options and a welcoming introduction.*
-
-### 2. Dashboard Overview
-![Dashboard Overview](assets/screenshots/dashboard-overview.png)
-*Personalized dashboard showing calories, meals, daily goals, streaks, and a summary of today's meals.*
-
-### 3. Weekly Progress Tracking
-![Weekly Progress](assets/screenshots/weekly-progress.png)
-*Track your weekly calories, protein, meals completed, and hydration with a detailed daily breakdown.*
-
-### 4. Personalized Diet Plan
-![Personalized Diet Plan](assets/screenshots/diet-plan.png)
-*AI-generated daily meal plan with nutrition breakdown and a smart shopping list for easy meal prep.*
-
-### 5. Achievements & Rewards
-![Achievements](assets/screenshots/achievements.png)
-*Gamified achievements to motivate users, including streaks, protein goals, and hydration milestones.*
+- **AI Meal Plan Generation** — Groq AI (Llama 3.3 70B) creates a full daily meal plan tailored to your profile, health goal, and dietary restrictions
+- **Macro & Calorie Tracking** — animated SVG donut rings for Protein, Carbs, Fat, Sugar and Calories
+- **Progress Logging** — daily weight, calories, and exercise minutes with streak tracking
+- **Achievements System** — gamified milestones that unlock as you hit health targets
+- **Nearby Healthy Restaurants** — powered by OpenStreetMap / Nominatim (free, no API key needed)
+- **JWT Authentication** — stateless, secure sign-up and sign-in
+- **3D Nutrition Orb** — React Three Fiber sphere in the dashboard hero that reflects calorie fill
 
 ---
 
-## 🌟 Why This Project Stands Out
-- **End-to-End AI Integration:** Combines classic web dev with cutting-edge local LLMs for real, practical AI use.
-- **Privacy-First:** All AI runs locally—no user data leaves your machine.
-- **Modular & Extensible:** Clean, well-organized codebase makes it easy to add new features or swap components.
-- **Real-World Relevance:** Tackles a meaningful problem—personalized health and nutrition.
-- **Modern Stack:** Uses the latest in React, TypeScript, Flask, and AI APIs.
-- **Beautiful UI:** Professional, responsive design with Material UI.
-- **Open Source Spirit:** Built for learning, sharing, and community improvement.
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Vite + React 18 + TypeScript |
+| Styling | Tailwind CSS 3.4, Framer Motion 11 |
+| 3D | React Three Fiber 8 + Drei |
+| Backend | Spring Boot 3.3.4 + Spring AI 1.0.0 |
+| AI Model | Groq API — Llama 3.3 70B Versatile |
+| Auth | JJWT 0.12.3, Spring Security 6 |
+| Database | H2 (dev) / PostgreSQL (prod) |
+| Maps | OpenStreetMap + Nominatim (free) |
 
 ---
 
-## 🤝 For Developers: How to Contribute & Learn
-- **Explore Modular Code:** Each feature (diet, nutrition, LLM, places) is in its own module for clarity.
-- **Add Your Own AI Models:** Swap in any OpenAI-compatible LLM in LM Studio—experiment with prompts and outputs!
-- **Improve the UI/UX:** The React frontend is easy to extend with new pages, themes, or components.
-- **API-First Design:** All business logic is exposed via RESTful APIs—perfect for mobile or other frontends.
-- **Learn Best Practices:** See examples of environment config, error handling, and scalable project structure.
-- **Contribute:** Fork, branch, and PR! Suggestions, bugfixes, and new features are welcome.
-- **Great for Portfolios:** Use this as a template or inspiration for your own AI-powered apps.
+## Architecture
 
----
-
-## ✨ Features
-- **User Profile Management**: Age, gender, weight, height, activity, restrictions, health conditions
-- **Personalized Diet Generation**: Smart meal plans tailored to user needs
-- **AI Meal Suggestions**: Detailed, context-aware meal ideas from a local LLM
-- **Nutrition Analysis**: Macro/micro breakdown for each plan
-- **Nearby Restaurants & Stores**: Find healthy options near you (Google Places API)
-- **Progress Tracking & Achievements**: Visualize and celebrate your health journey
-- **Modern UI/UX**: Responsive, clean React interface with Material UI
-
----
-
-## 🛠️ Tech Stack
-- **Frontend**: React, TypeScript, Material UI, Axios
-- **Backend**: Flask, Flask-CORS, Python, Pandas, Requests
-- **AI/LLM**: LM Studio (OpenAI-compatible local server), Phi 3.1 Mini 128k Instruct (recommended)
-- **Data**: CSV-based food database
-- **APIs**: Google Places (for restaurants/stores)
-
----
-
-## 🏗️ Architecture
-```mermaid
-graph TD;
-  User-->|Browser|Frontend[React UI]
-  Frontend-->|REST API|Backend[Flask API]
-  Backend-->|LLM API|LMStudio[LM Studio LLM]
-  Backend-->|Google Places API|Google[Google Places]
-  Backend-->|CSV|FoodDB[Food Database]
+```
+┌─────────────────────────────────────┐
+│           Browser (Vite)            │
+│  React + Tailwind + R3F + Framer    │
+└──────────────┬──────────────────────┘
+               │ REST /api/*  (JWT Bearer)
+┌──────────────▼──────────────────────┐
+│       Spring Boot 3.3.4             │
+│  Spring Security · Spring AI        │
+│  JPA / Hibernate · H2 / PostgreSQL  │
+└──────┬───────────────┬──────────────┘
+       │               │
+┌──────▼──────┐  ┌─────▼───────────────┐
+│  Groq API   │  │  Nominatim OSM API  │
+│ Llama 3.3   │  │  (restaurants)      │
+└─────────────┘  └─────────────────────┘
 ```
 
 ---
 
-## ⚡ Quickstart
+## Quickstart
 
-### 1. Clone the Repository
+### Prerequisites
+
+- Java 21 (Microsoft / Temurin / Zulu)
+- Maven 3.9+ (or use the included `mvnw.cmd`)
+- Node.js 20+
+- A free [Groq API key](https://console.groq.com)
+
+### 1. Clone
+
 ```bash
-git clone https://github.com/yourusername/ai-diet-assistant.git
-cd ai-diet-assistant
+git clone https://github.com/anassoooo/NutriCook.git
+cd NutriCook
 ```
 
-### 2. Backend Setup
+### 2. Backend
+
+Copy the run script template and fill in your values:
+
 ```bash
-# Create and activate a virtual environment
-python -m venv venv
-./venv/Scripts/activate  # On Windows
-# Install dependencies
-pip install -r requirements.txt
-# Add your .env file (see below)
+cp backend/run.bat.example backend/run.bat
 ```
 
-#### .env Example
-```
-GOOGLE_PLACES_API_KEY=your_google_api_key_here
-FLASK_ENV=development
-FLASK_DEBUG=1
+Edit `backend/run.bat` and set:
+
+```bat
+set "GROQ_API_KEY=your_groq_api_key_here"
+set "JWT_SECRET=your_base64_secret_here"
+set "JAVA_HOME=C:\path\to\your\jdk21"
+set "M2_HOME=C:\path\to\your\maven"
 ```
 
-### 3. Frontend Setup
+Then start the backend:
+
 ```bash
-cd src/frontend/diet-assistant-ui
+cd backend
+run.bat
+```
+
+The API will be available at `http://localhost:8080`.
+
+#### Generate a JWT secret
+
+```bash
+openssl rand -base64 32
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
 npm install
-# (Optional) Add .env for API URL
-# echo REACT_APP_API_URL=http://localhost:5000 > .env
-npm start
+npm run dev
 ```
 
-### 4. LLM (LM Studio) Setup
-- Download and install [LM Studio](https://lmstudio.ai/)
-- Download the model: **Phi 3.1 Mini 128k Instruct** (IQ3_M or Q4_K_M recommended)
-- Start LM Studio and load the model
-- Ensure the OpenAI-compatible API server is running at `http://127.0.0.1:1234`
+Open [http://localhost:5173](http://localhost:5173).
 
 ---
 
-## 🧑‍💻 Usage
-- Open [http://localhost:3000](http://localhost:3000) in your browser
-- Sign up or log in (UI only, no real authentication)
-- Enter your profile details and generate a personalized diet plan
-- Explore meal suggestions, nutrition breakdown, and local healthy options
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `GROQ_API_KEY` | Yes | From [console.groq.com](https://console.groq.com) |
+| `JWT_SECRET` | Yes | Base64-encoded secret (min 32 bytes) |
+| `SPRING_PROFILES_ACTIVE` | No | `local` (H2) or `prod` (PostgreSQL) |
+
+No `.env` file needed for the frontend — the Vite dev server proxies `/api` to `localhost:8080` automatically.
 
 ---
 
-## 🔧 Customization & Extensibility
-- **Add more foods**: Edit `data/food_database.csv`
-- **Change LLM prompts**: Edit `src/llm_integration.py`
-- **Swap LLM models**: Use any OpenAI-compatible model in LM Studio
-- **Add authentication**: Integrate with Firebase/Auth0 or Flask-Login
-- **Deploy**: Use Heroku, Vercel, or your preferred cloud provider
+## Project Structure
+
+```
+NutriCook/
+├── backend/
+│   ├── run.bat.example          # Copy → run.bat and fill secrets
+│   ├── pom.xml
+│   └── src/main/java/com/nutricook/
+│       ├── controller/          # REST endpoints
+│       ├── service/             # Business logic + Groq AI
+│       ├── entity/              # JPA entities
+│       ├── security/            # JWT filter + Spring Security
+│       └── config/              # CORS, cache, app config
+├── frontend/
+│   ├── src/
+│   │   ├── pages/               # Auth, Dashboard, DietPlan, Progress, Achievements, Restaurants
+│   │   ├── components/          # Navbar, MacroRing, 3D NutritionOrb
+│   │   ├── contexts/            # AuthContext (JWT storage)
+│   │   └── types/               # Shared TypeScript interfaces
+│   └── vite.config.ts           # /api proxy → localhost:8080
+├── docs/uml/                    # Class, sequence, use-case diagrams
+└── legacy/                      # Original Flask prototype (reference only)
+```
 
 ---
 
-## 🩺 Troubleshooting
-- **LLM not responding?**
-  - Ensure LM Studio is running and model is loaded
-  - Check that the model name in `src/llm_integration.py` matches LM Studio
-  - Make sure the API URL is `http://127.0.0.1:1234/v1/chat/completions`
-- **Google Places not working?**
-  - Add a valid API key to your `.env` file
-  - Check backend logs for errors
-- **Frontend/backend connection issues?**
-  - Ensure both servers are running
-  - Check CORS settings in Flask
+## API Overview
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/auth/register` | Create account |
+| POST | `/api/auth/login` | Sign in → JWT |
+| GET/PUT | `/api/users/{id}/profile` | User profile |
+| GET/POST | `/api/users/{id}/diet-plans` | List / generate plan |
+| GET/POST | `/api/users/{id}/progress` | Progress entries |
+| GET | `/api/users/{id}/achievements` | Achievements |
+| GET | `/api/locations/search` | Nearby restaurants (OSM) |
+
+All protected endpoints require `Authorization: Bearer <token>`.
 
 ---
 
-## 🙏 Credits
-- [LM Studio](https://lmstudio.ai/) for local LLM serving
-- [Phi 3.1 Mini](https://huggingface.co/microsoft/Phi-3-mini-128k-instruct) for the model
-- [Material UI](https://mui.com/) for UI components
-- [Google Places API](https://developers.google.com/maps/documentation/places/web-service/overview)
+## Screenshots
+
+> Coming soon — run the app and take screenshots of your own data.
 
 ---
 
-## 📄 License
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+## License
+
+MIT — see [LICENSE](LICENSE).
