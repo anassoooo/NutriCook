@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, Link, useNavigate } from 'react-router-dom'
+import Tooltip from '@mui/material/Tooltip'
 import { useAuth } from '../contexts/AuthContext'
 
 const NAV = [
@@ -53,13 +54,16 @@ export default function Navbar() {
         {/* User area */}
         <div className="hidden md:flex items-center gap-3">
           <span className="text-xs text-slate-400 truncate max-w-[150px]">{email}</span>
-          <button
-            aria-label="User menu"
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shadow-sm"
-            style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}
-          >
-            {initial}
-          </button>
+          <Tooltip title="View profile" placement="bottom" arrow>
+            <Link
+              to="/profile"
+              aria-label="User profile"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shadow-sm transition-transform hover:scale-110"
+              style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}
+            >
+              {initial}
+            </Link>
+          </Tooltip>
           <button
             onClick={handleLogout}
             className="btn-ghost text-sm text-slate-500 hover:text-red-600 hover:bg-red-50"
@@ -106,6 +110,13 @@ export default function Navbar() {
             ))}
             <div className="border-t border-slate-100 pt-2 mt-2">
               <p className="px-4 py-1.5 text-xs text-slate-400">{email}</p>
+              <Link
+                to="/profile"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl"
+              >
+                My Profile
+              </Link>
               <button
                 onClick={() => { handleLogout(); setOpen(false) }}
                 className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
