@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nutricook.entity.DietPlan;
 import com.nutricook.entity.Meal;
 import com.nutricook.entity.UserProfile;
+import com.nutricook.repository.FoodItemRepository;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -21,19 +22,8 @@ import org.springframework.stereotype.Service;
 public class GroqAiService {
 
   private final ChatClient.Builder chatClientBuilder;
+  private final FoodItemRepository foodRepository;
   private final ObjectMapper mapper = new ObjectMapper();
-
-  private static final String FOOD_LIST =
-      "Apple, Banana, Avocado, Orange, Strawberries, Blueberries, Mango, Watermelon, Pineapple, Pear, "
-          + "Spinach, Sweet Potato, Broccoli, Carrot, Tomato, Cucumber, Bell Pepper, Kale, Cauliflower, Mushrooms, Zucchini, Green Beans, "
-          + "Oatmeal, Brown Rice, Quinoa, White Rice, Whole Wheat Bread, White Pasta, Whole Wheat Pasta, Couscous, Corn Tortilla, Seitan, "
-          + "Lentils, Black Beans, Tofu, Chickpeas, Kidney Beans, Edamame, Green Peas, Tempeh, Peanut Butter, "
-          + "Almonds, Walnuts, Cashews, Chia Seeds, Flaxseeds, Sunflower Seeds, Mixed Nuts, "
-          + "Greek Yogurt, Cottage Cheese, Whole Milk, Cheddar Cheese, Mozzarella, Whey Protein Powder, Butter, "
-          + "Eggs, Egg Whites, "
-          + "Chicken Breast, Chicken Thigh, Turkey Breast, Beef (lean mince), "
-          + "Salmon, Tuna (canned), Shrimp, Cod, Sardines (canned), Tilapia, Mackerel, "
-          + "Olive Oil, Coconut Oil";
 
   public record ChatResult(String reply, String swapMealType, String swapFoodName) {}
 
@@ -89,7 +79,7 @@ public class GroqAiService {
     }
   }
 
-  public ChatResult chat(DietPlan plan, UserProfile profile, String userMessage) {
+  public ChatResult chat(DietPlan plan, UserProfile profile, String userMessage, String progressContext) {
     String planSummary = buildPlanSummary(plan);
     String goal =
         profile.getHealthGoal() != null ? profile.getHealthGoal().name() : "IMPROVE_HEALTH";
@@ -99,12 +89,17 @@ public class GroqAiService {
             .collect(Collectors.joining(", "));
     if (restrictions.isBlank()) restrictions = "none";
 
+    String foodList = foodRepository.findAll().stream()
+        .map(f -> f.getName())
+        .collect(Collectors.joining(", "));
+
     String prompt =
         """
         You are a friendly dietitian AI in the NutriCook app. The user's meal plan for today:
 
         %s
         Goal: %s | Dietary restrictions: %s
+        %s
 
         User says: "%s"
 
@@ -117,7 +112,7 @@ public class GroqAiService {
 
         Keep the reply under 3 sentences. Be warm and practical.
         """
-            .formatted(planSummary, goal, restrictions, userMessage, FOOD_LIST);
+            .formatted(planSummary, goal, restrictions, progressContext, userMessage, foodList);
 
     try {
       String raw = chatClientBuilder.build().prompt(prompt).call().content();
