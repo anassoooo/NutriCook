@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:nutricook_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: false
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: false
+  ai:
+    openai:
+      api-key: test-dummy-groq-key
+      base-url: https://api.groq.com/openai
+      chat:
+        options:
+          model: llama-3.3-70b-versatile
+
+app:
+  jwt:
+    # 32-byte base64 key used only in tests
+    secret: 4JBzn+VDduZQFSMTvQYPUj0O78ZjVjIPdf2kRGvppxY=
+    expiration-ms: 3600000
+  osm:
+    user-agent: "NutriCook-Test"
+    overpass-url: https://overpass-api.de/api/interpreter
+    nominatim-url: https://nominatim.openstreetmap.org
+    search-radius-meters: 2000
+  cache:
+    location-ttl-minutes: 60

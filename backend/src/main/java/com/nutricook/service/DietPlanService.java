@@ -1,5 +1,8 @@
 package com.nutricook.service;
 
+import com.nutricook.dto.response.ChatResponse;
+import com.nutricook.dto.response.DietPlanResponse;
+import com.nutricook.dto.response.MealResponse;
 import com.nutricook.entity.*;
 import com.nutricook.entity.enums.MealType;
 import com.nutricook.entity.enums.PlanStatus;
@@ -41,7 +44,7 @@ public class DietPlanService {
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
     UserProfile profile = profileService.getByUserId(userId);
 
-    planRepository.archiveActiveForDate(userId, date);
+    planRepository.deleteAll(planRepository.findByUserIdAndValidForDate(userId, date));
 
     int tdee = nutritionService.computeTDEE(profile);
     List<FoodItem> foods = selectCompatibleFoods(profile);
@@ -73,17 +76,111 @@ public class DietPlanService {
     String explanation = groqService.getPlanExplanation(plan, profile);
     plan.setAiExplanation(explanation);
 
-    return planRepository.save(plan);
+    DietPlan saved = planRepository.save(plan);
+    return planRepository.findByIdWithMeals(saved.getId()).orElse(saved);
   }
 
   public DietPlan getById(Long planId) {
     return planRepository
-        .findById(planId)
+        .findByIdWithMeals(planId)
         .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
   }
 
   public List<DietPlan> listForUser(Long userId) {
     return planRepository.findByUserIdOrderByGeneratedAtDesc(userId);
+  }
+
+  @Transactional
+  public ChatResponse chat(Long userId, Long planId, String message) {
+    DietPlan plan = getById(planId);
+    UserProfile profile = profileService.getByUserId(userId);
+
+    GroqAiService.ChatResult result = groqService.chat(plan, profile, message);
+
+    DietPlanResponse updatedPlanResponse = null;
+    if (result.swapMealType() != null && result.swapFoodName() != null) {
+      boolean swapped = applySwap(plan, result.swapMealType(), result.swapFoodName());
+      if (swapped) {
+        DietPlan refreshed = planRepository.findByIdWithMeals(planId).orElse(plan);
+        updatedPlanResponse = toResponse(refreshed);
+      }
+    }
+
+    return ChatResponse.builder().reply(result.reply()).updatedPlan(updatedPlanResponse).build();
+  }
+
+  private boolean applySwap(DietPlan plan, String mealTypeName, String foodName) {
+    MealType mealType;
+    try {
+      mealType = MealType.valueOf(mealTypeName.toUpperCase());
+    } catch (IllegalArgumentException e) {
+      return false;
+    }
+
+    Meal meal =
+        plan.getMeals().stream().filter(m -> m.getMealType() == mealType).findFirst().orElse(null);
+    if (meal == null) return false;
+
+    FoodItem food = foodRepository.findFirstByNameContainingIgnoreCase(foodName).orElse(null);
+    if (food == null) return false;
+
+    int targetCal = meal.getCalories() != null ? meal.getCalories() : 400;
+    double grams =
+        food.getCaloriesPer100g() > 0 ? (targetCal / food.getCaloriesPer100g()) * 100 : 100;
+
+    MealFoodItem newMfi =
+        MealFoodItem.builder()
+            .foodItem(food)
+            .quantityG(Math.round(grams * 10.0) / 10.0)
+            .meal(meal)
+            .build();
+
+    meal.getMealFoodItems().clear();
+    meal.getMealFoodItems().add(newMfi);
+    nutritionService.computeMealNutrition(meal);
+
+    NutritionService.NutritionTotals totals = nutritionService.computeTotals(plan.getMeals());
+    plan.setTotalCalories(totals.calories());
+    plan.setTotalProteinG(totals.proteinG());
+    plan.setTotalCarbsG(totals.carbsG());
+    plan.setTotalFatG(totals.fatG());
+    plan.setTotalSugarG(totals.sugarG());
+
+    planRepository.save(plan);
+    return true;
+  }
+
+  private DietPlanResponse toResponse(DietPlan plan) {
+    return DietPlanResponse.builder()
+        .id(plan.getId())
+        .title(plan.getTitle())
+        .totalCalories(plan.getTotalCalories())
+        .totalProteinG(plan.getTotalProteinG())
+        .totalCarbsG(plan.getTotalCarbsG())
+        .totalFatG(plan.getTotalFatG())
+        .totalSugarG(plan.getTotalSugarG())
+        .validForDate(plan.getValidForDate())
+        .generatedAt(plan.getGeneratedAt())
+        .status(plan.getStatus().name())
+        .aiExplanation(plan.getAiExplanation())
+        .meals(plan.getMeals().stream().map(this::mealToResponse).toList())
+        .build();
+  }
+
+  private MealResponse mealToResponse(Meal meal) {
+    return MealResponse.builder()
+        .id(meal.getId())
+        .name(meal.getName())
+        .mealType(meal.getMealType().name())
+        .calories(meal.getCalories())
+        .proteinG(meal.getProteinG())
+        .carbsG(meal.getCarbsG())
+        .fatG(meal.getFatG())
+        .sugarG(meal.getSugarG())
+        .fiberG(meal.getFiberG())
+        .sortOrder(meal.getSortOrder())
+        .aiSuggestion(meal.getAiSuggestion())
+        .build();
   }
 
   @Transactional
@@ -107,11 +204,16 @@ public class DietPlanService {
 
   private boolean isFoodCompatible(FoodItem food, Set<String> restrictionNames) {
     String cat = food.getCategory() != null ? food.getCategory().toLowerCase() : "";
-    if (restrictionNames.contains("vegan") && cat.contains("meat")) return false;
-    if (restrictionNames.contains("vegan") && cat.contains("dairy")) return false;
-    if (restrictionNames.contains("vegetarian") && cat.contains("meat")) return false;
-    if (restrictionNames.contains("gluten-free") && cat.contains("grain")) return false;
-    if (restrictionNames.contains("lactose-free") && cat.contains("dairy")) return false;
+    if (restrictionNames.contains("vegan")
+        && (cat.equals("meat")
+            || cat.equals("seafood")
+            || cat.equals("dairy")
+            || cat.equals("egg"))) return false;
+    if (restrictionNames.contains("vegetarian") && (cat.equals("meat") || cat.equals("seafood")))
+      return false;
+    if (restrictionNames.contains("gluten-free") && cat.equals("grain")) return false;
+    if (restrictionNames.contains("lactose-free") && cat.equals("dairy")) return false;
+    if (restrictionNames.contains("nut allergy") && cat.equals("nut")) return false;
     return true;
   }
 
@@ -132,13 +234,15 @@ public class DietPlanService {
               .quantityG(Math.round(grams * 10.0) / 10.0)
               .build();
 
+      List<MealFoodItem> items = new ArrayList<>();
+      items.add(mfi);
       Meal meal =
           Meal.builder()
               .name(
                   type.name().charAt(0) + type.name().substring(1).toLowerCase().replace("_", " "))
               .mealType(type)
               .sortOrder(sortOrder++)
-              .mealFoodItems(List.of(mfi))
+              .mealFoodItems(items)
               .build();
       mfi.setMeal(meal);
 

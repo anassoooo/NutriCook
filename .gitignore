@@ -29,6 +29,7 @@ target/
 
 # ── Spring Boot ──────────────────────────────────────────────────────────────
 backend/src/main/resources/application-local.yml
+backend/data/
 
 # ── Node / npm ───────────────────────────────────────────────────────────────
 node_modules/
