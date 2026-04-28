@@ -10,13 +10,13 @@ import com.nutricook.exception.ResourceNotFoundException;
 import com.nutricook.repository.*;
 import java.time.LocalDate;
 import java.util.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -106,14 +106,18 @@ public class DietPlanService {
     DietPlan plan = getByIdForUser(userId, planId);
     UserProfile profile = profileService.getByUserId(userId);
 
-    String progressContext = progressRepository.findByUserIdAndDate(userId, LocalDate.now())
-        .map(p -> String.format(
-            "Today's logged progress: %d kcal consumed, %d ml water, %d meals completed, %d min exercise.",
-            p.getCaloriesConsumed() != null ? p.getCaloriesConsumed() : 0,
-            p.getWaterMl()          != null ? p.getWaterMl()          : 0,
-            p.getMealsCompleted()   != null ? p.getMealsCompleted()   : 0,
-            p.getExerciseMinutes()  != null ? p.getExerciseMinutes()  : 0))
-        .orElse("No progress logged for today yet.");
+    String progressContext =
+        progressRepository
+            .findByUserIdAndDate(userId, LocalDate.now())
+            .map(
+                p ->
+                    String.format(
+                        "Today's logged progress: %d kcal consumed, %d ml water, %d meals completed, %d min exercise.",
+                        p.getCaloriesConsumed() != null ? p.getCaloriesConsumed() : 0,
+                        p.getWaterMl() != null ? p.getWaterMl() : 0,
+                        p.getMealsCompleted() != null ? p.getMealsCompleted() : 0,
+                        p.getExerciseMinutes() != null ? p.getExerciseMinutes() : 0))
+            .orElse("No progress logged for today yet.");
 
     GroqAiService.ChatResult result = groqService.chat(plan, profile, message, progressContext);
 
