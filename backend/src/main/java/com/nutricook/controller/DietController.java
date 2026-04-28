@@ -1,5 +1,7 @@
 package com.nutricook.controller;
 
+import com.nutricook.dto.request.ChatRequest;
+import com.nutricook.dto.response.ChatResponse;
 import com.nutricook.dto.response.DietPlanResponse;
 import com.nutricook.dto.response.MealResponse;
 import com.nutricook.entity.DietPlan;
@@ -40,6 +42,12 @@ public class DietController {
   public ResponseEntity<DietPlanResponse> get(
       @PathVariable Long userId, @PathVariable Long planId) {
     return ResponseEntity.ok(toResponse(dietPlanService.getById(planId)));
+  }
+
+  @PostMapping("/{planId}/chat")
+  public ResponseEntity<ChatResponse> chat(
+      @PathVariable Long userId, @PathVariable Long planId, @RequestBody ChatRequest req) {
+    return ResponseEntity.ok(dietPlanService.chat(userId, planId, req.getMessage()));
   }
 
   @PatchMapping("/{planId}/archive")

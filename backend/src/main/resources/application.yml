@@ -49,7 +49,7 @@ spring:
     activate:
       on-profile: local
   datasource:
-    url: jdbc:h2:file:./data/nutricookdb;AUTO_SERVER=TRUE;DB_CLOSE_ON_EXIT=FALSE
+    url: jdbc:h2:file:./data/nutricookdb;DB_CLOSE_ON_EXIT=FALSE
     driver-class-name: org.h2.Driver
     username: sa
     password:
@@ -60,6 +60,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
     show-sql: false
 
 ---

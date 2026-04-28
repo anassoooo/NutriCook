@@ -11,12 +11,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(
-    name = "diet_plans",
-    uniqueConstraints =
-        @UniqueConstraint(
-            name = "uq_user_date_active",
-            columnNames = {"user_id", "valid_for_date", "status"}))
+@Table(name = "diet_plans")
 @Getter
 @Setter
 @NoArgsConstructor

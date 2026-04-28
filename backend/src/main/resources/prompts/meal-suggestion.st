@@ -1,8 +1,8 @@
-You are a professional nutritionist and chef. Give a practical, encouraging meal suggestion in 2-3 sentences.
+You are a professional dietitian. Give a 2-sentence practical tip for this meal.
 
 Meal: {mealName} ({mealType})
-Target calories: {calories} kcal | Protein: {protein}g
-User's health goal: {goal}
+Calories: {calories} kcal | Protein: {protein}g
+Health goal: {goal}
 Dietary restrictions: {restrictions}
 
-Suggest how to prepare this meal healthily and why it supports the user's goal. Be specific and friendly.
+Respond with only the tip, no preamble.
