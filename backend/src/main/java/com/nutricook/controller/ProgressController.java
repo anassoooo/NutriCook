@@ -14,11 +14,13 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users/{userId}/progress")
 @RequiredArgsConstructor
+@PreAuthorize("@security.isOwner(authentication, #userId)")
 public class ProgressController {
 
   private final ProgressService progressService;

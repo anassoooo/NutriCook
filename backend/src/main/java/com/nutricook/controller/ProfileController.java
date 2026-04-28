@@ -6,11 +6,13 @@ import com.nutricook.service.UserProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users/{userId}/profile")
 @RequiredArgsConstructor
+@PreAuthorize("@security.isOwner(authentication, #userId)")
 public class ProfileController {
 
   private final UserProfileService profileService;
