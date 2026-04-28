@@ -6,6 +6,7 @@ import com.nutricook.dto.response.DietPlanResponse;
 import com.nutricook.dto.response.MealResponse;
 import com.nutricook.entity.DietPlan;
 import com.nutricook.entity.Meal;
+import com.nutricook.service.AchievementService;
 import com.nutricook.service.DietPlanService;
 import java.time.LocalDate;
 import java.util.List;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class DietController {
 
   private final DietPlanService dietPlanService;
+  private final AchievementService achievementService;
 
   @PostMapping("/generate")
   public ResponseEntity<DietPlanResponse> generate(
@@ -28,8 +30,9 @@ public class DietController {
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate date) {
     LocalDate targetDate = date != null ? date : LocalDate.now();
-    return ResponseEntity.status(HttpStatus.CREATED)
-        .body(toResponse(dietPlanService.generate(userId, targetDate)));
+    DietPlanResponse response = toResponse(dietPlanService.generate(userId, targetDate));
+    achievementService.checkAndAward(userId);
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @GetMapping

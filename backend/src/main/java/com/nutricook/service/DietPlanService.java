@@ -27,6 +27,7 @@ public class DietPlanService {
   private final UserProfileService profileService;
   private final NutritionService nutritionService;
   private final GroqAiService groqService;
+  private final ProgressRepository progressRepository;
 
   private static final Map<MealType, Double> MEAL_CALORIE_RATIO =
       Map.of(
@@ -95,7 +96,16 @@ public class DietPlanService {
     DietPlan plan = getById(planId);
     UserProfile profile = profileService.getByUserId(userId);
 
-    GroqAiService.ChatResult result = groqService.chat(plan, profile, message);
+    String progressContext = progressRepository.findByUserIdAndDate(userId, LocalDate.now())
+        .map(p -> String.format(
+            "Today's logged progress: %d kcal consumed, %d ml water, %d meals completed, %d min exercise.",
+            p.getCaloriesConsumed() != null ? p.getCaloriesConsumed() : 0,
+            p.getWaterMl()          != null ? p.getWaterMl()          : 0,
+            p.getMealsCompleted()   != null ? p.getMealsCompleted()   : 0,
+            p.getExerciseMinutes()  != null ? p.getExerciseMinutes()  : 0))
+        .orElse("No progress logged for today yet.");
+
+    GroqAiService.ChatResult result = groqService.chat(plan, profile, message, progressContext);
 
     DietPlanResponse updatedPlanResponse = null;
     if (result.swapMealType() != null && result.swapFoodName() != null) {
