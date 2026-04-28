@@ -14,11 +14,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/users/{userId}/diet-plans")
 @RequiredArgsConstructor
+@PreAuthorize("@security.isOwner(authentication, #userId)")
 public class DietController {
 
   private final DietPlanService dietPlanService;
@@ -44,7 +46,7 @@ public class DietController {
   @GetMapping("/{planId}")
   public ResponseEntity<DietPlanResponse> get(
       @PathVariable Long userId, @PathVariable Long planId) {
-    return ResponseEntity.ok(toResponse(dietPlanService.getById(planId)));
+    return ResponseEntity.ok(toResponse(dietPlanService.getByIdForUser(userId, planId)));
   }
 
   @PostMapping("/{planId}/chat")
@@ -55,7 +57,7 @@ public class DietController {
 
   @PatchMapping("/{planId}/archive")
   public ResponseEntity<Void> archive(@PathVariable Long userId, @PathVariable Long planId) {
-    dietPlanService.archive(planId);
+    dietPlanService.archive(userId, planId);
     return ResponseEntity.noContent().build();
   }
 
