@@ -312,6 +312,38 @@ public class DataInitializer implements ApplicationRunner {
     foodRepo.save(fi("Grouper (Merou)", "seafood", 92, 19.4, 0.0, 1.2, 0.0, 0.0, 53.0));
     foodRepo.save(fi("Octopus", "seafood", 82, 14.9, 2.2, 1.0, 0.0, 0.0, 230.0));
     foodRepo.save(fi("Calamari (Squid)", "seafood", 92, 15.6, 3.1, 1.4, 0.0, 0.0, 44.0));
+
+    // ── More Tunisian Kitchen ─────────────────────────────────────────
+
+    // Additional seafood — Mediterranean species found in Tunisian markets
+    foodRepo.save(fi("Swordfish (Espadon)", "seafood", 121, 19.8, 0.0, 4.0, 0.0, 0.0, 90.0));
+    foodRepo.save(fi("Cuttlefish (Seiche)", "seafood", 79, 16.2, 0.8, 0.7, 0.0, 0.0, 300.0));
+    foodRepo.save(fi("Grey Mullet (Mulet)", "seafood", 118, 20.0, 0.0, 3.8, 0.0, 0.0, 65.0));
+    foodRepo.save(fi("Anchovy (Anchois)", "seafood", 131, 20.4, 0.0, 5.0, 0.0, 0.0, 104.0));
+
+    // Additional meat — traditional Tunisian proteins
+    foodRepo.save(fi("Goat Meat (lean)", "meat", 143, 27.1, 0.0, 3.0, 0.0, 0.0, 82.0));
+    foodRepo.save(fi("Camel Meat (lean)", "meat", 103, 21.0, 0.0, 1.5, 0.0, 0.0, 68.0));
+
+    // Additional legumes — staples of Tunisian cuisine
+    foodRepo.save(fi("White Beans (Loubia)", "legume", 139, 9.7, 25.0, 0.5, 0.4, 6.3, 2.0));
+    foodRepo.save(fi("Dried Broad Beans (Foul)", "legume", 341, 26.1, 58.3, 1.5, 0.0, 25.0, 13.0));
+
+    // Additional vegetables — used in Tunisian dishes
+    foodRepo.save(fi("Purslane (Blouza)", "vegetable", 20, 2.0, 3.4, 0.4, 0.0, 0.5, 45.0));
+    foodRepo.save(fi("Cardoon (Cardon)", "vegetable", 17, 0.7, 3.8, 0.1, 0.0, 1.8, 80.0));
+    foodRepo.save(fi("Leek", "vegetable", 61, 1.5, 14.2, 0.3, 3.9, 1.8, 20.0));
+
+    // Additional grains
+    foodRepo.save(fi("Barley (Orge)", "grain", 354, 12.5, 73.5, 2.3, 0.0, 17.3, 12.0));
+    foodRepo.save(fi("Millet (Doukhn)", "grain", 378, 11.0, 72.8, 4.2, 0.0, 8.5, 5.0));
+
+    // Dairy
+    foodRepo.save(fi("Jben (fresh white cheese)", "dairy", 174, 11.3, 2.9, 13.0, 0.5, 0.0, 430.0));
+
+    // Condiment — fundamental to Tunisian cooking
+    foodRepo.save(fi("Harissa", "fat", 50, 2.0, 10.0, 1.0, 5.0, 2.0, 500.0));
+    foodRepo.save(fi("Capers (Câpres)", "vegetable", 23, 2.4, 4.9, 0.9, 1.0, 3.2, 2960.0));
   }
 
   private FoodItem fi(
