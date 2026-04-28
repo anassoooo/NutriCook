@@ -24,7 +24,7 @@ const MEAL_META: Record<string, { icon: string; gradient: string }> = {
   DINNER:          { icon: '🌙', gradient: 'from-slate-500 to-indigo-700'   },
 }
 
-function MealCard({ meal, index }: { meal: Meal; index: number }) {
+function MealCard({ meal, index, onReplace }: { meal: Meal; index: number; onReplace: () => void }) {
   const [open, setOpen] = useState(false)
   const meta = MEAL_META[meal.mealType] ?? { icon: '🍴', gradient: 'from-slate-400 to-slate-600' }
 
@@ -48,11 +48,21 @@ function MealCard({ meal, index }: { meal: Meal; index: number }) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <div className="text-right hidden sm:block">
             <p className="text-white/90 text-sm font-semibold">{Math.round(meal.proteinG ?? 0)}g protein</p>
             <p className="text-white/60 text-xs">{Math.round(meal.carbsG ?? 0)}g carbs · {Math.round(meal.fatG ?? 0)}g fat</p>
           </div>
+          <button
+            onClick={e => { e.stopPropagation(); onReplace() }}
+            title="Ask AI to replace this meal"
+            className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/35 flex items-center justify-center shrink-0 transition-colors"
+          >
+            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
           <svg
             className={`w-5 h-5 text-white/80 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -95,11 +105,12 @@ function MealCard({ meal, index }: { meal: Meal; index: number }) {
 
 export default function DashboardPage() {
   const { userId } = useAuth()
-  const [plan,       setPlan]       = useState<DietPlan | null>(null)
-  const [profile,    setProfile]    = useState<UserProfile | null>(null)
-  const [todayEntry, setTodayEntry] = useState<ProgressEntry | null>(null)
-  const [generating, setGenerating] = useState(false)
-  const [error,      setError]      = useState('')
+  const [plan,         setPlan]         = useState<DietPlan | null>(null)
+  const [profile,      setProfile]      = useState<UserProfile | null>(null)
+  const [todayEntry,   setTodayEntry]   = useState<ProgressEntry | null>(null)
+  const [generating,   setGenerating]   = useState(false)
+  const [error,        setError]        = useState('')
+  const [chatTrigger,  setChatTrigger]  = useState('')
 
   useEffect(() => {
     if (!userId) return
@@ -334,7 +345,16 @@ export default function DashboardPage() {
           <div className="space-y-3">
             <p className="section-label">Today's meals</p>
             {sortedMeals.map((meal, i) => (
-              <MealCard key={meal.id} meal={meal} index={i} />
+              <MealCard
+                key={meal.id}
+                meal={meal}
+                index={i}
+                onReplace={() =>
+                  setChatTrigger(
+                    `Replace my ${meal.mealType.replace(/_/g, ' ').toLowerCase()} "${meal.name}" with something different`
+                  )
+                }
+              />
             ))}
           </div>
 
@@ -357,7 +377,14 @@ export default function DashboardPage() {
     </div>
 
     {/* Floating AI chat — only when a plan is active */}
-    {plan && <ChatPanel planId={plan.id} onPlanUpdate={setPlan} />}
+    {plan && (
+      <ChatPanel
+        planId={plan.id}
+        onPlanUpdate={setPlan}
+        triggerMessage={chatTrigger}
+        onTriggerConsumed={() => setChatTrigger('')}
+      />
+    )}
     </>
   )
 }

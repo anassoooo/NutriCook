@@ -5,7 +5,6 @@ import LandingPage from './pages/LandingPage'
 import AuthPage from './pages/AuthPage'
 import OnboardingPage from './pages/OnboardingPage'
 import DashboardPage from './pages/DashboardPage'
-import DietPlanPage from './pages/DietPlanPage'
 import ProfilePage from './pages/ProfilePage'
 import ProgressPage from './pages/ProgressPage'
 import AchievementsPage from './pages/AchievementsPage'
@@ -37,7 +36,6 @@ export default function App() {
         </RequireAuth>
       }>
         <Route path="dashboard"    element={<DashboardPage />} />
-        <Route path="diet-plan"   element={<DietPlanPage />} />
         <Route path="profile"      element={<ProfilePage />} />
         <Route path="progress"     element={<ProgressPage />} />
         <Route path="achievements" element={<AchievementsPage />} />

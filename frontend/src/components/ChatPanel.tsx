@@ -12,9 +12,11 @@ interface Message {
 interface Props {
   planId: number
   onPlanUpdate: (plan: DietPlan) => void
+  triggerMessage?: string
+  onTriggerConsumed?: () => void
 }
 
-export default function ChatPanel({ planId, onPlanUpdate }: Props) {
+export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTriggerConsumed }: Props) {
   const { userId } = useAuth()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([
@@ -30,6 +32,14 @@ export default function ChatPanel({ planId, onPlanUpdate }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open])
+
+  useEffect(() => {
+    if (triggerMessage) {
+      setOpen(true)
+      setInput(triggerMessage)
+      onTriggerConsumed?.()
+    }
+  }, [triggerMessage])
 
   const send = async () => {
     const text = input.trim()
