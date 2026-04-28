@@ -4,6 +4,7 @@ import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan, Meal } from '../types'
 import MacroRing from '../components/MacroRing'
+import ChatPanel from '../components/ChatPanel'
 
 const MEAL_META: Record<string, { icon: string; gradient: string; badge: string }> = {
   BREAKFAST:       { icon: '🌅', gradient: 'from-amber-400 to-orange-500',    badge: 'badge-amber'  },
@@ -111,6 +112,7 @@ export default function DietPlanPage() {
   }
 
   return (
+    <>
     <div className="space-y-6 animate-fade-in">
 
       {/* Header */}
@@ -195,5 +197,8 @@ export default function DietPlanPage() {
         </div>
       )}
     </div>
+
+    {plan && <ChatPanel planId={plan.id} onPlanUpdate={setPlan} />}
+    </>
   )
 }
