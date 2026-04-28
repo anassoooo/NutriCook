@@ -79,7 +79,8 @@ public class GroqAiService {
     }
   }
 
-  public ChatResult chat(DietPlan plan, UserProfile profile, String userMessage, String progressContext) {
+  public ChatResult chat(
+      DietPlan plan, UserProfile profile, String userMessage, String progressContext) {
     String planSummary = buildPlanSummary(plan);
     String goal =
         profile.getHealthGoal() != null ? profile.getHealthGoal().name() : "IMPROVE_HEALTH";
@@ -89,9 +90,8 @@ public class GroqAiService {
             .collect(Collectors.joining(", "));
     if (restrictions.isBlank()) restrictions = "none";
 
-    String foodList = foodRepository.findAll().stream()
-        .map(f -> f.getName())
-        .collect(Collectors.joining(", "));
+    String foodList =
+        foodRepository.findAll().stream().map(f -> f.getName()).collect(Collectors.joining(", "));
 
     String prompt =
         """
