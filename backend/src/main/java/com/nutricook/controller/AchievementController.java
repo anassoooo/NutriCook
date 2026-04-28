@@ -8,6 +8,7 @@ import com.nutricook.service.AchievementService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,6 +25,7 @@ public class AchievementController {
   }
 
   @GetMapping("/api/users/{userId}/achievements")
+  @PreAuthorize("@security.isOwner(authentication, #userId)")
   public ResponseEntity<List<AchievementResponse>> userAchievements(@PathVariable Long userId) {
     return ResponseEntity.ok(
         achievementService.getUserAchievements(userId).stream()

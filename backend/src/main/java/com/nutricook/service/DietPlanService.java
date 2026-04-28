@@ -10,6 +10,8 @@ import com.nutricook.exception.ResourceNotFoundException;
 import com.nutricook.repository.*;
 import java.time.LocalDate;
 import java.util.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -87,13 +89,21 @@ public class DietPlanService {
         .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
   }
 
+  public DietPlan getByIdForUser(Long userId, Long planId) {
+    DietPlan plan = getById(planId);
+    if (!plan.getUser().getId().equals(userId)) {
+      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Plan does not belong to this user");
+    }
+    return plan;
+  }
+
   public List<DietPlan> listForUser(Long userId) {
     return planRepository.findByUserIdOrderByGeneratedAtDesc(userId);
   }
 
   @Transactional
   public ChatResponse chat(Long userId, Long planId, String message) {
-    DietPlan plan = getById(planId);
+    DietPlan plan = getByIdForUser(userId, planId);
     UserProfile profile = profileService.getByUserId(userId);
 
     String progressContext = progressRepository.findByUserIdAndDate(userId, LocalDate.now())
@@ -194,8 +204,8 @@ public class DietPlanService {
   }
 
   @Transactional
-  public void archive(Long planId) {
-    DietPlan plan = getById(planId);
+  public void archive(Long userId, Long planId) {
+    DietPlan plan = getByIdForUser(userId, planId);
     plan.setStatus(PlanStatus.ARCHIVED);
     planRepository.save(plan);
   }
@@ -236,7 +246,8 @@ public class DietPlanService {
     for (MealType type : MealType.values()) {
       int targetCal = (int) (tdee * MEAL_CALORIE_RATIO.get(type));
       FoodItem chosen = foods.get(rng.nextInt(foods.size()));
-      double grams = (targetCal / chosen.getCaloriesPer100g()) * 100;
+      double cal100 = chosen.getCaloriesPer100g();
+      double grams = cal100 > 0 ? (targetCal / cal100) * 100 : 100.0;
 
       MealFoodItem mfi =
           MealFoodItem.builder()
@@ -262,7 +273,9 @@ public class DietPlanService {
       if (!nutritionService.isMealCompatible(meal, conditions)) {
         for (FoodItem alt : foods) {
           if (alt.equals(chosen)) continue;
-          double altG = (targetCal / alt.getCaloriesPer100g()) * 100;
+          double altCal = alt.getCaloriesPer100g();
+          if (altCal <= 0) continue;
+          double altG = (targetCal / altCal) * 100;
           MealFoodItem altMfi = MealFoodItem.builder().foodItem(alt).quantityG(altG).build();
           meal.getMealFoodItems().set(0, altMfi);
           altMfi.setMeal(meal);
