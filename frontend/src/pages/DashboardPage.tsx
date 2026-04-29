@@ -90,9 +90,9 @@ function MealCard({ meal, index, onReplace }: { meal: Meal; index: number; onRep
               </div>
 
               {meal.aiSuggestion && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">AI Tip</p>
-                  <p className="text-sm text-slate-700 leading-relaxed">{meal.aiSuggestion}</p>
+                <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <p className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'rgba(134,239,172,0.85)' }}>AI Tip</p>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.75)' }}>{meal.aiSuggestion}</p>
                 </div>
               )}
             </div>
@@ -265,10 +265,9 @@ export default function DashboardPage() {
         <>
           {/* Planned vs Actual */}
           <div className="card !p-0 overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-50"
-                 style={{ background: 'linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%)' }}>
+            <div className="px-6 py-4 border-b" style={{ background: 'rgba(0,0,0,0.25)', borderColor: 'rgba(255,255,255,0.08)' }}>
               <p className="section-label">Today at a glance</p>
-              <p className="text-xs text-slate-400 mt-0.5">Planned vs. what you've logged in Progress</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>Planned vs. what you've logged in Progress</p>
             </div>
 
             <div className="p-6 space-y-4">
@@ -280,20 +279,23 @@ export default function DashboardPage() {
                     <span className="text-slate-300">|</span>
                     <span className="text-slate-500">Logged <span className="text-slate-800">{actual?.toLocaleString() ?? '—'} kcal</span></span>
                     {calDiff !== null && (
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] ${
-                        Math.abs(calDiff) < 150
-                          ? 'bg-green-50 text-green-700'
-                          : calDiff > 0
-                          ? 'bg-red-50 text-red-600'
-                          : 'bg-blue-50 text-blue-600'
-                      }`}>
+                      <span
+                        className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                        style={
+                          Math.abs(calDiff) < 150
+                            ? { background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }
+                            : calDiff > 0
+                            ? { background: 'rgba(239,68,68,0.15)',  color: '#fca5a5' }
+                            : { background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }
+                        }
+                      >
                         {calDiff > 0 ? '+' : ''}{calDiff} kcal
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="relative h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                   <div className="absolute inset-0 rounded-full bg-emerald-200"
                        style={{ width: `${Math.min((planned ?? 0) / 2500, 1) * 100}%` }} />
                   {actual && (
@@ -317,13 +319,14 @@ export default function DashboardPage() {
 
               <div className="grid grid-cols-3 gap-2 pt-1">
                 {[
-                  { label: 'Protein', value: `${Math.round(plan.totalProteinG)}g`, color: '#3b82f6', bg: '#eff6ff' },
-                  { label: 'Carbs',   value: `${Math.round(plan.totalCarbsG)}g`,   color: '#f59e0b', bg: '#fffbeb' },
-                  { label: 'Fat',     value: `${Math.round(plan.totalFatG)}g`,     color: '#ef4444', bg: '#fef2f2' },
-                ].map(({ label, value, color, bg }) => (
-                  <div key={label} className="text-center py-3 rounded-xl" style={{ background: bg }}>
+                  { label: 'Protein', value: `${Math.round(plan.totalProteinG)}g`, color: '#60a5fa' },
+                  { label: 'Carbs',   value: `${Math.round(plan.totalCarbsG)}g`,   color: '#fbbf24' },
+                  { label: 'Fat',     value: `${Math.round(plan.totalFatG)}g`,     color: '#f87171' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="text-center py-3 rounded-xl"
+                       style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
                     <p className="text-lg font-black" style={{ color }}>{value}</p>
-                    <p className="text-xs text-slate-500 font-semibold mt-0.5">{label}</p>
+                    <p className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>{label}</p>
                   </div>
                 ))}
               </div>

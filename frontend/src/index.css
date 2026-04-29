@@ -209,3 +209,140 @@
 
 /* ── Floating food (auth) ─────────────────────────────── */
 .food-float { animation: floatUp var(--dur, 5s) ease-in-out infinite var(--delay, 0s); }
+
+/* ══════════════════════════════════════════════════════
+   DARK LAYOUT — full theme overrides
+   ══════════════════════════════════════════════════════ */
+
+/* ── Typography ───────────────────────────────────────── */
+.dark-layout .page-title    { color: white; }
+.dark-layout .page-subtitle { color: rgba(255,255,255,0.5); }
+.dark-layout .section-title { color: rgba(255,255,255,0.9); }
+.dark-layout .section-label { color: rgba(134,239,172,0.9); }
+
+/* ── Card surfaces → dark glass ───────────────────────── */
+.dark-layout .card,
+.dark-layout .card-hover {
+  background: rgba(0,0,0,0.42);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: rgba(255,255,255,0.1);
+  box-shadow: 0 4px 24px rgba(0,0,0,.3);
+}
+.dark-layout .card-hover:hover {
+  background: rgba(0,0,0,0.52);
+  border-color: rgba(255,255,255,0.18);
+}
+.dark-layout .card-brand {
+  background: rgba(16,185,129,0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: rgba(16,185,129,0.22);
+}
+.dark-layout .stat-tile {
+  background: rgba(0,0,0,0.42);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: rgba(255,255,255,0.1);
+  box-shadow: 0 4px 24px rgba(0,0,0,.3);
+}
+.dark-layout .achievement-earned {
+  background: rgba(245,158,11,0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(245,158,11,0.25);
+}
+.dark-layout .achievement-locked {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(255,255,255,0.08);
+}
+
+/* ── Text inside cards ────────────────────────────────── */
+.dark-layout .card            .text-slate-900,
+.dark-layout .card-hover      .text-slate-900,
+.dark-layout .stat-tile       .text-slate-900,
+.dark-layout .achievement-earned .text-slate-900 { color: rgba(255,255,255,0.92) }
+
+.dark-layout .card            .text-slate-800,
+.dark-layout .card-hover      .text-slate-800 { color: rgba(255,255,255,0.82) }
+
+.dark-layout .card            .text-slate-700,
+.dark-layout .card-hover      .text-slate-700,
+.dark-layout .achievement-earned .text-slate-700,
+.dark-layout .achievement-locked .text-slate-700 { color: rgba(255,255,255,0.72) }
+
+.dark-layout .card            .text-slate-600,
+.dark-layout .card-hover      .text-slate-600,
+.dark-layout .achievement-earned .text-slate-600 { color: rgba(255,255,255,0.62) }
+
+.dark-layout .card            .text-slate-500,
+.dark-layout .card-hover      .text-slate-500,
+.dark-layout .stat-tile       .text-slate-500 { color: rgba(255,255,255,0.62) }
+
+.dark-layout .card            .text-slate-400,
+.dark-layout .card-hover      .text-slate-400,
+.dark-layout .stat-tile       .text-slate-400,
+.dark-layout .achievement-earned .text-slate-400,
+.dark-layout .achievement-locked .text-slate-400 { color: rgba(255,255,255,0.55) }
+
+/* ── Borders inside cards ─────────────────────────────── */
+.dark-layout .card .border-slate-50,
+.dark-layout .card .border-slate-100,
+.dark-layout .card .border-slate-200,
+.dark-layout .card-hover .border-slate-100,
+.dark-layout .card-hover .border-slate-200,
+.dark-layout .achievement-locked .border-slate-100 { border-color: rgba(255,255,255,0.08) }
+
+/* ── Light bg patches inside cards ───────────────────── */
+.dark-layout .card .bg-slate-50,
+.dark-layout .card .bg-slate-100,
+.dark-layout .card-hover .bg-slate-50,
+.dark-layout .card-hover .bg-slate-100,
+.dark-layout .achievement-locked .bg-slate-100 { background-color: rgba(255,255,255,0.06) }
+
+.dark-layout .card .bg-brand-50,
+.dark-layout .card-hover .bg-brand-50 { background-color: rgba(16,185,129,0.15) }
+
+/* ── Inputs & forms ───────────────────────────────────── */
+.dark-layout .input {
+  background-color: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.12);
+  color: white;
+  box-shadow: none;
+}
+.dark-layout .input::placeholder { color: rgba(255,255,255,0.35) }
+.dark-layout .input:focus {
+  background-color: rgba(255,255,255,0.11);
+  border-color: rgba(16,185,129,0.5);
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
+}
+.dark-layout .label { color: rgba(255,255,255,0.65) }
+
+/* ── Banners ──────────────────────────────────────────── */
+.dark-layout .banner-warning {
+  background: rgba(245,158,11,0.12);
+  border-color: rgba(245,158,11,0.3);
+  color: #fde68a;
+}
+.dark-layout .banner-error {
+  background: rgba(239,68,68,0.1);
+  border-color: rgba(239,68,68,0.28);
+  color: #fca5a5;
+}
+.dark-layout .banner-success {
+  background: rgba(16,185,129,0.1);
+  border-color: rgba(16,185,129,0.28);
+  color: #6ee7b7;
+}
+
+/* ── Badges ───────────────────────────────────────────── */
+.dark-layout .badge-green  { background: rgba(16,185,129,0.15); color: #6ee7b7;  border: none }
+.dark-layout .badge-blue   { background: rgba(59,130,246,0.15);  color: #93c5fd;  border: none }
+.dark-layout .badge-orange { background: rgba(249,115,22,0.15);  color: #fdba74;  border: none }
+.dark-layout .badge-amber  { background: rgba(245,158,11,0.15);  color: #fde68a;  border: none }
+.dark-layout .badge-purple { background: rgba(168,85,247,0.15);  color: #d8b4fe;  border: none }
+.dark-layout .badge-gray   { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); border: none }
+.dark-layout .badge-red    { background: rgba(239,68,68,0.15);   color: #fca5a5;  border: none }
+.dark-layout .badge-gold   { background: rgba(245,158,11,0.15);  color: #fde68a;  border: none }

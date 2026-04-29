@@ -234,7 +234,7 @@ export default function ProfilePage() {
 
         {/* Personal info */}
         <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
             <span className="text-lg">👤</span>
             <div>
               <h2 className="section-title">Personal information</h2>
@@ -272,11 +272,11 @@ export default function ProfilePage() {
               <div className="flex gap-2">
                 {(['MALE', 'FEMALE'] as const).map(g => (
                   <label key={g}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-all ${
-                      watchGender === g
-                        ? 'border-brand-500 bg-brand-50 text-brand-700'
-                        : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'
-                    }`}>
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-all"
+                    style={watchGender === g
+                      ? { borderColor: 'rgba(16,185,129,0.5)', background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }
+                      : { borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.65)' }}
+                  >
                     <input type="radio" value={g} {...register('gender')} className="sr-only" />
                     {g === 'MALE' ? '♂ Male' : '♀ Female'}
                   </label>
@@ -288,7 +288,7 @@ export default function ProfilePage() {
 
         {/* Body metrics */}
         <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
             <span className="text-lg">📏</span>
             <div>
               <h2 className="section-title">Body metrics</h2>
@@ -317,7 +317,7 @@ export default function ProfilePage() {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               className="rounded-xl p-4"
-              style={{ background: bmi.bg, border: `1px solid ${bmi.color}30` }}
+              style={{ background: `${bmi.color}14`, border: `1px solid ${bmi.color}40` }}
             >
               <div className="flex items-center justify-between mb-2">
                 <div>
@@ -329,7 +329,7 @@ export default function ProfilePage() {
                   {bmi.label}
                 </span>
               </div>
-              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
                 <div className="h-full rounded-full transition-all duration-500"
                      style={{ width: `${bmi.bar}%`, background: bmi.color }} />
               </div>
@@ -342,7 +342,7 @@ export default function ProfilePage() {
 
         {/* Activity level */}
         <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
             <span className="text-lg">⚡</span>
             <div>
               <h2 className="section-title">Activity level</h2>
@@ -352,17 +352,16 @@ export default function ProfilePage() {
           <div className="space-y-2">
             {ACTIVITY_OPTIONS.map(({ value, label, sub, icon }) => (
               <label key={value}
-                className={`flex items-center gap-4 p-3.5 rounded-xl border cursor-pointer transition-all ${
-                  selectedActivity === value
-                    ? 'border-brand-400 bg-brand-50/70 shadow-sm'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
-                }`}>
+                className="flex items-center gap-4 p-3.5 rounded-xl border cursor-pointer transition-all"
+                style={selectedActivity === value
+                  ? { borderColor: 'rgba(16,185,129,0.45)', background: 'rgba(16,185,129,0.12)' }
+                  : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
                 <span className="text-xl shrink-0">{icon}</span>
                 <div className="flex-1">
-                  <p className={`text-sm font-semibold ${selectedActivity === value ? 'text-brand-700' : 'text-slate-900'}`}>
+                  <p className="text-sm font-semibold" style={{ color: selectedActivity === value ? '#6ee7b7' : 'rgba(255,255,255,0.85)' }}>
                     {label}
                   </p>
-                  <p className="text-xs text-slate-400">{sub}</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.58)' }}>{sub}</p>
                 </div>
                 <input type="radio" value={value} {...register('activityLevel')} className="accent-brand-600" />
               </label>
@@ -372,7 +371,7 @@ export default function ProfilePage() {
 
         {/* Health goal */}
         <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
             <span className="text-lg">🎯</span>
             <div>
               <h2 className="section-title">Health goal</h2>
@@ -382,14 +381,13 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-3">
             {GOAL_OPTIONS.map(({ value, label, icon, color }) => (
               <label key={value}
-                className={`relative flex flex-col items-center gap-2 p-5 rounded-xl border cursor-pointer transition-all text-center ${
-                  selectedGoal === value
-                    ? 'border-brand-400 bg-brand-50/70 shadow-sm'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
-                }`}>
+                className="relative flex flex-col items-center gap-2 p-5 rounded-xl border cursor-pointer transition-all text-center"
+                style={selectedGoal === value
+                  ? { borderColor: 'rgba(16,185,129,0.45)', background: 'rgba(16,185,129,0.12)' }
+                  : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
                 <input type="radio" value={value} {...register('healthGoal')} className="sr-only" />
                 <span className="text-3xl">{icon}</span>
-                <span className={`text-sm font-semibold leading-tight ${selectedGoal === value ? 'text-brand-700' : 'text-slate-700'}`}>
+                <span className="text-sm font-semibold leading-tight" style={{ color: selectedGoal === value ? '#6ee7b7' : 'rgba(255,255,255,0.75)' }}>
                   {label}
                 </span>
                 {selectedGoal === value && (
@@ -407,7 +405,7 @@ export default function ProfilePage() {
 
         {/* Dietary restrictions */}
         <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
             <span className="text-lg">🥗</span>
             <div>
               <h2 className="section-title">Dietary preferences</h2>
@@ -433,8 +431,8 @@ export default function ProfilePage() {
                       onClick={() => toggleRestriction(r.id)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-150"
                       style={selected
-                        ? { background: style.bg, color: style.text, borderColor: style.border }
-                        : { background: 'white', color: '#94a3b8', borderColor: '#e2e8f0' }}
+                        ? { background: `${style.border}30`, color: style.text, borderColor: style.border }
+                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.62)', borderColor: 'rgba(255,255,255,0.12)' }}
                     >
                       {selected && (
                         <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -452,7 +450,7 @@ export default function ProfilePage() {
 
         {/* Health conditions */}
         <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
             <span className="text-lg">🩺</span>
             <div>
               <h2 className="section-title">Health conditions</h2>
@@ -477,8 +475,8 @@ export default function ProfilePage() {
                       onClick={() => toggleCondition(c.id)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-150"
                       style={selected
-                        ? { background: '#faf5ff', color: '#7c3aed', borderColor: '#c4b5fd' }
-                        : { background: 'white',   color: '#94a3b8', borderColor: '#e2e8f0' }}
+                        ? { background: 'rgba(168,85,247,0.15)', color: '#d8b4fe', borderColor: '#c4b5fd' }
+                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.62)', borderColor: 'rgba(255,255,255,0.12)' }}
                     >
                       {selected && (
                         <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

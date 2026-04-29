@@ -9,6 +9,8 @@ import ProfilePage from './pages/ProfilePage'
 import ProgressPage from './pages/ProgressPage'
 import AchievementsPage from './pages/AchievementsPage'
 import RestaurantsPage from './pages/RestaurantsPage'
+import FeaturesPage from './pages/FeaturesPage'
+import HowItWorksPage from './pages/HowItWorksPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -21,6 +23,8 @@ export default function App() {
       {/* Public */}
       <Route path="/" element={<LandingPage />} />
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="/features" element={<FeaturesPage />} />
+      <Route path="/how-it-works" element={<HowItWorksPage />} />
 
       {/* Onboarding — auth required, no navbar */}
       <Route path="/onboarding" element={
