@@ -73,10 +73,12 @@ function LockedCard({ a, i }: { a: AllAchievement; i: number }) {
       className="achievement-locked"
     >
       <div className="flex items-start justify-between mb-4">
-        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl grayscale">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl grayscale"
+             style={{ background: 'rgba(255,255,255,0.07)' }}>
           {meta.icon}
         </div>
-        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-base">🔒</div>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-base"
+             style={{ background: 'rgba(255,255,255,0.07)' }}>🔒</div>
       </div>
 
       <p className="font-bold text-slate-700 text-base leading-tight">{a.name}</p>

@@ -1,12 +1,15 @@
-import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../contexts/AuthContext'
 
 const VIDEO_SRC =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4'
 
-const NAV_LINKS = ['Features', 'How it works', 'Nutrition AI']
+const NAV_LINKS = [
+  { label: 'Features',     to: '/features'      },
+  { label: 'How it works', to: '/how-it-works'  },
+  { label: 'Nutrition AI', to: '/features#nutrition-ai' },
+]
 
 const HEADING = ['Fuel your body,', 'shape your future.']
 
@@ -61,14 +64,8 @@ function AnimatedHeading() {
 /* ── Main component ─────────────────────────────────── */
 export default function LandingPage() {
   const { isAuthenticated } = useAuth()
-  const navigate = useNavigate()
 
-  // Authenticated users skip the landing page
-  useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true })
-  }, [isAuthenticated, navigate])
-
-  const ctaTo = '/auth'
+  const ctaTo = isAuthenticated ? '/dashboard' : '/auth'
 
   return (
     <div className="relative w-full h-screen flex flex-col overflow-hidden bg-black">
@@ -120,11 +117,11 @@ export default function LandingPage() {
 
           {/* Centre links */}
           <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map(link => (
-              <a key={link} href="#"
+            {NAV_LINKS.map(({ label, to }) => (
+              <NavLink key={to} to={to}
                 className="text-sm text-white/80 hover:text-white transition-colors duration-200">
-                {link}
-              </a>
+                {label}
+              </NavLink>
             ))}
           </div>
 
@@ -137,7 +134,7 @@ export default function LandingPage() {
               boxShadow: '0 2px 8px rgba(22,163,74,.45)',
             }}
           >
-            Get Started Free
+            {isAuthenticated ? 'Go to Dashboard →' : 'Get Started Free'}
           </Link>
         </motion.nav>
 
@@ -169,15 +166,15 @@ export default function LandingPage() {
                   to={ctaTo}
                   className="btn-primary animate-pulse-glow text-lg px-8 py-4"
                 >
-                  Generate My Plan ✨
+                  {isAuthenticated ? 'Go to Dashboard →' : 'Generate My Plan ✨'}
                 </Link>
 
                 <Link
-                  to={ctaTo}
+                  to={isAuthenticated ? '/progress' : '#how-it-works'}
                   className="liquid-glass border border-white/20 px-8 py-3 rounded-lg font-medium text-white
                              hover:bg-white hover:text-black transition-all duration-200"
                 >
-                  See How It Works
+                  {isAuthenticated ? 'View Progress' : 'See How It Works'}
                 </Link>
               </motion.div>
             </div>
