@@ -6,6 +6,9 @@ import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import type { ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, UserProfile } from '../types'
 
+const VIDEO_SRC =
+  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4'
+
 const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; sub: string; icon: string }[] = [
   { value: 'SEDENTARY',         label: 'Sedentary',         sub: 'Desk job, little exercise', icon: '🪑' },
   { value: 'LIGHTLY_ACTIVE',    label: 'Lightly active',    sub: '1–3 workouts / week',       icon: '🚶' },
@@ -156,11 +159,21 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4 py-12"
-         style={{ background: 'linear-gradient(135deg,#064e3b 0%,#065f46 40%,#0d9488 100%)' }}>
+    <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden bg-black">
+
+      {/* Video background */}
+      <video
+        autoPlay loop muted playsInline
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+      >
+        <source src={VIDEO_SRC} type="video/mp4" />
+      </video>
+
+      {/* Dark veil */}
+      <div className="absolute inset-0 bg-black/55 z-[1]" />
 
       {/* Subtle dot grid */}
-      <div className="fixed inset-0 pointer-events-none opacity-5"
+      <div className="fixed inset-0 pointer-events-none opacity-[0.04] z-[2]"
            style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
 
       {/* Logo */}
@@ -184,8 +197,14 @@ export default function OnboardingPage() {
         initial={{ opacity: 0, y: 24, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ delay: 0.1, duration: 0.4, ease: [.4,0,.2,1] }}
-        className="relative z-10 w-full max-w-lg bg-white rounded-3xl overflow-hidden"
-        style={{ boxShadow: '0 32px 80px rgba(0,0,0,.4)' }}
+        className="relative z-10 w-full max-w-lg rounded-3xl overflow-hidden"
+        style={{
+          background: 'rgba(255,255,255,0.93)',
+          backdropFilter: 'blur(28px)',
+          WebkitBackdropFilter: 'blur(28px)',
+          border: '1px solid rgba(255,255,255,0.55)',
+          boxShadow: '0 32px 80px rgba(0,0,0,.55)',
+        }}
       >
 
         {/* Step indicator */}

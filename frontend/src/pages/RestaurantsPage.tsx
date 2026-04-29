@@ -45,16 +45,15 @@ export default function RestaurantsPage() {
 
       {/* Controls */}
       <div className="card flex items-center gap-4 flex-wrap">
-        <div className="flex bg-slate-100 rounded-xl p-1 gap-0.5">
+        <div className="flex rounded-xl p-1 gap-0.5" style={{ background: 'rgba(255,255,255,0.07)' }}>
           {(['restaurants', 'stores'] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => switchTab(t)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                tab === t
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
+              style={tab === t
+                ? { background: 'rgba(255,255,255,0.15)', color: 'white' }
+                : { color: 'rgba(255,255,255,0.62)' }}
             >
               {t === 'restaurants' ? '🍽️ Restaurants' : '🛒 Grocery Stores'}
             </button>
@@ -84,7 +83,7 @@ export default function RestaurantsPage() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2 text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5' }}>
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
@@ -110,7 +109,7 @@ export default function RestaurantsPage() {
                 transition={{ delay: i * 0.04 }}
                 className="card-hover flex items-center gap-4"
               >
-                <div className="w-11 h-11 rounded-xl bg-brand-50 flex items-center justify-center text-xl shrink-0">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: 'rgba(16,185,129,0.15)' }}>
                   {tab === 'restaurants' ? '🍽️' : '🛒'}
                 </div>
 
@@ -142,16 +141,16 @@ export default function RestaurantsPage() {
       {searched && locations.length === 0 && !loading && (
         <div className="card text-center py-16">
           <div className="text-5xl mb-3">🗺️</div>
-          <p className="font-semibold text-slate-700">No {tab} found</p>
-          <p className="text-slate-400 text-sm mt-1">Nothing within 2 km of your location.</p>
+          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>No {tab} found</p>
+          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.58)' }}>Nothing within 2 km of your location.</p>
         </div>
       )}
 
       {!searched && !loading && (
         <div className="card text-center py-16 border-dashed">
           <div className="text-5xl mb-3">📍</div>
-          <p className="font-semibold text-slate-700">Ready to search</p>
-          <p className="text-slate-400 text-sm mt-1">Click "Find Near Me" and allow location access.</p>
+          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Ready to search</p>
+          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.58)' }}>Click "Find Near Me" and allow location access.</p>
         </div>
       )}
     </div>

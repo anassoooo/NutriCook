@@ -44,18 +44,19 @@ function TrendBadge({ diff, unit }: { diff: number; unit: string }) {
 
 function EntryRow({ entry }: { entry: ProgressEntry }) {
   return (
-    <div className="flex items-start justify-between py-3.5 border-b border-slate-50 last:border-0 hover:bg-slate-50/60 -mx-2 px-2 rounded-xl transition-colors">
+    <div className="flex items-start justify-between py-3.5 -mx-2 px-2 rounded-xl transition-colors hover:bg-white/5"
+         style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
       <div>
-        <p className="text-sm font-semibold text-slate-900">
+        <p className="text-sm font-semibold" style={{ color: 'rgba(255,255,255,0.85)' }}>
           {new Date(entry.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
         </p>
-        {entry.notes && <p className="text-xs text-slate-400 mt-0.5 italic">"{entry.notes}"</p>}
+        {entry.notes && <p className="text-xs italic mt-0.5" style={{ color: 'rgba(255,255,255,0.58)' }}>"{entry.notes}"</p>}
       </div>
       <div className="flex flex-wrap justify-end gap-1.5">
-        {entry.weightKg         != null && <span className="badge bg-blue-50   text-blue-700   border border-blue-100">{entry.weightKg} kg</span>}
-        {entry.caloriesConsumed != null && <span className="badge bg-orange-50 text-orange-700 border border-orange-100">{entry.caloriesConsumed} kcal</span>}
-        {entry.waterMl          != null && <span className="badge bg-cyan-50   text-cyan-700   border border-cyan-100">{entry.waterMl} ml</span>}
-        {entry.exerciseMinutes  != null && <span className="badge bg-green-50  text-green-700  border border-green-100">{entry.exerciseMinutes} min</span>}
+        {entry.weightKg         != null && <span className="badge" style={{ background: 'rgba(59,130,246,0.15)',  color: '#93c5fd' }}>{entry.weightKg} kg</span>}
+        {entry.caloriesConsumed != null && <span className="badge" style={{ background: 'rgba(249,115,22,0.15)',  color: '#fdba74' }}>{entry.caloriesConsumed} kcal</span>}
+        {entry.waterMl          != null && <span className="badge" style={{ background: 'rgba(6,182,212,0.15)',   color: '#67e8f9' }}>{entry.waterMl} ml</span>}
+        {entry.exerciseMinutes  != null && <span className="badge" style={{ background: 'rgba(16,185,129,0.15)',  color: '#6ee7b7' }}>{entry.exerciseMinutes} min</span>}
       </div>
     </div>
   )
@@ -82,7 +83,7 @@ function TrendChart({ entries, metricKey, color, unit }: {
 
   if (data.length < 2) {
     return (
-      <div className="flex flex-col items-center justify-center h-40 text-slate-400 text-sm gap-2">
+      <div className="flex flex-col items-center justify-center h-40 text-sm gap-2" style={{ color: 'rgba(255,255,255,0.58)' }}>
         <span className="text-3xl">📈</span>
         Log at least 2 entries to see your trend.
       </div>
@@ -99,25 +100,26 @@ function TrendChart({ entries, metricKey, color, unit }: {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart data={data} margin={{ top: 8, right: 16, left: -8, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
+          tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.58)' }}
           tickLine={false}
           axisLine={false}
           interval="preserveStartEnd"
         />
         <YAxis
           domain={domain}
-          tick={{ fontSize: 11, fill: '#94a3b8' }}
+          tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.58)' }}
           tickLine={false}
           axisLine={false}
           tickFormatter={v => `${v}${unit}`}
         />
         <ChartTooltip
-          contentStyle={{ fontSize: 12, borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,.08)' }}
+          contentStyle={{ fontSize: 12, borderRadius: 10, background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 8px 24px rgba(0,0,0,.4)', backdropFilter: 'blur(12px)' }}
           formatter={(v) => [`${v} ${unit}`, '']}
-          labelStyle={{ fontWeight: 600, color: '#1e293b' }}
+          labelStyle={{ fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}
+          itemStyle={{ color: 'rgba(255,255,255,0.65)' }}
         />
         <ReferenceLine y={avg} stroke={color} strokeDasharray="4 4" strokeOpacity={0.4} />
         <Line
@@ -201,7 +203,7 @@ export default function ProgressPage() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="stat-tile cursor-pointer"
-                style={{ '--tile-color': color, borderColor: border, background: bg } as React.CSSProperties}
+                style={{ '--tile-color': color, borderColor: `${color}35` } as React.CSSProperties}
                 onClick={() => setActiveMetric(key)}
               >
                 <div className="flex items-start justify-between mb-3">
@@ -221,12 +223,11 @@ export default function ProgressPage() {
 
       {/* Trend chart */}
       <div className="card !p-0 overflow-hidden">
-        <div className="px-6 pt-5 pb-3 border-b border-slate-50"
-             style={{ background: 'linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%)' }}>
+        <div className="px-6 pt-5 pb-3 border-b" style={{ background: 'rgba(0,0,0,0.25)', borderColor: 'rgba(255,255,255,0.08)' }}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h2 className="section-title">30-day trend</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Dashed line = average</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.58)' }}>Dashed line = average</p>
             </div>
             <div className="flex gap-1.5 flex-wrap">
               {CHART_METRICS.map(m => (
@@ -236,7 +237,7 @@ export default function ProgressPage() {
                   className="text-xs font-semibold px-3 py-1.5 rounded-full border transition-all"
                   style={activeMetric === m.key
                     ? { background: m.color, color: 'white', borderColor: m.color }
-                    : { background: 'white', color: '#64748b', borderColor: '#e2e8f0' }}
+                    : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.65)', borderColor: 'rgba(255,255,255,0.1)' }}
                 >
                   {m.label}
                 </button>
@@ -318,11 +319,10 @@ export default function ProgressPage() {
 
       {/* History */}
       <div className="card !p-0 overflow-hidden">
-        <div className="px-6 py-4 flex items-center justify-between border-b border-slate-50"
-             style={{ background: 'linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%)' }}>
+        <div className="px-6 py-4 flex items-center justify-between border-b" style={{ background: 'rgba(0,0,0,0.25)', borderColor: 'rgba(255,255,255,0.08)' }}>
           <div>
             <h2 className="section-title">History</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Last 30 days</p>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.58)' }}>Last 30 days</p>
           </div>
           <span className="badge-gray">{entries.length} entries</span>
         </div>
@@ -331,8 +331,8 @@ export default function ProgressPage() {
           {entries.length === 0 ? (
             <div className="text-center py-10">
               <div className="text-4xl mb-3">📊</div>
-              <p className="font-semibold text-slate-600">No entries yet</p>
-              <p className="text-slate-400 text-sm mt-1">Start logging above to track your journey.</p>
+              <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>No entries yet</p>
+              <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.58)' }}>Start logging above to track your journey.</p>
             </div>
           ) : (
             <div>{[...entries].reverse().map(e => <EntryRow key={e.id} entry={e} />)}</div>

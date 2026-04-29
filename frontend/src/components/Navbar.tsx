@@ -16,23 +16,31 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const initial = email?.charAt(0).toUpperCase() ?? 'U'
 
-  const handleLogout = () => { logout(); navigate('/auth') }
+  const handleLogout = () => { logout(); navigate('/') }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-50 px-4 md:px-8 pt-4 pb-2">
 
-        {/* Logo */}
-        <NavLink to="/dashboard" className="flex items-center gap-2.5 shrink-0 select-none">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shadow-sm"
-               style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}>
-            <span className="text-white font-black text-sm">N</span>
+      {/* Floating pill — matches landing page navbar */}
+      <nav className="liquid-glass rounded-2xl max-w-6xl mx-auto px-5 py-2.5 flex items-center justify-between">
+
+        {/* Logo → landing page */}
+        <Link to="/" className="flex items-center gap-2.5 shrink-0 select-none">
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: 'linear-gradient(135deg,#16a34a,#0d9488)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(22,163,74,.4)',
+          }}>
+            <span style={{ color: 'white', fontWeight: 900, fontSize: 13 }}>N</span>
           </div>
-          <span className="font-black text-slate-900 text-lg tracking-tight">NutriCook</span>
-        </NavLink>
+          <span className="font-black text-white text-lg tracking-tight" style={{ letterSpacing: '-0.02em' }}>
+            NutriCook
+          </span>
+        </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-0.5">
+        {/* Desktop nav links */}
+        <div className="hidden md:flex items-center gap-0.5">
           {NAV.map(({ to, label }) => (
             <NavLink
               key={to}
@@ -40,24 +48,24 @@ export default function Navbar() {
               className={({ isActive }) =>
                 `px-3.5 py-2 rounded-xl text-sm font-semibold transition-all ${
                   isActive
-                    ? 'text-brand-700 bg-brand-50'
-                    : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'text-white bg-white/15'
+                    : 'text-white/65 hover:text-white hover:bg-white/10'
                 }`
               }
             >
               {label}
             </NavLink>
           ))}
-        </nav>
+        </div>
 
-        {/* User area */}
+        {/* Right: user info + sign out */}
         <div className="hidden md:flex items-center gap-3">
-          <span className="text-xs text-slate-400 truncate max-w-[150px]">{email}</span>
+          <span className="text-xs text-white/60 truncate max-w-[140px]">{email}</span>
           <Tooltip title="View profile" placement="bottom" arrow>
             <Link
               to="/profile"
               aria-label="User profile"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black shadow-sm transition-transform hover:scale-110"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-black transition-transform hover:scale-110"
               style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}
             >
               {initial}
@@ -65,7 +73,7 @@ export default function Navbar() {
           </Tooltip>
           <button
             onClick={handleLogout}
-            className="btn-ghost text-sm text-slate-500 hover:text-red-600 hover:bg-red-50"
+            className="text-sm font-semibold px-4 py-1.5 rounded-lg text-white/65 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
           >
             Sign out
           </button>
@@ -74,7 +82,7 @@ export default function Navbar() {
         {/* Mobile hamburger */}
         <button
           onClick={() => setOpen(v => !v)}
-          className="md:hidden p-2 rounded-xl text-slate-500 hover:bg-slate-100 transition-colors"
+          className="md:hidden p-2 rounded-xl text-white/65 hover:bg-white/10 transition-colors"
           aria-label="Menu"
         >
           {open ? (
@@ -87,11 +95,11 @@ export default function Navbar() {
             </svg>
           )}
         </button>
-      </div>
+      </nav>
 
-      {/* Mobile menu */}
+      {/* Mobile dropdown — also a floating pill */}
       {open && (
-        <div className="md:hidden border-t border-slate-100 bg-white shadow-lg animate-fade-in">
+        <div className="md:hidden mt-2 max-w-6xl mx-auto liquid-glass rounded-2xl overflow-hidden animate-fade-in">
           <nav className="px-4 py-3 space-y-0.5">
             {NAV.map(({ to, label }) => (
               <NavLink
@@ -100,25 +108,25 @@ export default function Navbar() {
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
                   `block px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                    isActive ? 'text-brand-700 bg-brand-50' : 'text-slate-600 hover:bg-slate-50'
+                    isActive ? 'text-white bg-white/15' : 'text-white/65 hover:text-white hover:bg-white/10'
                   }`
                 }
               >
                 {label}
               </NavLink>
             ))}
-            <div className="border-t border-slate-100 pt-2 mt-2">
-              <p className="px-4 py-1.5 text-xs text-slate-400">{email}</p>
+            <div className="pt-2 mt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <p className="px-4 py-1.5 text-xs text-white/55">{email}</p>
               <Link
                 to="/profile"
                 onClick={() => setOpen(false)}
-                className="block px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 rounded-xl"
+                className="block px-4 py-2.5 text-sm font-semibold text-white/70 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
               >
                 My Profile
               </Link>
               <button
                 onClick={() => { handleLogout(); setOpen(false) }}
-                className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50 rounded-xl"
+                className="w-full text-left px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-500/10 rounded-xl transition-colors"
               >
                 Sign out
               </button>
