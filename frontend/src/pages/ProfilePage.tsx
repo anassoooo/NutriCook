@@ -6,7 +6,8 @@ import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
-import type { UserProfile, ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition } from '../types'
+import type { UserProfile, ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, Gender } from '../types'
+import { GENDER_OPTIONS } from '../types'
 
 interface FormData {
   firstName:     string
@@ -14,7 +15,7 @@ interface FormData {
   weightKg:      number
   heightCm:      number
   dateOfBirth:   string
-  gender:        'MALE' | 'FEMALE'
+  gender:        Gender
   activityLevel: ActivityLevel
   healthGoal:    HealthGoal
 }
@@ -93,7 +94,7 @@ export default function ProfilePage() {
   const all = useWatch({ control })
   const watchFirst       = (all.firstName      ?? '') as string
   const watchLast        = (all.lastName       ?? '') as string
-  const watchGender      = (all.gender         ?? 'MALE') as 'MALE' | 'FEMALE'
+  const watchGender      = (all.gender         ?? 'MALE') as Gender
   const selectedActivity = (all.activityLevel  ?? 'SEDENTARY') as ActivityLevel
   const selectedGoal     = (all.healthGoal     ?? 'IMPROVE_HEALTH') as HealthGoal
   const watchWeight      = all.weightKg  as number | undefined
@@ -269,7 +270,7 @@ export default function ProfilePage() {
             <div>
               <label className="label">Gender</label>
               <div className="flex gap-2">
-                {(['MALE', 'FEMALE'] as const).map(g => (
+                {GENDER_OPTIONS.map(({ value: g, label }) => (
                   <label key={g}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-all"
                     style={watchGender === g
@@ -277,7 +278,7 @@ export default function ProfilePage() {
                       : { borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.65)' }}
                   >
                     <input type="radio" value={g} {...register('gender')} className="sr-only" />
-                    {g === 'MALE' ? '♂ Male' : '♀ Female'}
+                    {label}
                   </label>
                 ))}
               </div>

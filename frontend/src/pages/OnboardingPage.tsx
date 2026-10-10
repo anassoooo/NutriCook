@@ -5,7 +5,8 @@ import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
-import type { ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, UserProfile } from '../types'
+import type { ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, UserProfile, Gender } from '../types'
+import { GENDER_OPTIONS } from '../types'
 
 const VIDEO_SRC =
   'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4'
@@ -59,7 +60,7 @@ export default function OnboardingPage() {
   const [weightKg,    setWeightKg]    = useState('')
   const [heightCm,    setHeightCm]    = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
-  const [gender,      setGender]      = useState<'MALE' | 'FEMALE'>('MALE')
+  const [gender,      setGender]      = useState<Gender>('MALE')
   const [step1Error,  setStep1Error]  = useState('')
 
   /* ── Step 2 fields ─────────────────────────────────── */
@@ -93,8 +94,9 @@ export default function OnboardingPage() {
         setStep1Error('Weight and height are required — they\'re used to calculate your daily calorie target.')
         return
       }
-      if (w < 20 || w > 500) { setStep1Error('Enter a valid weight (20–500 kg).'); return }
-      if (h < 50 || h > 300) { setStep1Error('Enter a valid height (50–300 cm).'); return }
+      // Mirrors BR-PRF-03; the server re-validates
+      if (w < 30 || w > 300) { setStep1Error('Enter a valid weight (30–300 kg).'); return }
+      if (h < 120 || h > 230) { setStep1Error('Enter a valid height (120–230 cm).'); return }
       setStep1Error('')
     }
     setStep(s => s + 1)
@@ -114,6 +116,8 @@ export default function OnboardingPage() {
         gender,
         activityLevel,
         healthGoal,
+        // "Today" is the user's own calendar day (BR-TIM-01)
+        timezone:      Intl.DateTimeFormat().resolvedOptions().timeZone,
       })
       // Save chip selections in parallel
       await Promise.all([
@@ -318,7 +322,7 @@ export default function OnboardingPage() {
                     <div>
                       <label className="label">Gender</label>
                       <div className="flex gap-2 h-[42px]">
-                        {(['MALE', 'FEMALE'] as const).map(g => (
+                        {GENDER_OPTIONS.map(({ value: g, label }) => (
                           <button
                             key={g}
                             type="button"
@@ -329,7 +333,7 @@ export default function OnboardingPage() {
                                 : 'border-slate-200 text-slate-500 hover:border-slate-300'
                             }`}
                           >
-                            {g === 'MALE' ? '♂ Male' : '♀ Female'}
+                            {label}
                           </button>
                         ))}
                       </div>

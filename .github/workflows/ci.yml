@@ -56,6 +56,12 @@ jobs:
         run: npm run typecheck
       - name: Lint
         run: npm run lint
+      - name: No hard-coded nutrition targets (Constitution VIII, BR-PRF-08)
+        run: |
+          if grep -rnE 'max=\{[0-9]+\}|/ ?(2200|2500)\b|2,200' src/pages; then
+            echo "::error::Targets must come from the API, not constants in the UI"
+            exit 1
+          fi
       - name: Unit tests
         run: npm test
       - name: Production build
