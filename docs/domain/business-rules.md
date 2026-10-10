@@ -106,12 +106,12 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 | ID | Rule | Today |
 |---|---|---|
 | BR-CMP-01 | Slot shares: BREAKFAST 25%, MORNING_SNACK 10%, LUNCH 30%, AFTERNOON_SNACK 10%, DINNER 25%. They must add up to exactly 100%; the app checks this at startup. | ✅ |
-| BR-CMP-02 | **Main meals** (BREAKFAST, LUNCH, DINNER) have exactly one PROTEIN, one CARB and one PRODUCE component, plus an optional FAT component. **Snacks** have 1–2 components drawn from PRODUCE, PROTEIN (dairy or legume) or FAT (nuts). | ⚠️ every meal is a single random food (e.g. 600 kcal of cucumber ≈ 3.7 kg) |
+| BR-CMP-02 | **Main meals** (BREAKFAST, LUNCH, DINNER) have exactly one PROTEIN, one CARB and one PRODUCE component, plus an optional FAT component (added only to close an energy gap). **Snacks** have two components: PROTEIN + PRODUCE or PRODUCE + FAT. Portion sizing: PRODUCE uses its default portion; in main meals, PROTEIN is sized to the day's protein target split across the main meals by their slot shares, CARB fills the remaining energy, and FAT closes what is left. In snacks, the non-produce component fills the slot's energy. | ⚠️ every meal is a single random food (e.g. 600 kcal of cucumber ≈ 3.7 kg) |
 | BR-CMP-03 | Every portion stays inside its food's `[portionMinG, portionMaxG]` and is rounded to `portionStepG` (default 5 g). | ❌ unbounded |
 | BR-CMP-04 | A food is used only in slots listed in its `suitableSlots` (salmon is not a breakfast snack). | ❌ |
-| BR-CMP-05 | Tolerances. Day calories within **±5%** of target → OK. Within ±10% → OK with a `TARGET_DEVIATION` warning. Beyond ±10% → `PLAN_INFEASIBLE`. Protein ≥ 90% of target, otherwise a warning. Each main meal within ±15% of its slot share. | ❌ |
+| BR-CMP-05 | Tolerances. Day calories within **±5%** of target → OK. Within ±10% → OK with a `TARGET_DEVIATION` warning. Beyond ±10% → `PLAN_INFEASIBLE`. Protein ≥ 90% of target, otherwise a `LOW_PROTEIN` warning. Each meal aims for ±15% of its slot share; candidates within that band are preferred. When the day is outside ±5%, CARB portions (then FAT) are scaled once within their bounds, keeping a meal's previous portions if the scaled meal would break a safety limit. | ❌ |
 | BR-CMP-06 | Variety: one food is used at most twice in a day, and a PROTEIN food at most once. | ❌ |
-| BR-CMP-07 | **Deterministic**: the RNG seed is `hash(userId, date, generationSeq)`. The same inputs and catalog give the same plan. | ❌ `new Random()` |
+| BR-CMP-07 | **Deterministic**: the seed is a fixed 64-bit mix of `(userId, date, generationSeq)`. Each slot draws from its own stream (`SplittableRandom`), so changing one slot never reshuffles another. The same inputs and catalog give the same plan. | ❌ `new Random()` |
 | BR-CMP-08 | Plan totals = sum of meal totals = sum of component nutrition, computed by the domain on **every** change. Totals are never set directly. | ⚠️ recomputed by hand in two places |
 | BR-CMP-09 | Component nutrition = `per100g × quantityG / 100`. kcal is rounded to an integer and grams to 0.1, at the meal level. | ✅ |
 
@@ -124,7 +124,7 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 | BR-LIF-03 | A plan's date must be in `[today, today + 7]` (user day). | ❌ any date |
 | BR-LIF-04 | Only an ACTIVE plan whose date ≥ today can change (swaps, chat swaps). | ❌ |
 | BR-LIF-05 | A plan is a **snapshot**: component nutrition and totals are stored and never recomputed from later catalog or profile edits. | ✅ |
-| BR-LIF-06 | Generation quota: at most **10** generations per user per user-day. Above that → `GENERATION_LIMIT`. | ❌ |
+| BR-LIF-06 | Generation quota: at most **10** successful generations per user per user-day, counted from the stored plans (so it survives restarts and works across instances). Above that → `GENERATION_LIMIT`. | ❌ |
 | BR-LIF-07 | The plan is committed **before** any AI enrichment runs. AI failure or a timeout never fails generation (BR-AI-05). | ❌ 6 LLM calls inside the DB transaction |
 
 ## 7. AI assistant (BR-AI)
