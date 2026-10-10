@@ -61,6 +61,14 @@ jobs:
       - name: Production build
         run: npm run build
 
+  traceability:
+    name: Business-rule test coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Report mode for now; task T085 switches this to --enforce
+      - run: bash scripts/check-br-coverage.sh
+
   docker:
     name: Docker images
     runs-on: ubuntu-latest
