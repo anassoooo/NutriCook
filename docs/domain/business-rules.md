@@ -1,6 +1,6 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.0.0 · **Last updated**: 2026-10-10
+> **Status**: Reference · **Version**: 1.1.0 · **Last updated**: 2026-10-10
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
@@ -43,25 +43,25 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-PRF-01 | Computing targets or generating a plan **requires** these profile fields: `dateOfBirth`, `gender`, `weightKg`, `heightCm`, `activityLevel`, `healthGoal`. A field that is missing, or holds a stored value outside the BR-PRF-03 ranges (data entered before those ranges existed), is listed in `missingFields` of a `PROFILE_INCOMPLETE` error. There is no silent default. | ⚠️ falls back to 2000 kcal |
-| BR-PRF-02 | Plans are generated only for users aged **18–100** (exact age, BR-TIM-02). Users outside that range get `PROFILE_INELIGIBLE`. They can still log progress. | ❌ |
-| BR-PRF-03 | Accepted ranges: weight **30–300 kg**, height **120–230 cm**, date of birth in the past. Values outside them get `VALIDATION_FAILED`. | ⚠️ 20–500 kg / 50–300 cm |
-| BR-PRF-04 | Unknown enum values (sex, activity, goal) get `VALIDATION_FAILED` listing the allowed values. They are never a 500. | ❌ throws → 500 |
-| BR-PRF-05 | Profile updates are **partial**: fields left out are not changed. A field present in the request is validated. | ⚠️ weight/height `@NotNull` |
+| BR-PRF-01 | Computing targets or generating a plan **requires** these profile fields: `dateOfBirth`, `gender`, `weightKg`, `heightCm`, `activityLevel`, `healthGoal`. A field that is missing, or holds a stored value outside the BR-PRF-03 ranges (data entered before those ranges existed), is listed in `missingFields` of a `PROFILE_INCOMPLETE` error. There is no silent default. | ✅ |
+| BR-PRF-02 | Plans are generated only for users aged **18–100** (exact age, BR-TIM-02). Users outside that range get `PROFILE_INELIGIBLE`. They can still log progress. | ✅ |
+| BR-PRF-03 | Accepted ranges: weight **30–300 kg**, height **120–230 cm**, date of birth in the past. Values outside them get `VALIDATION_FAILED`. | ✅ |
+| BR-PRF-04 | Unknown enum values (sex, activity, goal) get `VALIDATION_FAILED` listing the allowed values. They are never a 500. | ✅ |
+| BR-PRF-05 | Profile updates are **partial**: fields left out are not changed. A field present in the request is validated. | ✅ |
 | BR-PRF-06 | Profile changes affect **future** plans only. Existing plans are snapshots (BR-LIF-05). | ✅ |
 | BR-PRF-07 | A health condition may **imply** restrictions: *Celiac Disease* ⇒ excludes `GLUTEN`; *Lactose Intolerance* ⇒ excludes `MILK`. Implied restrictions apply even if the user didn't add the matching restriction. | ❌ |
-| BR-PRF-08 | The profile response includes the computed **targets** (BR-NRG, BR-MAC). Clients must never hard-code targets. | ❌ UI hard-codes 2200 kcal, 180 g protein |
+| BR-PRF-08 | The profile response includes the computed **targets** (BR-NRG, BR-MAC). Clients must never hard-code targets. | ✅ |
 
 ## 2. Energy target (BR-NRG)
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-NRG-01 | BMR uses **Mifflin-St Jeor**: `BMR = 10·W + 6.25·H − 5·A + s`, with W in kg, H in cm, A in exact years. `s = +5` (MALE), `−161` (FEMALE), `−78` (OTHER / PREFER_NOT_TO_SAY, the midpoint). | ⚠️ Harris-Benedict 1919; non-binary silently treated as male |
+| BR-NRG-01 | BMR uses **Mifflin-St Jeor**: `BMR = 10·W + 6.25·H − 5·A + s`, with W in kg, H in cm, A in exact years. `s = +5` (MALE), `−161` (FEMALE), `−78` (OTHER / PREFER_NOT_TO_SAY, the midpoint). | ✅ |
 | BR-NRG-02 | `TDEE = BMR × f`, where f = 1.2 / 1.375 / 1.55 / 1.725 / 1.9 for SEDENTARY … EXTRA_ACTIVE. | ✅ |
 | BR-NRG-03 | Goal adjustment: LOSE_WEIGHT **−500**, GAIN_MUSCLE **+300**, MAINTAIN_WEIGHT / IMPROVE_HEALTH **0** kcal. | ✅ |
-| BR-NRG-04 | Floor: `floor = max(sexMinimum, BMR)`, where sexMinimum = 1500 (MALE) or 1200 (others). A deficit never brings intake below BMR. | ⚠️ flat 1200 |
-| BR-NRG-05 | `target = roundToNearest10(max(TDEE + adjustment, floor))`. If that rounding lands below `floor`, round **up** to the next multiple of 10 instead, so rounding never undoes BR-NRG-04. | ⚠️ rounds to 1 |
-| BR-NRG-06 | The energy calculation is a **pure function** of (profile, date). It has no I/O, no randomness, and no call to `now()`. | ❌ calls `LocalDate.now()` |
+| BR-NRG-04 | Floor: `floor = max(sexMinimum, BMR)`, where sexMinimum = 1500 (MALE) or 1200 (others). A deficit never brings intake below BMR. | ✅ |
+| BR-NRG-05 | `target = roundToNearest10(max(TDEE + adjustment, floor))`. If that rounding lands below `floor`, round **up** to the next multiple of 10 instead, so rounding never undoes BR-NRG-04. | ✅ |
+| BR-NRG-06 | The energy calculation is a **pure function** of (profile, date). It has no I/O, no randomness, and no call to `now()`. | ✅ |
 
 **Reference cases** (these are acceptance tests and MUST pass exactly):
 
@@ -76,13 +76,13 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-MAC-01 | Energy per gram (Atwater factors): protein 4, carbohydrate 4, fat 9 kcal/g. | ❌ no macro targets exist |
-| BR-MAC-02 | Protein (g) = `perKg × W`. perKg: LOSE 1.8, GAIN 2.0, MAINTAIN 1.2, IMPROVE 1.0. Capped at `min(2.2·W, 0.35·target/4)`. | ❌ |
-| BR-MAC-03 | Fat (g) = 30% of target ÷ 9, and never below `0.6·W`. | ❌ |
-| BR-MAC-04 | Carbs (g) = `(target − 4·protein − 9·fat) ÷ 4`, worked out from unrounded values. A negative result is a defect, not a valid outcome. | ❌ |
-| BR-MAC-05 | Fiber (g) = 14 g per 1000 kcal of target (DGA). | ❌ |
-| BR-MAC-06 | Each macro gram value is rounded to the nearest integer once, at the very end. | ❌ |
-| BR-MAC-07 | `sugarG` in the catalog means **total** sugars. The app MUST NOT label it "added sugar" or apply the WHO 10%-added-sugar limit to it. A sugar ceiling exists only when a health condition sets one (BR-SAF-06). | ⚠️ UI shows a fixed "max 50 g" |
+| BR-MAC-01 | Energy per gram (Atwater factors): protein 4, carbohydrate 4, fat 9 kcal/g. | ✅ |
+| BR-MAC-02 | Protein (g) = `perKg × W`. perKg: LOSE 1.8, GAIN 2.0, MAINTAIN 1.2, IMPROVE 1.0. Capped at `min(2.2·W, 0.35·target/4)`. | ✅ |
+| BR-MAC-03 | Fat (g) = 30% of target ÷ 9, and never below `0.6·W`. | ✅ |
+| BR-MAC-04 | Carbs (g) = `(target − 4·protein − 9·fat) ÷ 4`, worked out from unrounded values. A negative result is a defect, not a valid outcome. | ✅ |
+| BR-MAC-05 | Fiber (g) = 14 g per 1000 kcal of target (DGA). | ✅ |
+| BR-MAC-06 | Each macro gram value is rounded to the nearest integer once, at the very end. | ✅ |
+| BR-MAC-07 | `sugarG` in the catalog means **total** sugars. The app MUST NOT label it "added sugar" or apply the WHO 10%-added-sugar limit to it. A sugar ceiling exists only when a health condition sets one (BR-SAF-06). | ✅ |
 
 ## 4. Food safety & eligibility (BR-SAF)
 
@@ -105,7 +105,7 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-CMP-01 | Slot shares: BREAKFAST 25%, MORNING_SNACK 10%, LUNCH 30%, AFTERNOON_SNACK 10%, DINNER 25%. They must add up to exactly 100%; the app checks this at startup. | ✅ (sum not checked) |
+| BR-CMP-01 | Slot shares: BREAKFAST 25%, MORNING_SNACK 10%, LUNCH 30%, AFTERNOON_SNACK 10%, DINNER 25%. They must add up to exactly 100%; the app checks this at startup. | ✅ |
 | BR-CMP-02 | **Main meals** (BREAKFAST, LUNCH, DINNER) have exactly one PROTEIN, one CARB and one PRODUCE component, plus an optional FAT component. **Snacks** have 1–2 components drawn from PRODUCE, PROTEIN (dairy or legume) or FAT (nuts). | ⚠️ every meal is a single random food (e.g. 600 kcal of cucumber ≈ 3.7 kg) |
 | BR-CMP-03 | Every portion stays inside its food's `[portionMinG, portionMaxG]` and is rounded to `portionStepG` (default 5 g). | ❌ unbounded |
 | BR-CMP-04 | A food is used only in slots listed in its `suitableSlots` (salmon is not a breakfast snack). | ❌ |
@@ -177,9 +177,9 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-TIM-01 | Each user has an IANA `timezone`, captured from the browser at onboarding (default `UTC`). "Today" always means the user's today. | ❌ server timezone |
-| BR-TIM-02 | Age is computed as `Period.between(dateOfBirth, today).getYears()`. | ⚠️ year subtraction, off by one before the birthday |
-| BR-TIM-03 | All domain code gets the time from an injected `java.time.Clock`. A direct `now()` call in `domain/` fails the build (ArchUnit). | ❌ |
+| BR-TIM-01 | Each user has an IANA `timezone`, captured from the browser at onboarding (default `UTC`). "Today" always means the user's today. | ✅ |
+| BR-TIM-02 | Age is computed as `Period.between(dateOfBirth, today).getYears()`. | ✅ |
+| BR-TIM-03 | All domain code gets the time from an injected `java.time.Clock`. A direct `now()` call in `domain/` fails the build (ArchUnit). | ✅ |
 
 ## 12. Error codes
 
@@ -250,3 +250,4 @@ changing this table first.
 | Version | Date | Change |
 |---|---|---|
 | 1.0.0 | 2026-10-10 | Initial catalogue, derived from a code audit at `39679a0` |
+| 1.1.0 | 2026-10-10 | BR-SAF-09/10 added; BR-NRG-05 never rounds below the floor; BR-PRF-01 treats out-of-range stored values as missing; §12 adds `INTERNAL`; §13 lists allowed ranges. US1 rules marked ✅ |

@@ -93,29 +93,33 @@ description: "Executable task list for 001-reliable-core"
 
 ### Tests first
 
-- [ ] **T019** [P] [US1] `BT/domain/energy/EnergyCalculatorTest.java`: `BR_NRG_01` (one test per sex, including OTHER = −78), `BR_NRG_02` (all 5 factors), `BR_NRG_03`, `BR_NRG_04` (male floor 1500; floor = BMR when BMR is higher), `BR_NRG_05` (rounding to 10), and `BR_NRG_ReferenceCases` (a `@ParameterizedTest` over A–D with exact BMR, TDEE and target).
-- [ ] **T020** [P] [US1] `BT/domain/energy/MacroCalculatorTest.java`: `BR_MAC_01_atwaterFactors`, `BR_MAC_02_proteinPerKgByGoal`, `BR_MAC_02_proteinCapped`, `BR_MAC_03_fatShareWithFloor`, `BR_MAC_04_carbsAreRemainder`, `BR_MAC_05_fiberPer1000kcal`, `BR_MAC_06_roundOnceAtEnd`, plus cap cases (a high-perKg light user is capped at 35% of energy; the fat floor at 0.6 g/kg kicks in at low targets). Exact values for reference cases A–D.
-- [ ] **T021** [P] [US1] `BT/domain/energy/AgeAndEligibilityTest.java`: `BR_TIM_02` (birthday tomorrow, birthday today, 29 Feb birthday in a non-leap year), `BR_PRF_01` (each missing field is reported, several at once), `BR_PRF_02` (17 y 364 d → ineligible; 18 → eligible; 101 → ineligible), and `BR_NRG_06` (same input with a fixed Clock → same output).
+- [x] **T019** [P] [US1] `BT/domain/energy/EnergyCalculatorTest.java`: `BR_NRG_01` (one test per sex, including OTHER = −78), `BR_NRG_02` (all 5 factors), `BR_NRG_03`, `BR_NRG_04` (male floor 1500; floor = BMR when BMR is higher), `BR_NRG_05` (rounding to 10), and `BR_NRG_ReferenceCases` (a `@ParameterizedTest` over A–D with exact BMR, TDEE and target).
+- [x] **T020** [P] [US1] `BT/domain/energy/MacroCalculatorTest.java`: `BR_MAC_01_atwaterFactors`, `BR_MAC_02_proteinPerKgByGoal`, `BR_MAC_02_proteinCapped`, `BR_MAC_03_fatShareWithFloor`, `BR_MAC_04_carbsAreRemainder`, `BR_MAC_05_fiberPer1000kcal`, `BR_MAC_06_roundOnceAtEnd`, plus cap cases (a high-perKg light user is capped at 35% of energy; the fat floor at 0.6 g/kg kicks in at low targets). Exact values for reference cases A–D.
+- [x] **T021** [P] [US1] `BT/domain/energy/AgeAndEligibilityTest.java`: `BR_TIM_02` (birthday tomorrow, birthday today, 29 Feb birthday in a non-leap year), `BR_PRF_01` (each missing field is reported, several at once), `BR_PRF_02` (17 y 364 d → ineligible; 18 → eligible; 101 → ineligible), and `BR_NRG_06` (same input with a fixed Clock → same output).
 
 ### Implementation
 
-- [ ] **T022** [US1] `B/domain/energy/EnergyCalculator.java`: Mifflin-St Jeor, activity factors, goal adjustment, floor and rounding, all reading `NutritionProperties`. Pure.
+- [x] **T022** [US1] `B/domain/energy/EnergyCalculator.java`: Mifflin-St Jeor, activity factors, goal adjustment, floor and rounding, all reading `NutritionProperties`. Pure.
   **Rules:** BR-NRG-01..06. **Done when:** T019 is green.
-- [ ] **T023** [US1] `B/domain/energy/MacroCalculator.java`.
+- [x] **T023** [US1] `B/domain/energy/MacroCalculator.java`.
   **Rules:** BR-MAC-01..06. **Done when:** T020 is green.
-- [ ] **T024** [US1] `B/domain/energy/TargetService.java`: `Targets compute(NutritionProfile, LocalDate today)`. It checks completeness (`PROFILE_INCOMPLETE` + `missingFields`), then eligibility (`PROFILE_INELIGIBLE`), then energy and macros. `Targets` includes `bmr`, `tdee`, `floorApplied`.
+- [x] **T024** [US1] `B/domain/energy/TargetService.java`: `Targets compute(NutritionProfile, LocalDate today)`. It checks completeness (`PROFILE_INCOMPLETE` + `missingFields`), then eligibility (`PROFILE_INELIGIBLE`), then energy and macros. `Targets` includes `bmr`, `tdee`, `floorApplied`.
   **Rules:** BR-PRF-01/02, BR-TIM-02. **Done when:** T021 is green.
-- [ ] **T025** [US1] `BR/db/migration/V2__profile_timezone.sql` (`timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'`). Add `UserProfile.timezone`, and a `B/service/UserClock.java` exposing `today(User)` = `LocalDate.now(clock.withZone(zone))`.
+  *As built: the domain class is named `TargetCalculator` (`B/domain/energy/`), and the service facade is `B/service/TargetService`. Reference cases live in `TargetCalculatorTest`, and `TargetPropertiesTest` adds jqwik properties (carbs never negative, macros sum to the target, never below the floor, protein within its caps). BR-NRG-05 was amended so rounding never drops below the floor.*
+- [x] **T025** [US1] `BR/db/migration/V2__profile_timezone.sql` (`timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'`). Add `UserProfile.timezone`, and a `B/service/UserClock.java` exposing `today(User)` = `LocalDate.now(clock.withZone(zone))`.
   **Rules:** BR-TIM-01. **Test:** `BR_TIM_01_todayUsesUserZone`: at 23:30 UTC, a user in Africa/Tunis (UTC+1) is already on the next day.
-- [ ] **T026** [US1] Delete `NutritionService.computeTDEE`. Rewrite `NutritionServiceTest` around the new calculators (keep its still-valid cases, renamed by BR ID). Update callers.
+- [x] **T026** [US1] Delete `NutritionService.computeTDEE`. Rewrite `NutritionServiceTest` around the new calculators (keep its still-valid cases, renamed by BR ID). Update callers.
   **Done when:** `grep -r computeTDEE backend/src` → 0.
-- [ ] **T027** [US1] `GET /api/users/{userId}/targets` in `B/controller/ProfileController.java` → `TargetsResponse`. The profile GET embeds `targets` (null with `targetsError` code when the profile is incomplete).
+  *As built: a plan for an incomplete profile now fails with 422 `PROFILE_INCOMPLETE` instead of silently using 2000 kcal.*
+- [x] **T027** [US1] `GET /api/users/{userId}/targets` in `B/controller/ProfileController.java` → `TargetsResponse`. The profile GET embeds `targets` (null with `targetsError` code when the profile is incomplete).
   **Rules:** BR-PRF-08. **Test:** `BT/controller/TargetsIT.java` runs reference cases A–D end-to-end, `BR_PRF_08_profileEmbedsTargets`, plus 422 for incomplete profiles and 403 for someone else's userId.
-- [ ] **T028** [US1] `ProfileRequest`: switch to partial-update semantics (no `@NotNull`); set bounds weight 30–300 and height 120–230; validate enums with `@ValidEnum`; accept `timezone` (a valid `ZoneId`).
+- [x] **T028** [US1] `ProfileRequest`: switch to partial-update semantics (no `@NotNull`); set bounds weight 30–300 and height 120–230; validate enums with `@ValidEnum`; accept `timezone` (a valid `ZoneId`).
   **Rules:** BR-PRF-03/04/05. **Tests:** `BR_PRF_03_*`, `BR_PRF_05_omittedFieldsUnchanged`.
-- [ ] **T029** [P] [US1] Frontend: `F/pages/OnboardingPage.tsx` sends `Intl.DateTimeFormat().resolvedOptions().timeZone`. Add `F/hooks/useTargets.ts`. In `F/pages/DashboardPage.tsx` (current lines ~86–89, 140, 300–304, 340–343) and `F/pages/ProgressPage.tsx`, take every `max`/denominator from targets.
+  *As built: no `@ValidEnum` annotation. Enum values are checked by `Enums.parse` (400 with `allowedValues`, from T013). The timezone is validated in `UserProfileService`. The entity-level weight/height bounds were removed: validation lives at the API boundary, and the domain treats out-of-range stored values as missing.*
+- [x] **T029** [P] [US1] Frontend: `F/pages/OnboardingPage.tsx` sends `Intl.DateTimeFormat().resolvedOptions().timeZone`. Add `F/hooks/useTargets.ts`. In `F/pages/DashboardPage.tsx` (current lines ~86–89, 140, 300–304, 340–343) and `F/pages/ProgressPage.tsx`, take every `max`/denominator from targets.
   **Test:** `F/__tests__/DashboardTargets.test.tsx` (MSW) checks the rings use the API values, and `BR_MAC_07_sugarNotLabelledAdded` checks there's no fixed sugar max or "added sugar" label.
   **Done when:** the CI grep guard `grep -rnE "max=\{[0-9]+\}|/ ?(2200|2500)\b" frontend/src/pages` → 0 (add this step to `ci.yml`).
+  *As built: the guard also caught `DietPlanPage`, which is fixed. The test uses mocked API calls (`vi.hoisted`) instead of MSW. The profile embeds targets, and `useTargets` serves other pages. Per-meal rings use the API's per-slot targets. Added an `Other` gender option, since the forms used to default silently to Male. The `ProgressPage` had no hard-coded targets.*
 
 **Checkpoint US1**: targets are exact, explainable (bmr/tdee shown), and single-source.
 
