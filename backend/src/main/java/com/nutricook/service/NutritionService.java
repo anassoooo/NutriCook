@@ -3,7 +3,6 @@ package com.nutricook.service;
 import com.nutricook.entity.HealthCondition;
 import com.nutricook.entity.Meal;
 import com.nutricook.entity.MealFoodItem;
-import com.nutricook.entity.UserProfile;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -55,42 +54,6 @@ public class NutritionService {
         return false;
     }
     return true;
-  }
-
-  /** Harris-Benedict TDEE calculation. */
-  public int computeTDEE(UserProfile profile) {
-    if (profile.getWeightKg() == null
-        || profile.getHeightCm() == null
-        || profile.getDateOfBirth() == null) {
-      return 2000;
-    }
-    int age = java.time.LocalDate.now().getYear() - profile.getDateOfBirth().getYear();
-    double bmr;
-    if (profile.getGender() == com.nutricook.entity.enums.Gender.FEMALE) {
-      bmr = 655 + (9.6 * profile.getWeightKg()) + (1.8 * profile.getHeightCm()) - (4.7 * age);
-    } else {
-      bmr = 66 + (13.7 * profile.getWeightKg()) + (5 * profile.getHeightCm()) - (6.8 * age);
-    }
-    double multiplier =
-        switch (profile.getActivityLevel() != null
-            ? profile.getActivityLevel()
-            : com.nutricook.entity.enums.ActivityLevel.SEDENTARY) {
-          case SEDENTARY -> 1.2;
-          case LIGHTLY_ACTIVE -> 1.375;
-          case MODERATELY_ACTIVE -> 1.55;
-          case VERY_ACTIVE -> 1.725;
-          case EXTRA_ACTIVE -> 1.9;
-        };
-    double tdee = bmr * multiplier;
-    if (profile.getHealthGoal() != null) {
-      tdee =
-          switch (profile.getHealthGoal()) {
-            case LOSE_WEIGHT -> tdee - 500;
-            case GAIN_MUSCLE -> tdee + 300;
-            default -> tdee;
-          };
-    }
-    return Math.max(1200, (int) Math.round(tdee));
   }
 
   private double round(double v) {

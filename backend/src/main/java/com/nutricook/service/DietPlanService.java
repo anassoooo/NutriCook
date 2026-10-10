@@ -28,6 +28,7 @@ public class DietPlanService {
   private final UserRepository userRepository;
   private final UserProfileService profileService;
   private final NutritionService nutritionService;
+  private final TargetService targetService;
   private final GroqAiService groqService;
   private final ProgressRepository progressRepository;
 
@@ -49,10 +50,11 @@ public class DietPlanService {
 
     planRepository.deleteAll(planRepository.findByUserIdAndValidForDate(userId, date));
 
-    int tdee = nutritionService.computeTDEE(profile);
+    // Single source of targets; fails with PROFILE_INCOMPLETE/INELIGIBLE (BR-PRF-01/02)
+    int targetKcal = targetService.forProfile(profile).kcal();
     List<FoodItem> foods = selectCompatibleFoods(profile);
 
-    List<Meal> meals = buildMeals(foods, tdee, profile);
+    List<Meal> meals = buildMeals(foods, targetKcal, profile);
 
     DietPlan plan =
         DietPlan.builder()
@@ -241,14 +243,14 @@ public class DietPlanService {
     return true;
   }
 
-  private List<Meal> buildMeals(List<FoodItem> foods, int tdee, UserProfile profile) {
+  private List<Meal> buildMeals(List<FoodItem> foods, int targetKcal, UserProfile profile) {
     if (foods.isEmpty()) foods = foodRepository.findAll();
     Random rng = new Random();
     List<Meal> meals = new ArrayList<>();
     int sortOrder = 1;
 
     for (MealType type : MealType.values()) {
-      int targetCal = (int) (tdee * MEAL_CALORIE_RATIO.get(type));
+      int targetCal = (int) (targetKcal * MEAL_CALORIE_RATIO.get(type));
       FoodItem chosen = foods.get(rng.nextInt(foods.size()));
       double cal100 = chosen.getCaloriesPer100g();
       double grams = cal100 > 0 ? (targetCal / cal100) * 100 : 100.0;

@@ -3,11 +3,17 @@ package com.nutricook.domain.energy;
 import com.nutricook.domain.DomainException;
 import com.nutricook.domain.ErrorCode;
 import com.nutricook.domain.model.NutritionProfile;
+import com.nutricook.domain.model.Slot;
+import com.nutricook.domain.model.SlotTarget;
 import com.nutricook.domain.model.Targets;
 import com.nutricook.domain.rules.NutritionRules;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,10 +33,12 @@ public class TargetCalculator {
   static final double MIN_HEIGHT_CM = 120;
   static final double MAX_HEIGHT_CM = 230;
 
+  private final NutritionRules rules;
   private final EnergyCalculator energy;
   private final MacroCalculator macros;
 
   public TargetCalculator(NutritionRules rules) {
+    this.rules = rules;
     this.energy = new EnergyCalculator(rules);
     this.macros = new MacroCalculator(rules);
   }
@@ -59,6 +67,29 @@ public class TargetCalculator {
         e.bmr(),
         e.tdee(),
         e.floorApplied());
+  }
+
+  /** Each slot's share of the daily targets, in eating order (BR-CMP-01). Rounded half-up. */
+  public Map<Slot, SlotTarget> perSlot(Targets t) {
+    Map<Slot, SlotTarget> result = new EnumMap<>(Slot.class);
+    for (Slot slot : Slot.values()) {
+      double share = rules.share(slot);
+      result.put(
+          slot,
+          new SlotTarget(
+              slot,
+              share,
+              round(t.kcal() * share),
+              round(t.proteinG() * share),
+              round(t.carbsG() * share),
+              round(t.fatG() * share),
+              round(t.fiberG() * share)));
+    }
+    return Collections.unmodifiableMap(result);
+  }
+
+  private static int round(double value) {
+    return BigDecimal.valueOf(value).setScale(0, RoundingMode.HALF_UP).intValueExact();
   }
 
   /** Exact age in whole years (BR-TIM-02). */

@@ -1,6 +1,8 @@
 package com.nutricook.service;
 
+import com.nutricook.domain.DomainException;
 import com.nutricook.domain.Enums;
+import com.nutricook.domain.ErrorCode;
 import com.nutricook.dto.request.ProfileRequest;
 import com.nutricook.entity.DietaryRestriction;
 import com.nutricook.entity.HealthCondition;
@@ -12,6 +14,9 @@ import com.nutricook.exception.ResourceNotFoundException;
 import com.nutricook.repository.DietaryRestrictionRepository;
 import com.nutricook.repository.HealthConditionRepository;
 import com.nutricook.repository.UserProfileRepository;
+import java.time.DateTimeException;
+import java.time.ZoneId;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +50,19 @@ public class UserProfileService {
           Enums.parse(ActivityLevel.class, req.getActivityLevel(), "activityLevel"));
     if (req.getHealthGoal() != null)
       profile.setHealthGoal(Enums.parse(HealthGoal.class, req.getHealthGoal(), "healthGoal"));
+    if (req.getTimezone() != null) profile.setTimezone(validZone(req.getTimezone()));
     return profileRepository.save(profile);
+  }
+
+  private static String validZone(String timezone) {
+    try {
+      return ZoneId.of(timezone).getId();
+    } catch (DateTimeException e) {
+      throw new DomainException(
+          ErrorCode.VALIDATION_FAILED,
+          "Invalid value for timezone.",
+          Map.of("field", "timezone", "example", "Africa/Tunis"));
+    }
   }
 
   @Transactional

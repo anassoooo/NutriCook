@@ -1,5 +1,6 @@
 package com.nutricook.config;
 
+import com.nutricook.domain.energy.TargetCalculator;
 import com.nutricook.domain.rules.NutritionRules;
 import com.nutricook.domain.rules.TrackingRules;
 import java.time.Clock;
@@ -27,6 +28,11 @@ public class DomainConfig {
     return Binder.get(env)
         .bind("app.nutrition", NutritionRules.class)
         .orElseThrow(() -> new IllegalStateException("Missing configuration: app.nutrition"));
+  }
+
+  @Bean
+  TargetCalculator targetCalculator(NutritionRules rules) {
+    return new TargetCalculator(rules);
   }
 
   @Bean
