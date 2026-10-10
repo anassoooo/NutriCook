@@ -66,12 +66,31 @@ spring:
     show-sql: false
 
 ---
+# Docker Compose profile (PostgreSQL container).
+# TEMPORARY: ddl-auto=update until Flyway migrations land (task T011), then validate.
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://db:5432/nutricook}
+    username: ${DATABASE_USERNAME:nutricook}
+    password: ${DATABASE_PASSWORD:nutricook}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+---
 spring:
   config:
     activate:
       on-profile: prod
   datasource:
-    url: ${SUPABASE_DATABASE_URL}
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
