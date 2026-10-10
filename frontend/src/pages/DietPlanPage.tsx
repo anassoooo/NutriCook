@@ -7,6 +7,7 @@ import type { DietPlan, Meal, SlotTarget } from '../types'
 import { useTargets } from '../hooks/useTargets'
 import MacroRing from '../components/MacroRing'
 import ChatPanel from '../components/ChatPanel'
+import MedicalDisclaimer from '../components/MedicalDisclaimer'
 
 const MEAL_META: Record<string, { icon: string; gradient: string; badge: string }> = {
   BREAKFAST:       { icon: '🌅', gradient: 'from-amber-400 to-orange-500',    badge: 'badge-amber'  },
@@ -149,6 +150,7 @@ export default function DietPlanPage() {
 
       {plan ? (
         <>
+          <MedicalDisclaimer disclaimer={plan.disclaimer} />
           {/* Daily macro overview */}
           {targets && (
           <div className="card">

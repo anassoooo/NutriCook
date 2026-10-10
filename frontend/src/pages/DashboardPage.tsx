@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan, Meal, UserProfile, ProgressEntry, SlotTarget } from '../types'
 import MacroRing from '../components/MacroRing'
 import ChatPanel from '../components/ChatPanel'
+import MedicalDisclaimer from '../components/MedicalDisclaimer'
 
 const NutritionOrb = lazy(() => import('../components/3d/NutritionOrb'))
 
@@ -262,6 +263,8 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      <MedicalDisclaimer disclaimer={plan?.disclaimer ?? profile?.disclaimer} />
 
       {error && (
         <div className="banner-error">

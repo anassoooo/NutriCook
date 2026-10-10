@@ -62,6 +62,8 @@ export interface UserProfile {
   dietaryRestrictions: DietaryRestriction[]
   targets: Targets | null
   targetsError: TargetsError | null
+  /** "NOT_MEDICAL_ADVICE" when the user has a health condition (BR-SAF-08) */
+  disclaimer: string | null
 }
 
 export type ActivityLevel =
@@ -81,6 +83,9 @@ export interface HealthCondition {
   id: number
   name: string
   description: string | null
+  sugarLimitPerMealG: number | null
+  fatLimitPerMealG: number | null
+  sodiumLimitPerDayMg: number | null
 }
 
 export interface DietaryRestriction {
@@ -123,6 +128,7 @@ export interface DietPlan {
   generatedAt: string
   status: 'ACTIVE' | 'ARCHIVED'
   aiExplanation: string | null
+  disclaimer?: string | null
   meals: Meal[]
 }
 

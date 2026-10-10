@@ -43,6 +43,7 @@ const baseProfile: UserProfile = {
     slots: [],
   },
   targetsError: null,
+  disclaimer: null,
 }
 
 const plan = {
