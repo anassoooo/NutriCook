@@ -131,7 +131,7 @@ description: "Executable task list for 001-reliable-core"
 
 ### Data first (safety depends on it)
 
-- [ ] **T030** [US2] `BR/db/migration/V3__food_attributes.sql`:
+- [x] **T030** [US2] `BR/db/migration/V3__food_attributes.sql`:
   - `food_items` gets `role`, `state`, `portion_min_g`, `portion_max_g`, `portion_step_g`, `default_portion_g`, `source`, `active`
   - new tables `food_allergens(food_id, allergen)`, `food_diet_flags`, `food_suitable_slots`
   - `dietary_restrictions` gets `required_diet_flag`; new table `restriction_excluded_allergens`
@@ -140,7 +140,8 @@ description: "Executable task list for 001-reliable-core"
 
   Update the entities `FoodItem`, `DietaryRestriction` and `HealthCondition` to match (`@ElementCollection` enum sets).
   **Done when:** Flyway validate passes and the entities map with no Hibernate warnings.
-- [ ] **T031** [US2] Catalog re-sourcing:
+  *As built: the entities use the domain enums directly (entity → domain is allowed), with `@Fetch(SUBSELECT)` so a catalog load costs one query per collection. V3 sets defaults for existing rows and deactivates them. Unverified legacy rows only come back if the catalog re-sources them by name.*
+- [x] **T031** [US2] Catalog re-sourcing:
   - Write `BR/db/catalog/foods.csv` with columns name, fdc_id, state, role, kcal, protein, carbs, fat, sugar, fiber, sodium_mg, allergens, diet_flags, portion min/max/step/default, slots.
   - Write the generator `scripts/gen-food-seed.(sh|py)` → `BR/db/migration/V4__reference_data.sql`.
   - Data fixes: Brown Rice (cooked ≈ 112 kcal); legumes as **cooked** (Black Beans ≈ 132, Chickpeas ≈ 164, Kidney Beans ≈ 127); add Olive Oil (role FAT) and `Chicken Breast (halal)` / `Beef mince (halal)`.
@@ -150,7 +151,8 @@ description: "Executable task list for 001-reliable-core"
 
   `DataInitializer` stops seeding foods, restrictions, conditions and achievements.
   **Rules:** BR-SAF-01/02/10, BR-PRF-07, BR-CAT-01/03. **Done when:** a fresh database has the full catalog from Flyway alone.
-- [ ] **T032** [P] [US2] `BT/catalog/CatalogQualityIT.java`: run over every active food in the migrated DB.
+  *As built: foods are seeded by a generated **repeatable** migration, `R__food_catalog.sql`, which upserts by name. Editing the CSV and regenerating is the whole workflow, and CI runs `--check`. `V4__reference_data.sql` holds restrictions, conditions and achievements. The catalog has 84 foods, including Tunisian staples (couscous, bulgur, Deglet Nour dates, fava beans, white beans, sea bass, tahini, olive oil). `source` names the dataset; per-item FDC ids are not recorded. Added Shellfish, Egg, Soy, Fish and Sesame allergies. BR-CAT-02 was amended to the fiber-aware form, because the plain 4/4/9 check rejects correct vegetable data. Of the 113 legacy rows, those whose names matched the catalog were re-sourced in place; the other 49 are inactive. Verified on the Compose database.*
+- [x] **T032** [P] [US2] `BT/catalog/CatalogQualityIT.java`: run over every active food in the migrated DB.
   - `BR_CAT_02_atwaterWithin15Percent`
   - `BR_CAT_02_macrosNonNegativeAndBelow100`
   - `BR_SAF_03_allFoodsHaveKnownAllergens`
@@ -159,10 +161,11 @@ description: "Executable task list for 001-reliable-core"
   - every role has ≥ 3 vegan-eligible foods (keeps strict-vegan profiles feasible)
 
   **Done when:** green. Every failure names the food.
+  *As built: also covers `databaseMatchesTheCatalogCsv` and `BR_CAT_04_legacyRowsWithoutASourceAreInactive`. `FoodQualityGate` was created now in `B/domain/catalog/`, so T074 reuses it.*
 
 ### Tests first
 
-- [ ] **T033** [P] [US2] `BT/domain/safety/EligibilityPolicyTest.java`, table-driven:
+- [x] **T033** [P] [US2] `BT/domain/safety/EligibilityPolicyTest.java`, table-driven:
   - `BR_SAF_02_nutAllergyExcludesPeanutButter`
   - `BR_SAF_02_glutenFreeAllowsRiceQuinoaCorn`
   - `BR_SAF_02_glutenFreeExcludesSeitanCouscous`
@@ -172,30 +175,32 @@ description: "Executable task list for 001-reliable-core"
   - `BR_PRF_07_celiacImpliesGlutenExclusion`
   - `BR_SAF_10_shellfishNeverKosher`
   - `BR_SAF_01_eligibilityIgnoresCategoryString`
-- [ ] **T034** [P] [US2] `BT/domain/safety/PlanSafetyValidatorTest.java`:
+- [x] **T034** [P] [US2] `BT/domain/safety/PlanSafetyValidatorTest.java`:
   - `BR_SAF_06_diabetesSugarPerMeal` (15.0 g passes, 15.1 g fails)
   - `BR_SAF_06_cholesterolFatPerMeal`
   - `BR_SAF_06_hypertensionSodiumPerDay`
   - `BR_SAF_09_kosherNoMeatWithMilk`
   - `BR_SAF_05_validatorReportsAllViolations` (it returns a list, not just the first)
-- [ ] **T035** [P] [US2] `BT/domain/safety/SafetyPropertiesTest.java` (jqwik, 1,000 tries): ∀ food, ∀ constraint set: `EligibilityPolicy.allows(food)` ⇒ the validator raises no per-food violation (`BR_SAF_05_policyAndValidatorAgree`).
+- [x] **T035** [P] [US2] `BT/domain/safety/SafetyPropertiesTest.java` (jqwik, 1,000 tries): ∀ food, ∀ constraint set: `EligibilityPolicy.allows(food)` ⇒ the validator raises no per-food violation (`BR_SAF_05_policyAndValidatorAgree`).
 
 ### Implementation
 
-- [ ] **T036** [US2] `B/domain/safety/SafetyConstraints.java`: built from restrictions + conditions, including implied exclusions. It holds `excludedAllergens`, `requiredFlags`, `perMealLimits`, `perDayLimits`, `kosher`, and `hasAllergyOrIntolerance`.
+- [x] **T036** [US2] `B/domain/safety/SafetyConstraints.java`: built from restrictions + conditions, including implied exclusions. It holds `excludedAllergens`, `requiredFlags`, `perMealLimits`, `perDayLimits`, `kosher`, and `hasAllergyOrIntolerance`.
   **Rules:** BR-SAF-02, BR-PRF-07.
-- [ ] **T037** [US2] `B/domain/safety/EligibilityPolicy.java`.
+- [x] **T037** [US2] `B/domain/safety/EligibilityPolicy.java`.
   **Rules:** BR-SAF-01/02/03/10. **Done when:** T033 and T035 are green.
-- [ ] **T038** [US2] `B/domain/safety/PlanSafetyValidator.java` with `validateMeal`, `validateDay` and `validate(PlanDraft)` → `List<Violation>`.
+- [x] **T038** [US2] `B/domain/safety/PlanSafetyValidator.java` with `validateMeal`, `validateDay` and `validate(PlanDraft)` → `List<Violation>`.
   **Rules:** BR-SAF-05/06/09. **Done when:** T034 is green.
-- [ ] **T039** [US2] **Safety hotfix of the current generator** (ships before US3 replaces it). In `B/service/DietPlanService.java`:
+  *As built: the policy and validator are static, stateless classes. `Violation` names the restriction or condition it comes from, so errors can say "excluded by Nut Allergy". When conditions overlap, the strictest limit wins.*
+- [x] **T039** [US2] **Safety hotfix of the current generator** (ships before US3 replaces it). In `B/service/DietPlanService.java`:
   - Build the pool with `EligibilityPolicy`, and delete the `if (foods.isEmpty()) foods = foodRepository.findAll()` fallback in favor of throwing `PLAN_INFEASIBLE`.
   - Run `PlanSafetyValidator` before `save`.
   - In `applySwap`, reject foods outside the eligible pool.
   - In `GroqAiService.chat`, send the eligible food list only.
 
   **Rules:** BR-SAF-04/05/07. **Test:** `BT/service/SafetyHotfixIT.java`: a nut-allergy user over 50 generations never gets Peanut Butter; a scripted AI swap to Peanut Butter is rejected; a vegan + every-restriction profile gets 422 `PLAN_INFEASIBLE` and nothing is saved; `BR_SAF_07_candidateListOnlyEligible` checks the prompt the stub receives.
-- [ ] **T040** [P] [US2] Disclaimer: plan and profile responses carry `disclaimer: "NOT_MEDICAL_ADVICE"` when the user has a health condition, and `F/components/MedicalDisclaimer.tsx` renders it on the dashboard and plan page.
+  *As built: 30 generations for the nut-allergy test, plus vegan+halal, Celiac and Hypertension cases. With the old one-food generator, every-restriction profiles are still feasible, so `PLAN_INFEASIBLE` is proven by deactivating the catalog inside a rolled-back transaction. The day is validated before the previous plan is deleted. Portions are still absurd (e.g. 1.5 kg of green beans) until the US3 composer.*
+- [x] **T040** [P] [US2] Disclaimer: plan and profile responses carry `disclaimer: "NOT_MEDICAL_ADVICE"` when the user has a health condition, and `F/components/MedicalDisclaimer.tsx` renders it on the dashboard and plan page.
   **Rules:** BR-SAF-08. **Tests:** `BR_SAF_08_*` in the IT and the frontend test.
 
 **Checkpoint US2 / M2**: safety is proven by property tests. The worst production bug class is closed even before the new composer.

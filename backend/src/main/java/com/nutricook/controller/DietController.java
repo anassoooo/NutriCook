@@ -32,21 +32,26 @@ public class DietController {
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate date) {
     LocalDate targetDate = date != null ? date : LocalDate.now();
-    DietPlanResponse response = toResponse(dietPlanService.generate(userId, targetDate));
+    DietPlanResponse response =
+        toResponse(
+            dietPlanService.generate(userId, targetDate), dietPlanService.disclaimerFor(userId));
     achievementService.checkAndAward(userId);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 
   @GetMapping
   public ResponseEntity<List<DietPlanResponse>> list(@PathVariable Long userId) {
+    String disclaimer = dietPlanService.disclaimerFor(userId);
     return ResponseEntity.ok(
-        dietPlanService.listForUser(userId).stream().map(this::toResponse).toList());
+        dietPlanService.listForUser(userId).stream().map(p -> toResponse(p, disclaimer)).toList());
   }
 
   @GetMapping("/{planId}")
   public ResponseEntity<DietPlanResponse> get(
       @PathVariable Long userId, @PathVariable Long planId) {
-    return ResponseEntity.ok(toResponse(dietPlanService.getByIdForUser(userId, planId)));
+    return ResponseEntity.ok(
+        toResponse(
+            dietPlanService.getByIdForUser(userId, planId), dietPlanService.disclaimerFor(userId)));
   }
 
   @PostMapping("/{planId}/chat")
@@ -61,7 +66,7 @@ public class DietController {
     return ResponseEntity.noContent().build();
   }
 
-  private DietPlanResponse toResponse(DietPlan plan) {
+  private DietPlanResponse toResponse(DietPlan plan, String disclaimer) {
     return DietPlanResponse.builder()
         .id(plan.getId())
         .title(plan.getTitle())
@@ -74,6 +79,7 @@ public class DietController {
         .generatedAt(plan.getGeneratedAt())
         .status(plan.getStatus().name())
         .aiExplanation(plan.getAiExplanation())
+        .disclaimer(disclaimer)
         .meals(plan.getMeals().stream().map(this::mealToResponse).toList())
         .build();
   }

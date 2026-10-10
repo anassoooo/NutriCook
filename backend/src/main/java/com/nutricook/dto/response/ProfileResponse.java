@@ -29,7 +29,8 @@ public record ProfileResponse(
     List<HealthCondition> healthConditions,
     List<DietaryRestriction> dietaryRestrictions,
     TargetsResponse targets,
-    TargetsError targetsError) {
+    TargetsError targetsError,
+    String disclaimer) {
 
   public record TargetsError(String code, String message, Map<String, Object> details) {}
 
@@ -53,6 +54,7 @@ public record ProfileResponse(
             .sorted(Comparator.comparing(DietaryRestriction::getId))
             .toList(),
         targets,
-        error);
+        error,
+        p.getHealthConditions().isEmpty() ? null : "NOT_MEDICAL_ADVICE");
   }
 }

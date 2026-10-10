@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nutricook.entity.DietPlan;
 import com.nutricook.entity.Meal;
 import com.nutricook.entity.UserProfile;
-import com.nutricook.repository.FoodItemRepository;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,6 @@ import org.springframework.stereotype.Service;
 public class GroqAiService {
 
   private final ChatClient.Builder chatClientBuilder;
-  private final FoodItemRepository foodRepository;
   private final ObjectMapper mapper = new ObjectMapper();
 
   public record ChatResult(String reply, String swapMealType, String swapFoodName) {}
@@ -80,7 +79,11 @@ public class GroqAiService {
   }
 
   public ChatResult chat(
-      DietPlan plan, UserProfile profile, String userMessage, String progressContext) {
+      DietPlan plan,
+      UserProfile profile,
+      String userMessage,
+      String progressContext,
+      List<String> availableFoods) {
     String planSummary = buildPlanSummary(plan);
     String goal =
         profile.getHealthGoal() != null ? profile.getHealthGoal().name() : "IMPROVE_HEALTH";
@@ -90,8 +93,8 @@ public class GroqAiService {
             .collect(Collectors.joining(", "));
     if (restrictions.isBlank()) restrictions = "none";
 
-    String foodList =
-        foodRepository.findAll().stream().map(f -> f.getName()).collect(Collectors.joining(", "));
+    // Only foods the user may eat (BR-SAF-07); the domain re-validates any swap anyway
+    String foodList = String.join(", ", availableFoods);
 
     String prompt =
         """

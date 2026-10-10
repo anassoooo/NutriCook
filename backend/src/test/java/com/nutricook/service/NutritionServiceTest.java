@@ -3,12 +3,10 @@ package com.nutricook.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.nutricook.entity.FoodItem;
-import com.nutricook.entity.HealthCondition;
 import com.nutricook.entity.Meal;
 import com.nutricook.entity.MealFoodItem;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -72,42 +70,6 @@ class NutritionServiceTest {
     Meal meal = Meal.builder().name("Empty").mealFoodItems(new ArrayList<>()).build();
     service.computeMealNutrition(meal);
     assertThat(meal.getCalories()).isNull();
-  }
-
-  // ── isMealCompatible ─────────────────────────────────────────────────
-
-  @Test
-  void isMealCompatible_trueWhenNoConditions() {
-    Meal meal = Meal.builder().sugarG(50.0).fatG(30.0).build();
-    assertThat(service.isMealCompatible(meal, Set.of())).isTrue();
-  }
-
-  @Test
-  void isMealCompatible_falseWhenSugarExceedsLimit() {
-    HealthCondition c = HealthCondition.builder().sugarLimitG(10.0).build();
-    Meal meal = Meal.builder().sugarG(15.0).fatG(5.0).build();
-    assertThat(service.isMealCompatible(meal, Set.of(c))).isFalse();
-  }
-
-  @Test
-  void isMealCompatible_falseWhenFatExceedsLimit() {
-    HealthCondition c = HealthCondition.builder().fatLimitG(20.0).build();
-    Meal meal = Meal.builder().sugarG(3.0).fatG(25.0).build();
-    assertThat(service.isMealCompatible(meal, Set.of(c))).isFalse();
-  }
-
-  @Test
-  void isMealCompatible_trueWhenBothUnderLimits() {
-    HealthCondition c = HealthCondition.builder().sugarLimitG(10.0).fatLimitG(20.0).build();
-    Meal meal = Meal.builder().sugarG(5.0).fatG(15.0).build();
-    assertThat(service.isMealCompatible(meal, Set.of(c))).isTrue();
-  }
-
-  @Test
-  void isMealCompatible_trueWhenConditionHasNoLimits() {
-    HealthCondition c = HealthCondition.builder().sugarLimitG(null).fatLimitG(null).build();
-    Meal meal = Meal.builder().sugarG(100.0).fatG(100.0).build();
-    assertThat(service.isMealCompatible(meal, Set.of(c))).isTrue();
   }
 
   // ── computeTotals ────────────────────────────────────────────────────

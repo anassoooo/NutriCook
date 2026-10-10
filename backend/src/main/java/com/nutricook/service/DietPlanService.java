@@ -2,6 +2,13 @@ package com.nutricook.service;
 
 import com.nutricook.domain.DomainException;
 import com.nutricook.domain.ErrorCode;
+import com.nutricook.domain.model.Component;
+import com.nutricook.domain.model.MealDraft;
+import com.nutricook.domain.model.PlanDraft;
+import com.nutricook.domain.model.Slot;
+import com.nutricook.domain.safety.PlanSafetyValidator;
+import com.nutricook.domain.safety.SafetyConstraints;
+import com.nutricook.domain.safety.Violation;
 import com.nutricook.dto.response.ChatResponse;
 import com.nutricook.dto.response.DietPlanResponse;
 import com.nutricook.dto.response.MealResponse;
@@ -12,23 +19,32 @@ import com.nutricook.exception.ResourceNotFoundException;
 import com.nutricook.repository.*;
 import java.time.LocalDate;
 import java.util.*;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Plan generation, chat swaps and plan reads.
+ *
+ * <p>T039 safety hotfix: every food comes from {@link SafetyService#eligibleFoods} and every plan
+ * is checked by {@link PlanSafetyValidator} before it is saved; there is no fallback to unsafe
+ * foods (BR-SAF-04/05/07). The one-food-per-meal composition is replaced by the domain composer in
+ * US3.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class DietPlanService {
 
+  public static final String DISCLAIMER = "NOT_MEDICAL_ADVICE";
+
   private final DietPlanRepository planRepository;
-  private final FoodItemRepository foodRepository;
   private final UserRepository userRepository;
   private final UserProfileService profileService;
   private final NutritionService nutritionService;
   private final TargetService targetService;
+  private final SafetyService safetyService;
   private final GroqAiService groqService;
   private final ProgressRepository progressRepository;
 
@@ -48,13 +64,28 @@ public class DietPlanService {
             .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
     UserProfile profile = profileService.getByUserId(userId);
 
-    planRepository.deleteAll(planRepository.findByUserIdAndValidForDate(userId, date));
-
     // Single source of targets; fails with PROFILE_INCOMPLETE/INELIGIBLE (BR-PRF-01/02)
     int targetKcal = targetService.forProfile(profile).kcal();
-    List<FoodItem> foods = selectCompatibleFoods(profile);
 
-    List<Meal> meals = buildMeals(foods, targetKcal, profile);
+    SafetyConstraints constraints = safetyService.constraintsFor(profile);
+    List<FoodItem> foods = safetyService.eligibleFoods(constraints);
+    if (foods.isEmpty()) {
+      // BR-SAF-04: fail closed, never fall back to the full catalog
+      throw SafetyService.infeasible(
+          "No food in the catalog satisfies all of your restrictions.", null);
+    }
+
+    List<Meal> meals = buildMeals(foods, targetKcal, constraints);
+
+    // BR-SAF-05: the whole day, including per-day limits, before anything is persisted
+    List<Violation> violations =
+        PlanSafetyValidator.validate(FoodMapper.toDraft(date, meals), constraints);
+    if (!violations.isEmpty()) {
+      throw SafetyService.infeasible(
+          "We could not build a plan within your health limits.", violations.get(0));
+    }
+
+    planRepository.deleteAll(planRepository.findByUserIdAndValidForDate(userId, date));
 
     DietPlan plan =
         DietPlan.builder()
@@ -103,10 +134,17 @@ public class DietPlanService {
     return planRepository.findByUserIdOrderByGeneratedAtDesc(userId);
   }
 
+  /** BR-SAF-08: health-condition users always see the disclaimer. */
+  public String disclaimerFor(Long userId) {
+    return profileService.getByUserId(userId).getHealthConditions().isEmpty() ? null : DISCLAIMER;
+  }
+
   @Transactional
   public ChatResponse chat(Long userId, Long planId, String message) {
     DietPlan plan = getByIdForUser(userId, planId);
     UserProfile profile = profileService.getByUserId(userId);
+    SafetyConstraints constraints = safetyService.constraintsFor(profile);
+    List<FoodItem> eligible = safetyService.eligibleFoods(constraints);
 
     String progressContext =
         progressRepository
@@ -121,46 +159,87 @@ public class DietPlanService {
                         p.getExerciseMinutes() != null ? p.getExerciseMinutes() : 0))
             .orElse("No progress logged for today yet.");
 
-    GroqAiService.ChatResult result = groqService.chat(plan, profile, message, progressContext);
+    // BR-SAF-07: the model only ever sees foods this user may eat
+    List<String> candidates = eligible.stream().map(FoodItem::getName).toList();
+    GroqAiService.ChatResult result =
+        groqService.chat(plan, profile, message, progressContext, candidates);
 
+    String reply = result.reply();
     DietPlanResponse updatedPlanResponse = null;
     if (result.swapMealType() != null && result.swapFoodName() != null) {
-      boolean swapped = applySwap(plan, result.swapMealType(), result.swapFoodName());
-      if (swapped) {
+      Optional<String> rejection =
+          applySwap(plan, result.swapMealType(), result.swapFoodName(), eligible, constraints);
+      if (rejection.isPresent()) {
+        reply = reply + "\n\n(I couldn't make that swap: " + rejection.get() + ")";
+      } else {
         DietPlan refreshed = planRepository.findByIdWithMeals(planId).orElse(plan);
         updatedPlanResponse = toResponse(refreshed);
       }
     }
 
-    return ChatResponse.builder().reply(result.reply()).updatedPlan(updatedPlanResponse).build();
+    return ChatResponse.builder().reply(reply).updatedPlan(updatedPlanResponse).build();
   }
 
-  private boolean applySwap(DietPlan plan, String mealTypeName, String foodName) {
+  /**
+   * Replaces a meal's food with an eligible one. Validated before anything changes (BR-SAF-05).
+   *
+   * @return the reason the swap was refused, or empty when it was applied
+   */
+  private Optional<String> applySwap(
+      DietPlan plan,
+      String mealTypeName,
+      String foodName,
+      List<FoodItem> eligible,
+      SafetyConstraints constraints) {
     MealType mealType;
     try {
-      mealType = MealType.valueOf(mealTypeName.toUpperCase());
+      mealType = MealType.valueOf(mealTypeName.toUpperCase(Locale.ROOT));
     } catch (IllegalArgumentException e) {
-      return false;
+      return Optional.of("I didn't understand which meal to change.");
     }
 
     Meal meal =
         plan.getMeals().stream().filter(m -> m.getMealType() == mealType).findFirst().orElse(null);
-    if (meal == null) return false;
+    if (meal == null) return Optional.of("that meal is not in your plan.");
 
-    FoodItem food = foodRepository.findFirstByNameContainingIgnoreCase(foodName).orElse(null);
-    if (food == null) return false;
+    // Only foods this user may eat can be chosen, whatever the model asked for
+    FoodItem food =
+        eligible.stream()
+            .filter(f -> f.getName().equalsIgnoreCase(foodName.trim()))
+            .findFirst()
+            .or(
+                () ->
+                    eligible.stream()
+                        .filter(
+                            f ->
+                                f.getName()
+                                    .toLowerCase(Locale.ROOT)
+                                    .contains(foodName.trim().toLowerCase(Locale.ROOT)))
+                        .findFirst())
+            .orElse(null);
+    if (food == null) {
+      return Optional.of(foodName + " isn't available with your restrictions.");
+    }
 
     int targetCal = meal.getCalories() != null ? meal.getCalories() : 400;
     double grams =
         food.getCaloriesPer100g() > 0 ? (targetCal / food.getCaloriesPer100g()) * 100 : 100;
+    grams = Math.round(grams * 10.0) / 10.0;
 
-    MealFoodItem newMfi =
-        MealFoodItem.builder()
-            .foodItem(food)
-            .quantityG(Math.round(grams * 10.0) / 10.0)
-            .meal(meal)
-            .build();
+    // Validate the plan as it would be after the swap, before touching any entity
+    MealDraft swappedMeal =
+        new MealDraft(
+            Slot.valueOf(mealType.name()), List.of(new Component(FoodMapper.toView(food), grams)));
+    List<MealDraft> draftMeals = new ArrayList<>();
+    for (Meal m : plan.getMeals()) {
+      draftMeals.add(m == meal ? swappedMeal : FoodMapper.toDraft(m));
+    }
+    List<Violation> violations =
+        PlanSafetyValidator.validate(
+            new PlanDraft(plan.getValidForDate(), draftMeals, List.of()), constraints);
+    if (!violations.isEmpty()) return Optional.of(violations.get(0).message());
 
+    MealFoodItem newMfi = MealFoodItem.builder().foodItem(food).quantityG(grams).meal(meal).build();
     meal.getMealFoodItems().clear();
     meal.getMealFoodItems().add(newMfi);
     nutritionService.computeMealNutrition(meal);
@@ -173,7 +252,7 @@ public class DietPlanService {
     plan.setTotalSugarG(totals.sugarG());
 
     planRepository.save(plan);
-    return true;
+    return Optional.empty();
   }
 
   private DietPlanResponse toResponse(DietPlan plan) {
@@ -189,6 +268,7 @@ public class DietPlanService {
         .generatedAt(plan.getGeneratedAt())
         .status(plan.getStatus().name())
         .aiExplanation(plan.getAiExplanation())
+        .disclaimer(disclaimerFor(plan.getUser().getId()))
         .meals(plan.getMeals().stream().map(this::mealToResponse).toList())
         .build();
   }
@@ -216,82 +296,64 @@ public class DietPlanService {
     planRepository.save(plan);
   }
 
-  private List<FoodItem> selectCompatibleFoods(UserProfile profile) {
-    List<FoodItem> allFoods = foodRepository.findAll();
-    Set<String> restrictionNames =
-        profile.getDietaryRestrictions().stream()
-            .map(r -> r.getName().toLowerCase())
-            .collect(Collectors.toSet());
-
-    return allFoods.stream()
-        .filter(f -> isFoodCompatible(f, restrictionNames))
-        .collect(Collectors.toList());
-  }
-
-  private boolean isFoodCompatible(FoodItem food, Set<String> restrictionNames) {
-    String cat = food.getCategory() != null ? food.getCategory().toLowerCase() : "";
-    if (restrictionNames.contains("vegan")
-        && (cat.equals("meat")
-            || cat.equals("seafood")
-            || cat.equals("dairy")
-            || cat.equals("egg"))) return false;
-    if (restrictionNames.contains("vegetarian") && (cat.equals("meat") || cat.equals("seafood")))
-      return false;
-    if (restrictionNames.contains("gluten-free") && cat.equals("grain")) return false;
-    if (restrictionNames.contains("lactose-free") && cat.equals("dairy")) return false;
-    if (restrictionNames.contains("nut allergy") && cat.equals("nut")) return false;
-    return true;
-  }
-
-  private List<Meal> buildMeals(List<FoodItem> foods, int targetKcal, UserProfile profile) {
-    if (foods.isEmpty()) foods = foodRepository.findAll();
+  /**
+   * One eligible food per meal, sized to the slot's calories (replaced by the composer in US3). For
+   * each slot, candidates are tried in random order until the meal passes the validator.
+   */
+  private List<Meal> buildMeals(
+      List<FoodItem> foods, int targetKcal, SafetyConstraints constraints) {
     Random rng = new Random();
     List<Meal> meals = new ArrayList<>();
     int sortOrder = 1;
 
     for (MealType type : MealType.values()) {
       int targetCal = (int) (targetKcal * MEAL_CALORIE_RATIO.get(type));
-      FoodItem chosen = foods.get(rng.nextInt(foods.size()));
-      double cal100 = chosen.getCaloriesPer100g();
-      double grams = cal100 > 0 ? (targetCal / cal100) * 100 : 100.0;
+      List<FoodItem> candidates = new ArrayList<>(foods);
+      Collections.shuffle(candidates, rng);
 
-      MealFoodItem mfi =
-          MealFoodItem.builder()
-              .foodItem(chosen)
-              .quantityG(Math.round(grams * 10.0) / 10.0)
-              .build();
-
-      List<MealFoodItem> items = new ArrayList<>();
-      items.add(mfi);
-      Meal meal =
-          Meal.builder()
-              .name(
-                  type.name().charAt(0) + type.name().substring(1).toLowerCase().replace("_", " "))
-              .mealType(type)
-              .sortOrder(sortOrder++)
-              .mealFoodItems(items)
-              .build();
-      mfi.setMeal(meal);
-
-      nutritionService.computeMealNutrition(meal);
-
-      Set<HealthCondition> conditions = profile.getHealthConditions();
-      if (!nutritionService.isMealCompatible(meal, conditions)) {
-        for (FoodItem alt : foods) {
-          if (alt.equals(chosen)) continue;
-          double altCal = alt.getCaloriesPer100g();
-          if (altCal <= 0) continue;
-          double altG = (targetCal / altCal) * 100;
-          MealFoodItem altMfi = MealFoodItem.builder().foodItem(alt).quantityG(altG).build();
-          meal.getMealFoodItems().set(0, altMfi);
-          altMfi.setMeal(meal);
-          nutritionService.computeMealNutrition(meal);
-          if (nutritionService.isMealCompatible(meal, conditions)) break;
+      Meal meal = null;
+      Violation lastViolation = null;
+      for (FoodItem candidate : candidates) {
+        double cal100 = candidate.getCaloriesPer100g();
+        if (cal100 <= 0) continue;
+        double grams = Math.round((targetCal / cal100) * 100 * 10.0) / 10.0;
+        MealDraft draft =
+            new MealDraft(
+                Slot.valueOf(type.name()),
+                List.of(new Component(FoodMapper.toView(candidate), grams)));
+        List<Violation> violations = PlanSafetyValidator.validateMeal(draft, constraints);
+        if (!violations.isEmpty()) {
+          lastViolation = violations.get(0);
+          continue;
         }
+        meal = toMeal(type, sortOrder++, candidate, grams);
+        break;
       }
-
+      if (meal == null) {
+        throw SafetyService.infeasible(
+            "We could not build a safe "
+                + type.name().toLowerCase(Locale.ROOT).replace('_', ' ')
+                + " with your restrictions.",
+            lastViolation);
+      }
       meals.add(meal);
     }
     return meals;
+  }
+
+  private Meal toMeal(MealType type, int sortOrder, FoodItem food, double grams) {
+    MealFoodItem mfi = MealFoodItem.builder().foodItem(food).quantityG(grams).build();
+    List<MealFoodItem> items = new ArrayList<>();
+    items.add(mfi);
+    Meal meal =
+        Meal.builder()
+            .name(type.name().charAt(0) + type.name().substring(1).toLowerCase().replace("_", " "))
+            .mealType(type)
+            .sortOrder(sortOrder)
+            .mealFoodItems(items)
+            .build();
+    mfi.setMeal(meal);
+    nutritionService.computeMealNutrition(meal);
+    return meal;
   }
 }

@@ -1,6 +1,6 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.1.0 · **Last updated**: 2026-10-10
+> **Status**: Reference · **Version**: 1.2.0 · **Last updated**: 2026-10-10
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
@@ -49,7 +49,7 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 | BR-PRF-04 | Unknown enum values (sex, activity, goal) get `VALIDATION_FAILED` listing the allowed values. They are never a 500. | ✅ |
 | BR-PRF-05 | Profile updates are **partial**: fields left out are not changed. A field present in the request is validated. | ✅ |
 | BR-PRF-06 | Profile changes affect **future** plans only. Existing plans are snapshots (BR-LIF-05). | ✅ |
-| BR-PRF-07 | A health condition may **imply** restrictions: *Celiac Disease* ⇒ excludes `GLUTEN`; *Lactose Intolerance* ⇒ excludes `MILK`. Implied restrictions apply even if the user didn't add the matching restriction. | ❌ |
+| BR-PRF-07 | A health condition may **imply** restrictions: *Celiac Disease* ⇒ excludes `GLUTEN`; *Lactose Intolerance* ⇒ excludes `MILK`. Implied restrictions apply even if the user didn't add the matching restriction. | ✅ |
 | BR-PRF-08 | The profile response includes the computed **targets** (BR-NRG, BR-MAC). Clients must never hard-code targets. | ✅ |
 
 ## 2. Energy target (BR-NRG)
@@ -90,16 +90,16 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-SAF-01 | Each food declares its **allergens** using the EU 14 list (GLUTEN, CRUSTACEANS, EGGS, FISH, PEANUTS, SOY, MILK, TREE_NUTS, CELERY, MUSTARD, SESAME, SULPHITES, LUPIN, MOLLUSCS) and its **diet flags** (VEGAN, VEGETARIAN, HALAL, KOSHER). Eligibility is decided from these attributes **only**, never from the category string. | ⚠️ category-string matching |
-| BR-SAF-02 | Restriction → exclusion mapping: Nut Allergy ⇒ PEANUTS + TREE_NUTS; Gluten-Free ⇒ GLUTEN; Lactose-Free ⇒ MILK; Vegan ⇒ must have VEGAN; Vegetarian ⇒ must have VEGETARIAN; Halal ⇒ must have HALAL; Kosher ⇒ must have KOSHER. | ⚠️ Peanut Butter passes Nut Allergy; rice and quinoa wrongly excluded for Gluten-Free; Halal and Kosher ignored |
-| BR-SAF-03 | A food with **unknown** allergen data counts as ineligible for any user with an allergy or intolerance. | ❌ |
-| BR-SAF-04 | If the eligible pool can't fill a required component role, generation fails with `PLAN_INFEASIBLE` and names the constraint. It **never** falls back to ineligible foods. | ⚠️ falls back to `findAll()` (could serve meat to a vegan) |
-| BR-SAF-05 | Every path that changes a plan goes through the same `PlanSafetyValidator` before anything is saved: generation, manual swap, AI swap, admin edits. A violation throws and nothing is persisted. | ❌ AI swap skips all checks |
-| BR-SAF-06 | Health-condition nutrient limits are hard constraints. Diabetes: total sugar ≤ 15 g per meal. High Cholesterol: fat ≤ 25 g per meal. Hypertension: sodium ≤ 2000 mg per **day**. | ⚠️ per-meal checks only; sodium ignored; when no alternative passes, the last failing food is kept silently |
-| BR-SAF-07 | The list of foods offered to the AI as swap candidates is the user's **eligible** pool, never the full catalog. | ❌ full catalog |
-| BR-SAF-08 | Responses for users with a health condition carry `disclaimer: "NOT_MEDICAL_ADVICE"`. The UI shows it next to the plan. | ❌ |
-| BR-SAF-09 | Kosher: a meal must not combine a meat component (role PROTEIN, category meat) with any MILK-containing component. | ❌ |
-| BR-SAF-10 | Religious flags fail closed. Land-animal meat carries HALAL / KOSHER only when the catalog item is explicitly certified (e.g. "Chicken Breast (halal)"). Fish is KOSHER only if it has fins and scales (shellfish never is). | ❌ |
+| BR-SAF-01 | Each food declares its **allergens** using the EU 14 list (GLUTEN, CRUSTACEANS, EGGS, FISH, PEANUTS, SOY, MILK, TREE_NUTS, CELERY, MUSTARD, SESAME, SULPHITES, LUPIN, MOLLUSCS) and its **diet flags** (VEGAN, VEGETARIAN, HALAL, KOSHER). Eligibility is decided from these attributes **only**, never from the category string. | ✅ |
+| BR-SAF-02 | Restriction → exclusion mapping: Nut Allergy ⇒ PEANUTS + TREE_NUTS; Gluten-Free ⇒ GLUTEN; Lactose-Free ⇒ MILK; Shellfish Allergy ⇒ CRUSTACEANS + MOLLUSCS; Egg Allergy ⇒ EGGS; Soy Allergy ⇒ SOY; Fish Allergy ⇒ FISH; Sesame Allergy ⇒ SESAME; Vegan ⇒ must have VEGAN; Vegetarian ⇒ must have VEGETARIAN; Halal ⇒ must have HALAL; Kosher ⇒ must have KOSHER. The mapping is data (`restriction_excluded_allergens`, `required_diet_flag`), never name matching. | ✅ |
+| BR-SAF-03 | A food with **unknown** allergen data counts as ineligible for any user with an allergy or intolerance. | ✅ |
+| BR-SAF-04 | If the eligible pool can't fill a required component role, generation fails with `PLAN_INFEASIBLE` and names the constraint. It **never** falls back to ineligible foods. | ✅ |
+| BR-SAF-05 | Every path that changes a plan goes through the same `PlanSafetyValidator` before anything is saved: generation, manual swap, AI swap, admin edits. A violation throws and nothing is persisted. | ✅ |
+| BR-SAF-06 | Health-condition nutrient limits are hard constraints. Diabetes: total sugar ≤ 15 g per meal. High Cholesterol: fat ≤ 25 g per meal. Hypertension: sodium ≤ 2000 mg per **day**. | ✅ |
+| BR-SAF-07 | The list of foods offered to the AI as swap candidates is the user's **eligible** pool, never the full catalog. | ✅ |
+| BR-SAF-08 | Responses for users with a health condition carry `disclaimer: "NOT_MEDICAL_ADVICE"`. The UI shows it next to the plan. | ✅ |
+| BR-SAF-09 | Kosher: a meal must not combine a meat component (role PROTEIN, category meat) with any MILK-containing component. | ✅ |
+| BR-SAF-10 | Religious and diet flags fail closed: a flag is set only when it holds without certification doubts. Land-animal meat is HALAL / KOSHER only when the item is explicitly certified (e.g. "Chicken Breast (halal)"). Fresh fish with fins and scales is HALAL and KOSHER; canned fish is HALAL only (KOSHER needs certification); shellfish and molluscs are neither (disputed / forbidden). Cheese carries no VEGETARIAN / HALAL / KOSHER flag (animal rennet). Single-ingredient plant foods are VEGAN, VEGETARIAN, HALAL and KOSHER; processed plant foods (bread, tortilla, hummus, nut butters, tofu) are not KOSHER without certification, and bread is not VEGAN (may contain milk or honey). | ✅ |
 
 ## 5. Plan composition (BR-CMP)
 
@@ -167,10 +167,10 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-CAT-01 | Each food has: name (unique), `role`, `state` (RAW / COOKED / DRY), per-100 g kcal, protein, carbs, fat, sugar, fiber, sodium, allergens, diet flags, portion bounds, suitable slots and `source` (e.g. a USDA FDC id). | ⚠️ no state, role, allergens or source |
-| BR-CAT-02 | Data-quality gate: every value ≥ 0; protein + carbs + fat ≤ 100; `|kcal − (4P + 4C + 9F)| ≤ 15% × kcal`. A failing food is rejected on admin save, and a startup check fails on bad seed data. | ❌ |
-| BR-CAT-03 | Values match their declared `state`. Mixing dry and cooked values with no label is a defect. | ⚠️ e.g. Lentils are cooked, Black Beans dry; Brown Rice 216 kcal is a per-cup value |
-| BR-CAT-04 | Foods are **soft-deleted** (`active = false`). Inactive foods are excluded from new plans but still show in historical ones (BR-LIF-05). | ❌ |
+| BR-CAT-01 | Each food has: name (unique), `role`, `state` (RAW / COOKED / DRY), per-100 g kcal, protein, carbs, fat, sugar, fiber, sodium, allergens, diet flags, portion bounds, suitable slots and `source` (the dataset, e.g. `USDA SR Legacy`). The seeded catalog is maintained in `backend/src/main/resources/db/catalog/foods.csv` and applied by the repeatable migration `R__food_catalog.sql`, which `scripts/gen-food-seed.py` generates from the CSV. | ✅ |
+| BR-CAT-02 | Data-quality gate: every value ≥ 0; fiber ≤ carbs; sugar ≤ carbs; protein + carbs + fat ≤ 100; energy matches the macros: `|kcal − (4P + 4(C − fiber) + 2·fiber + 9F)| ≤ max(15% × kcal, 10 kcal)`. Fiber counts 2 kcal/g (EU Regulation 1169/2011), otherwise correct vegetable data fails; the 10 kcal floor keeps very low-energy foods testable. A failing food is rejected on admin save and fails the catalog test. | ⚠️ gate + catalog test done; admin save arrives with US7 |
+| BR-CAT-03 | Values match their declared `state`. Mixing dry and cooked values with no label is a defect. | ✅ |
+| BR-CAT-04 | Foods are **soft-deleted** (`active = false`). Inactive foods are excluded from new plans but still show in historical ones (BR-LIF-05). | ✅ |
 | BR-CAT-05 | Only `ADMIN` can create, update or deactivate foods. | ❌ no admin API |
 
 ## 11. Time & calendar (BR-TIM)
@@ -251,3 +251,4 @@ changing this table first.
 |---|---|---|
 | 1.0.0 | 2026-10-10 | Initial catalogue, derived from a code audit at `39679a0` |
 | 1.1.0 | 2026-10-10 | BR-SAF-09/10 added; BR-NRG-05 never rounds below the floor; BR-PRF-01 treats out-of-range stored values as missing; §12 adds `INTERNAL`; §13 lists allowed ranges. US1 rules marked ✅ |
+| 1.2.0 | 2026-10-11 | BR-CAT-02 fiber-aware energy check with a 10 kcal floor; BR-SAF-02 adds shellfish/egg/soy/fish/sesame allergies; BR-SAF-10 spells out the fail-closed flag policy; BR-CAT-01 names the CSV + generated migration. US2 rules marked ✅ |

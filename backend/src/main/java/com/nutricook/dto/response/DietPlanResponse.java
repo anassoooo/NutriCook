@@ -20,5 +20,9 @@ public class DietPlanResponse {
   private LocalDateTime generatedAt;
   private String status;
   private String aiExplanation;
+
+  /** "NOT_MEDICAL_ADVICE" when the user has a health condition (BR-SAF-08). */
+  private String disclaimer;
+
   private List<MealResponse> meals;
 }

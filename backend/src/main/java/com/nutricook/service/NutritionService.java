@@ -1,10 +1,8 @@
 package com.nutricook.service;
 
-import com.nutricook.entity.HealthCondition;
 import com.nutricook.entity.Meal;
 import com.nutricook.entity.MealFoodItem;
 import java.util.List;
-import java.util.Set;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -43,17 +41,6 @@ public class NutritionService {
     meal.setFatG(round(fat));
     meal.setSugarG(round(sugar));
     meal.setFiberG(round(fiber));
-  }
-
-  public boolean isMealCompatible(Meal meal, Set<HealthCondition> conditions) {
-    for (HealthCondition c : conditions) {
-      if (c.getSugarLimitG() != null
-          && meal.getSugarG() != null
-          && meal.getSugarG() > c.getSugarLimitG()) return false;
-      if (c.getFatLimitG() != null && meal.getFatG() != null && meal.getFatG() > c.getFatLimitG())
-        return false;
-    }
-    return true;
   }
 
   private double round(double v) {
