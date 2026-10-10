@@ -3,6 +3,7 @@ package com.nutricook.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.nutricook.domain.fixtures.TestRules;
 import com.nutricook.domain.model.Goal;
 import com.nutricook.domain.model.Slot;
 import com.nutricook.domain.rules.NutritionRules;
@@ -46,7 +47,11 @@ class DomainConfigTest {
           assertThat(r.tolerance().dayMax()).isEqualTo(0.10);
           assertThat(r.tolerance().meal()).isEqualTo(0.15);
 
+          // the pure domain tests use TestRules; it must be exactly what production binds
+          assertThat(r).isEqualTo(TestRules.nutrition());
+
           TrackingRules t = ctx.getBean(TrackingRules.class);
+          assertThat(t).isEqualTo(TestRules.tracking());
           assertThat(t.backfillDays()).isEqualTo(30);
           assertThat(t.hydrationDayMl()).isEqualTo(2000);
 

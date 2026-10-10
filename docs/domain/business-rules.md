@@ -43,7 +43,7 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-PRF-01 | Generating a plan **requires** these profile fields: `dateOfBirth`, `sex`, `weightKg`, `heightCm`, `activityLevel`, `healthGoal`. If any are missing, fail with `PROFILE_INCOMPLETE` and list the missing fields. There is no silent default. | ⚠️ falls back to 2000 kcal |
+| BR-PRF-01 | Computing targets or generating a plan **requires** these profile fields: `dateOfBirth`, `gender`, `weightKg`, `heightCm`, `activityLevel`, `healthGoal`. A field that is missing, or holds a stored value outside the BR-PRF-03 ranges (data entered before those ranges existed), is listed in `missingFields` of a `PROFILE_INCOMPLETE` error. There is no silent default. | ⚠️ falls back to 2000 kcal |
 | BR-PRF-02 | Plans are generated only for users aged **18–100** (exact age, BR-TIM-02). Users outside that range get `PROFILE_INELIGIBLE`. They can still log progress. | ❌ |
 | BR-PRF-03 | Accepted ranges: weight **30–300 kg**, height **120–230 cm**, date of birth in the past. Values outside them get `VALIDATION_FAILED`. | ⚠️ 20–500 kg / 50–300 cm |
 | BR-PRF-04 | Unknown enum values (sex, activity, goal) get `VALIDATION_FAILED` listing the allowed values. They are never a 500. | ❌ throws → 500 |
@@ -60,7 +60,7 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 | BR-NRG-02 | `TDEE = BMR × f`, where f = 1.2 / 1.375 / 1.55 / 1.725 / 1.9 for SEDENTARY … EXTRA_ACTIVE. | ✅ |
 | BR-NRG-03 | Goal adjustment: LOSE_WEIGHT **−500**, GAIN_MUSCLE **+300**, MAINTAIN_WEIGHT / IMPROVE_HEALTH **0** kcal. | ✅ |
 | BR-NRG-04 | Floor: `floor = max(sexMinimum, BMR)`, where sexMinimum = 1500 (MALE) or 1200 (others). A deficit never brings intake below BMR. | ⚠️ flat 1200 |
-| BR-NRG-05 | `target = roundToNearest10(max(TDEE + adjustment, floor))`. | ⚠️ rounds to 1 |
+| BR-NRG-05 | `target = roundToNearest10(max(TDEE + adjustment, floor))`. If that rounding lands below `floor`, round **up** to the next multiple of 10 instead, so rounding never undoes BR-NRG-04. | ⚠️ rounds to 1 |
 | BR-NRG-06 | The energy calculation is a **pure function** of (profile, date). It has no I/O, no randomness, and no call to `now()`. | ❌ calls `LocalDate.now()` |
 
 **Reference cases** (these are acceptance tests and MUST pass exactly):
