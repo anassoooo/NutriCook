@@ -46,9 +46,9 @@ const COMPLETION_STEPS = [
   { key: 'weightKg',    label: 'Weight'   },
   { key: 'heightCm',    label: 'Height'   },
   { key: 'dateOfBirth', label: 'Birthday' },
-]
+] as const
 
-function isDone(v: any): boolean {
+function isDone(v: unknown): boolean {
   if (v === undefined || v === null || v === '') return false
   if (typeof v === 'number') return !isNaN(v) && v > 0
   return true
@@ -105,7 +105,7 @@ export default function ProfilePage() {
   const displayName = [watchFirst, watchLast].filter(Boolean).join(' ') || 'Your'
   const initial     = (watchFirst || email || 'U').charAt(0).toUpperCase()
 
-  const completedCount = COMPLETION_STEPS.filter(s => isDone((all as any)[s.key])).length
+  const completedCount = COMPLETION_STEPS.filter(s => isDone(all[s.key])).length
   const completionPct  = Math.round((completedCount / COMPLETION_STEPS.length) * 100)
 
   useEffect(() => {
@@ -119,25 +119,23 @@ export default function ProfilePage() {
 
   const toggleRestriction = async (id: number) => {
     const isSelected = selectedRestrictions.has(id)
-    setSelectedRestrictions(prev => { const s = new Set(prev); isSelected ? s.delete(id) : s.add(id); return s })
+    setSelectedRestrictions(prev => { const s = new Set(prev); if (isSelected) s.delete(id); else s.add(id); return s })
     try {
-      isSelected
-        ? await api.delete(`/users/${userId}/profile/dietary-restrictions/${id}`)
-        : await api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)
+      if (isSelected) await api.delete(`/users/${userId}/profile/dietary-restrictions/${id}`)
+      else await api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)
     } catch {
-      setSelectedRestrictions(prev => { const s = new Set(prev); isSelected ? s.add(id) : s.delete(id); return s })
+      setSelectedRestrictions(prev => { const s = new Set(prev); if (isSelected) s.add(id); else s.delete(id); return s })
     }
   }
 
   const toggleCondition = async (id: number) => {
     const isSelected = selectedConditions.has(id)
-    setSelectedConditions(prev => { const s = new Set(prev); isSelected ? s.delete(id) : s.add(id); return s })
+    setSelectedConditions(prev => { const s = new Set(prev); if (isSelected) s.delete(id); else s.add(id); return s })
     try {
-      isSelected
-        ? await api.delete(`/users/${userId}/profile/health-conditions/${id}`)
-        : await api.post(`/users/${userId}/profile/health-conditions/${id}`)
+      if (isSelected) await api.delete(`/users/${userId}/profile/health-conditions/${id}`)
+      else await api.post(`/users/${userId}/profile/health-conditions/${id}`)
     } catch {
-      setSelectedConditions(prev => { const s = new Set(prev); isSelected ? s.add(id) : s.delete(id); return s })
+      setSelectedConditions(prev => { const s = new Set(prev); if (isSelected) s.add(id); else s.delete(id); return s })
     }
   }
 
@@ -205,7 +203,7 @@ export default function ProfilePage() {
             {/* Completion pills — only track explicitly-filled fields */}
             <div className="flex items-center gap-1.5 mt-3 flex-wrap">
               {COMPLETION_STEPS.map(s => {
-                const done = isDone((all as any)[s.key])
+                const done = isDone(all[s.key])
                 return (
                   <span key={s.key}
                         className="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-all"

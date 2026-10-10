@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { motion, AnimatePresence } from 'framer-motion'
+import axios from 'axios'
 import api from '../lib/api'
 import { useAuth } from '../contexts/AuthContext'
 import type { AuthResponse } from '../types'
@@ -42,8 +43,9 @@ export default function AuthPage() {
       )
       login(res.data)
       navigate(isLogin ? '/dashboard' : '/onboarding')
-    } catch (err: any) {
-      const msg = err.response?.data?.message ?? err.response?.data ?? 'Something went wrong.'
+    } catch (err) {
+      const data = axios.isAxiosError(err) ? err.response?.data : undefined
+      const msg = data?.message ?? data ?? 'Something went wrong.'
       setServerError(typeof msg === 'string' ? msg : 'Request failed.')
     } finally { setLoading(false) }
   }

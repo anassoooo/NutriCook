@@ -131,10 +131,10 @@ export default function OnboardingPage() {
   }
 
   const toggleRestriction = (id: number) =>
-    setSelectedRestrictions(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+    setSelectedRestrictions(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
 
   const toggleCondition = (id: number) =>
-    setSelectedConditions(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+    setSelectedConditions(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
 
   /* ── Shared chip button ────────────────────────────── */
   function ChipBtn({ label, selected, style, onClick }: {

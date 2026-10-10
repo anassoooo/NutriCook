@@ -18,14 +18,16 @@ interface FormData {
   notes: string
 }
 
-const STATS = [
+type Metric = 'weightKg' | 'caloriesConsumed' | 'waterMl' | 'exerciseMinutes'
+
+const STATS: { key: Metric; label: string; unit: string; icon: string; color: string; bg: string; border: string }[] = [
   { key: 'weightKg',         label: 'Weight',   unit: 'kg',   icon: '⚖️', color: '#3b82f6', bg: '#eff6ff', border: '#bfdbfe' },
   { key: 'caloriesConsumed', label: 'Calories', unit: 'kcal', icon: '🔥', color: '#f97316', bg: '#fff7ed', border: '#fed7aa' },
   { key: 'waterMl',          label: 'Water',    unit: 'ml',   icon: '💧', color: '#06b6d4', bg: '#ecfeff', border: '#a5f3fc' },
   { key: 'exerciseMinutes',  label: 'Exercise', unit: 'min',  icon: '🏃', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
 ]
 
-const CHART_METRICS = [
+const CHART_METRICS: { key: Metric; label: string; unit: string; color: string }[] = [
   { key: 'weightKg',         label: 'Weight',   unit: 'kg',   color: '#3b82f6' },
   { key: 'caloriesConsumed', label: 'Calories', unit: 'kcal', color: '#f97316' },
   { key: 'waterMl',          label: 'Water',    unit: 'ml',   color: '#06b6d4' },
@@ -69,7 +71,7 @@ interface ChartPoint {
 
 function TrendChart({ entries, metricKey, color, unit }: {
   entries: ProgressEntry[]
-  metricKey: string
+  metricKey: Metric
   color: string
   unit: string
 }) {
@@ -77,7 +79,7 @@ function TrendChart({ entries, metricKey, color, unit }: {
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(e => ({
       date:  new Date(e.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      value: (e as any)[metricKey] ?? null,
+      value: e[metricKey] ?? null,
     }))
     .filter(d => d.value !== null)
 
@@ -141,7 +143,7 @@ export default function ProgressPage() {
   const [entries,       setEntries]       = useState<ProgressEntry[]>([])
   const [saved,         setSaved]         = useState(false)
   const [loading,       setLoading]       = useState(false)
-  const [activeMetric,  setActiveMetric]  = useState('weightKg')
+  const [activeMetric,  setActiveMetric]  = useState<Metric>('weightKg')
 
   const { register, handleSubmit, reset } = useForm<FormData>({
     defaultValues: { date: new Date().toISOString().slice(0, 10) },
@@ -193,9 +195,9 @@ export default function ProgressPage() {
       {/* Latest snapshot */}
       {latest && (
         <div className="grid grid-cols-2 gap-3">
-          {STATS.map(({ key, label, unit, icon, color, bg, border }) => {
-            const val  = (latest   as any)[key]
-            const prev = (previous as any)?.[key] ?? null
+          {STATS.map(({ key, label, unit, icon, color }) => {
+            const val  = latest[key]
+            const prev = previous?.[key] ?? null
             const diff = val != null && prev != null ? +(val - prev).toFixed(1) : null
             return (
               <motion.div
