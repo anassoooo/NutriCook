@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserProfile, ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition } from '../types'
 
@@ -172,8 +173,8 @@ export default function ProfilePage() {
       })
       setSaved(true)
       setTimeout(() => navigate(-1), 1500)
-    } catch {
-      setError('Failed to save. Please check your inputs and try again.')
+    } catch (err) {
+      setError(toApiError(err).message)
     } finally { setLoading(false) }
   }
 

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, UserProfile } from '../types'
 
@@ -124,8 +125,8 @@ export default function OnboardingPage() {
         ),
       ])
       navigate('/dashboard', { replace: true })
-    } catch {
-      setSaveError('Something went wrong saving your profile. Please try again.')
+    } catch (err) {
+      setSaveError(toApiError(err).message)
       setSaving(false)
     }
   }

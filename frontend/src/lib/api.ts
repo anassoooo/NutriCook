@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { shouldRedirectToLogin, toApiError } from './errors'
 
 const api = axios.create({
   baseURL: '/api',
@@ -11,16 +12,18 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Every failure reaches callers as an ApiError (code + safe message), never a raw AxiosError.
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const hadToken = !!err.config?.headers?.Authorization
+    if (shouldRedirectToLogin(err.response?.status, err.config?.url, hadToken)) {
       localStorage.removeItem('nc_token')
       localStorage.removeItem('nc_user')
-      window.location.href = '/auth'
+      if (window.location.pathname !== '/auth') window.location.href = '/auth'
     }
-    return Promise.reject(err)
-  }
+    return Promise.reject(toApiError(err))
+  },
 )
 
 export default api

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan, Meal } from '../types'
 import MacroRing from '../components/MacroRing'
@@ -107,7 +108,7 @@ export default function DietPlanPage() {
     try {
       const today = new Date().toISOString().slice(0, 10)
       setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate?date=${today}`)).data)
-    } catch { setError('Generation failed. Make sure your profile is complete.') }
+    } catch (err) { setError(toApiError(err).message) }
     finally   { setGenerating(false) }
   }
 
