@@ -1,7 +1,10 @@
 package com.nutricook.exception;
 
-public class ResourceNotFoundException extends RuntimeException {
+import com.nutricook.domain.DomainException;
+import com.nutricook.domain.ErrorCode;
+
+public class ResourceNotFoundException extends DomainException {
   public ResourceNotFoundException(String message) {
-    super(message);
+    super(ErrorCode.NOT_FOUND, message);
   }
 }

@@ -196,6 +196,19 @@
           </excludes>
         </configuration>
       </plugin>
+      <!-- Unit tests (*Test) and Testcontainers integration tests (*IT) run in one 'mvn verify' -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <includes>
+            <include>**/*Test.java</include>
+            <include>**/*Tests.java</include>
+            <include>**/*IT.java</include>
+            <include>**/*Properties.java</include>
+          </includes>
+        </configuration>
+      </plugin>
       <!-- Coverage report (thresholds are enforced in T085) -->
       <plugin>
         <groupId>org.jacoco</groupId>

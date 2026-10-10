@@ -3,6 +3,7 @@ package com.nutricook.service;
 import com.nutricook.entity.Achievement;
 import com.nutricook.entity.User;
 import com.nutricook.entity.UserAchievement;
+import com.nutricook.exception.ResourceNotFoundException;
 import com.nutricook.repository.AchievementRepository;
 import com.nutricook.repository.DietPlanRepository;
 import com.nutricook.repository.ProgressRepository;
@@ -31,7 +32,10 @@ public class AchievementService {
 
   @Transactional
   public List<UserAchievement> checkAndAward(Long userId) {
-    User user = userRepository.findById(userId).orElseThrow();
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
     List<UserAchievement> awarded = new ArrayList<>();
 
     for (Achievement achievement : achievementRepository.findAll()) {

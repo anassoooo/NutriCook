@@ -183,12 +183,13 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 ## 12. Error codes
 
-Every business failure returns an RFC 9457 `ProblemDetail` with a stable `code` property.
+Every business failure returns an RFC 9457 `ProblemDetail` (`application/problem+json`) with a stable `code` property,
+plus `type` (`urn:nutricook:problem:<code>`), `title`, `detail`, `instance` and `timestamp`.
 Exception messages are never returned to clients.
 
 | Code | HTTP | Raised by |
 |---|---|---|
-| `VALIDATION_FAILED` | 400 | Bean validation, BR-PRF-03/04, BR-PRG-02/03, BR-CAT-02 (`errors[]` lists the fields) |
+| `VALIDATION_FAILED` | 400 | Bean validation, malformed JSON, wrong parameter types, BR-PRF-03/04, BR-PRG-02/03, BR-CAT-02 (`errors[]` lists the fields). Other malformed requests (405, 415) keep their HTTP status and use this code |
 | `UNAUTHENTICATED` | 401 | Missing or invalid JWT, bad credentials |
 | `FORBIDDEN` | 403 | Ownership or role check |
 | `NOT_FOUND` | 404 | Unknown resource |
@@ -201,6 +202,7 @@ Exception messages are never returned to clients.
 | `GENERATION_LIMIT` | 429 | BR-LIF-06 |
 | `RATE_LIMITED` | 429 | BR-AI-07 |
 | `AI_UNAVAILABLE` | 503 | BR-AI-05 (chat only) |
+| `INTERNAL` | 500 | Unexpected failure. Generic message plus a `reference` id that matches the server log; nothing about the cause is returned |
 
 ## 13. Configurable constants
 

@@ -1,5 +1,6 @@
 package com.nutricook.service;
 
+import com.nutricook.domain.Enums;
 import com.nutricook.dto.request.ProfileRequest;
 import com.nutricook.entity.DietaryRestriction;
 import com.nutricook.entity.HealthCondition;
@@ -35,13 +36,15 @@ public class UserProfileService {
     if (req.getFirstName() != null) profile.setFirstName(req.getFirstName());
     if (req.getLastName() != null) profile.setLastName(req.getLastName());
     if (req.getDateOfBirth() != null) profile.setDateOfBirth(req.getDateOfBirth());
-    if (req.getGender() != null) profile.setGender(Gender.valueOf(req.getGender().toUpperCase()));
+    if (req.getGender() != null)
+      profile.setGender(Enums.parse(Gender.class, req.getGender(), "gender"));
     if (req.getWeightKg() != null) profile.setWeightKg(req.getWeightKg());
     if (req.getHeightCm() != null) profile.setHeightCm(req.getHeightCm());
     if (req.getActivityLevel() != null)
-      profile.setActivityLevel(ActivityLevel.valueOf(req.getActivityLevel().toUpperCase()));
+      profile.setActivityLevel(
+          Enums.parse(ActivityLevel.class, req.getActivityLevel(), "activityLevel"));
     if (req.getHealthGoal() != null)
-      profile.setHealthGoal(HealthGoal.valueOf(req.getHealthGoal().toUpperCase()));
+      profile.setHealthGoal(Enums.parse(HealthGoal.class, req.getHealthGoal(), "healthGoal"));
     return profileRepository.save(profile);
   }
 

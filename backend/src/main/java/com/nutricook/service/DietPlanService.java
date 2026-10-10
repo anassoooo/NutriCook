@@ -1,5 +1,7 @@
 package com.nutricook.service;
 
+import com.nutricook.domain.DomainException;
+import com.nutricook.domain.ErrorCode;
 import com.nutricook.dto.response.ChatResponse;
 import com.nutricook.dto.response.DietPlanResponse;
 import com.nutricook.dto.response.MealResponse;
@@ -13,10 +15,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -92,7 +92,7 @@ public class DietPlanService {
   public DietPlan getByIdForUser(Long userId, Long planId) {
     DietPlan plan = getById(planId);
     if (!plan.getUser().getId().equals(userId)) {
-      throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Plan does not belong to this user");
+      throw new DomainException(ErrorCode.FORBIDDEN, "This plan belongs to another user.");
     }
     return plan;
   }

@@ -1,6 +1,7 @@
 package com.nutricook.config;
 
 import com.nutricook.security.JwtAuthFilter;
+import com.nutricook.security.ProblemDetailSecurityHandlers;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -26,13 +27,10 @@ public class SecurityConfig {
 
   private final JwtAuthFilter jwtAuthFilter;
   private final AuthenticationProvider authenticationProvider;
+  private final ProblemDetailSecurityHandlers problemHandlers;
 
   private static final String[] PUBLIC_ENDPOINTS = {
-    "/api/auth/**",
-    "/swagger-ui/**",
-    "/swagger-ui.html",
-    "/api-docs/**",
-    "/actuator/health"
+    "/api/auth/**", "/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/actuator/health"
   };
 
   @Bean
@@ -51,6 +49,8 @@ public class SecurityConfig {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authenticationProvider(authenticationProvider)
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+        .exceptionHandling(
+            ex -> ex.authenticationEntryPoint(problemHandlers).accessDeniedHandler(problemHandlers))
         .headers(headers -> headers.frameOptions(frame -> frame.disable()))
         .build();
   }

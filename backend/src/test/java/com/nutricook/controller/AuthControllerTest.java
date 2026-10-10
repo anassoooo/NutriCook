@@ -36,7 +36,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
 
     mockMvc
         .perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
-        .andExpect(status().isConflict());
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("EMAIL_TAKEN"));
   }
 
   @Test
@@ -88,11 +89,12 @@ class AuthControllerTest extends AbstractIntegrationTest {
                     """
                 {"email":"wrongpass@example.com","password":"WrongPassword!"}
                 """))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
   }
 
   @Test
-  void register_withShortPassword_returns422() throws Exception {
+  void register_withShortPassword_returns400ValidationFailed() throws Exception {
     mockMvc
         .perform(
             post("/api/auth/register")
@@ -101,11 +103,13 @@ class AuthControllerTest extends AbstractIntegrationTest {
                     """
                 {"email":"short@example.com","password":"123"}
                 """))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+        .andExpect(jsonPath("$.errors[0].field").exists());
   }
 
   @Test
-  void register_withInvalidEmail_returns422() throws Exception {
+  void register_withInvalidEmail_returns400ValidationFailed() throws Exception {
     mockMvc
         .perform(
             post("/api/auth/register")
@@ -114,6 +118,8 @@ class AuthControllerTest extends AbstractIntegrationTest {
                     """
                 {"email":"not-an-email","password":"Password123!"}
                 """))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+        .andExpect(jsonPath("$.errors[0].field").exists());
   }
 }
