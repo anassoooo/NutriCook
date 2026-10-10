@@ -42,6 +42,42 @@ app:
     search-radius-meters: 2000
   cache:
     location-ttl-minutes: 60
+  # Business rule tunables (docs/domain/business-rules.md section 13). Change the catalogue first.
+  nutrition:
+    goal-adjustment:            # BR-NRG-03, kcal/day
+      lose: -500
+      gain: 300
+    min-kcal:                   # BR-NRG-04
+      male: 1500
+      other: 1200
+    protein-per-kg:             # BR-MAC-02, g per kg body weight
+      lose: 1.8
+      gain: 2.0
+      maintain: 1.2
+      improve: 1.0
+    protein-max-per-kg: 2.2     # BR-MAC-02 cap
+    protein-max-energy-share: 0.35
+    fat-energy-share: 0.30      # BR-MAC-03
+    fat-min-per-kg: 0.6
+    fiber-per-1000-kcal: 14     # BR-MAC-05
+    slot-shares:                # BR-CMP-01, must sum to 1.0
+      BREAKFAST: 0.25
+      MORNING_SNACK: 0.10
+      LUNCH: 0.30
+      AFTERNOON_SNACK: 0.10
+      DINNER: 0.25
+    tolerance:                  # BR-CMP-05
+      day-ok: 0.05
+      day-max: 0.10
+      meal: 0.15
+    composer-max-attempts: 50
+  tracking:
+    backfill-days: 30           # BR-PRG-02
+    hydration-day-ml: 2000      # BR-ACH-04
+  limits:
+    generations-per-day: 10     # BR-LIF-06
+    chat-per-hour: 30           # BR-AI-07
+    ai-timeout: 10s             # BR-AI-05
 
 springdoc:
   swagger-ui:

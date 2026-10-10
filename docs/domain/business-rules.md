@@ -206,11 +206,31 @@ Exception messages are never returned to clients.
 
 ## 13. Configurable constants
 
-All of these live under `app.nutrition.*` / `app.limits.*` in `application.yml` and bind to a
-validated `@ConfigurationProperties` record. Changing a value means changing this table first.
+Domain tunables (`app.nutrition.*`, `app.tracking.*`) bind to the self-validating domain records
+`NutritionRules` and `TrackingRules`. Operational limits (`app.limits.*`) bind to
+`LimitsProperties`. Out-of-range values stop the application at startup. Changing a value means
+changing this table first.
 
-| Key | Default | Rule |
-|---|---|---|
+| Key | Default | Allowed | Rule |
+|---|---|---|---|
+| `app.nutrition.goal-adjustment.lose` / `.gain` | -500 / +300 | [-1000, 0] / [0, 1000] | BR-NRG-03 |
+| `app.nutrition.min-kcal.male` / `.other` | 1500 / 1200 | >= 1000 | BR-NRG-04 |
+| `app.nutrition.protein-per-kg.{lose,gain,maintain,improve}` | 1.8 / 2.0 / 1.2 / 1.0 | [0.8, 2.2] | BR-MAC-02 |
+| `app.nutrition.protein-max-per-kg` | 2.2 | [1, 3] | BR-MAC-02 |
+| `app.nutrition.protein-max-energy-share` | 0.35 | (0.10, 0.40] | BR-MAC-02 |
+| `app.nutrition.fat-energy-share` | 0.30 | [0.20, 0.35] (AMDR) | BR-MAC-03 |
+| `app.nutrition.fat-min-per-kg` | 0.6 | (0, 1.5] | BR-MAC-03 |
+| `app.nutrition.fiber-per-1000-kcal` | 14 | (0, 30] | BR-MAC-05 |
+| `app.nutrition.slot-shares.<SLOT>` | 0.25/0.10/0.30/0.10/0.25 | all 5 slots, > 0, sum = 1 | BR-CMP-01 |
+| `app.nutrition.tolerance.day-ok` / `.day-max` / `.meal` | 0.05 / 0.10 / 0.15 | 0 < ok <= max < 0.5 | BR-CMP-05 |
+| `app.nutrition.composer-max-attempts` | 50 | >= 1 | BR-CMP-05 |
+| `app.tracking.backfill-days` | 30 | [0, 365] | BR-PRG-02 |
+| `app.tracking.hydration-day-ml` | 2000 | [500, 6000] | BR-ACH-04 |
+| `app.limits.generations-per-day` | 10 | [1, 1000] | BR-LIF-06 |
+| `app.limits.chat-per-hour` | 30 | [1, 1000] | BR-AI-07 |
+| `app.limits.ai-timeout` | 10s | required | BR-AI-05 |
+
+---|---|---|
 | `app.nutrition.goal-adjustment.lose` / `.gain` | −500 / +300 | BR-NRG-03 |
 | `app.nutrition.min-kcal.male` / `.other` | 1500 / 1200 | BR-NRG-04 |
 | `app.nutrition.protein-per-kg.{lose,gain,maintain,improve}` | 1.8 / 2.0 / 1.2 / 1.0 | BR-MAC-02 |

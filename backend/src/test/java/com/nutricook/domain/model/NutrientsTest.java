@@ -38,7 +38,8 @@ class NutrientsTest {
 
   @Test
   void BR_CMP_09_roundingHappensOnceAtMealLevelNotPerComponent() {
-    // Two 5 g portions of a 5 kcal/100 g food are 0.25 kcal each and would round to 0 per component,
+    // Two 5 g portions of a 5 kcal/100 g food are 0.25 kcal each and would round to 0 per
+    // component,
     // but the meal (0.5 kcal) must round to 1.
     FoodView tiny = TestFoods.withKcalPer100g("Tiny", 5);
     MealDraft meal =
