@@ -211,18 +211,19 @@ description: "Executable task list for 001-reliable-core"
 
 **Goal**: real meals that hit the targets, with a proper lifecycle and AI off the critical path.
 
-- [ ] **T041** [US3] `BR/db/migration/V5__plan_lifecycle.sql`:
+- [x] **T041** [US3] `BR/db/migration/V5__plan_lifecycle.sql`:
   - `diet_plans` gets `generation_seq INT NOT NULL DEFAULT 1`, `warnings JSONB`, `ai_status VARCHAR(16)`, `seed BIGINT`; the status CHECK adds `SUPERSEDED`
   - `CREATE UNIQUE INDEX ux_active_plan ON diet_plans(user_id, valid_for_date) WHERE status='ACTIVE'`
   - `meal_food_items` gets `role` plus snapshot columns (`kcal`, `protein_g`, `carbs_g`, `fat_g`, `sugar_g`, `fiber_g`, `sodium_mg`)
 
   Update the entities and the `PlanStatus` enum.
   **Done when:** validate passes.
+  *As built: `PlanStatus` moved to `domain.model` so the lifecycle can use it. Warnings are stored as `jsonb` via `@JdbcTypeCode(SqlTypes.JSON)`. Also added fiber/sodium totals and meal sodium, and a quota index. The migration backfills component snapshots for existing plans and demotes duplicate ACTIVE plans before creating the unique index.*
 
 ### Tests first
 
-- [ ] **T042** [P] [US3] `BT/domain/plan/PortionSolverTest.java`: `BR_CMP_03_portionsWithinBoundsAndStep` and `BR_CMP_03_clampWhenTargetUnreachable`. Hand-computed examples (e.g. a 690 kcal breakfast from Greek yogurt, oats and banana).
-- [ ] **T043** [P] [US3] `BT/domain/plan/PlanComposerTest.java` (fixture catalog in `BT/domain/fixtures/TestCatalog.java`):
+- [x] **T042** [P] [US3] `BT/domain/plan/PortionSolverTest.java`: `BR_CMP_03_portionsWithinBoundsAndStep` and `BR_CMP_03_clampWhenTargetUnreachable`. Hand-computed examples (e.g. a 690 kcal breakfast from Greek yogurt, oats and banana).
+- [x] **T043** [P] [US3] `BT/domain/plan/PlanComposerTest.java` (fixture catalog in `BT/domain/fixtures/TestCatalog.java`):
   - `BR_CMP_02_mainMealsHaveProteinCarbProduce`
   - `BR_CMP_02_snacksHaveOneOrTwoComponents`
   - `BR_CMP_04_slotSuitabilityRespected`
@@ -233,12 +234,12 @@ description: "Executable task list for 001-reliable-core"
   - `BR_CMP_07_sameSeedSamePlan`
   - `BR_CMP_07_differentSeqDifferentPlan`
   - `BR_SAF_04_emptyRolePoolIsInfeasibleNamingRole`
-- [ ] **T044** [P] [US3] `BT/domain/plan/PlanPropertiesTest.java` (jqwik, 1,000 tries over arbitrary profiles × restriction subsets × condition subsets × seeds):
+- [x] **T044** [P] [US3] `BT/domain/plan/PlanPropertiesTest.java` (jqwik, 1,000 tries over arbitrary profiles × restriction subsets × condition subsets × seeds):
   - `BR_SAF_04_neverViolatesOrInfeasible`
   - `BR_CMP_08_totalsEqualSumOfComponents`
   - `BR_CMP_03_allPortionsInBounds`
   - `BR_CMP_07_deterministic`
-- [ ] **T045** [P] [US3] `BT/domain/plan/PlanLifecycleTest.java`:
+- [x] **T045** [P] [US3] `BT/domain/plan/PlanLifecycleTest.java`:
   - `BR_LIF_01_allowedTransitions`
   - `BR_LIF_01_illegalTransitionsReadOnly` (every pair from the state table)
   - `BR_LIF_03_dateWindow` (today and today+7 accepted; today−1 and today+8 rejected)
@@ -246,18 +247,21 @@ description: "Executable task list for 001-reliable-core"
 
 ### Implementation
 
-- [ ] **T046** [US3] `B/domain/plan/SeededRandom.java` (wraps `RandomGenerator` from `seed(userId,date,seq)`; per-slot sub-streams so changing one slot doesn't reshuffle the others) and `SlotTemplate.java`.
+- [x] **T046** [US3] `B/domain/plan/SeededRandom.java` (wraps `RandomGenerator` from `seed(userId,date,seq)`; per-slot sub-streams so changing one slot doesn't reshuffle the others) and `SlotTemplate.java`.
   **Rules:** BR-CMP-02/07.
-- [ ] **T047** [US3] `B/domain/plan/PortionSolver.java`, per plan D2.
+  *As built: this is `PlanSeed` (a SplitMix64 mix plus one `SplittableRandom` stream per slot and day attempt) together with `SlotGoal`. There is no separate `SlotTemplate` class; the patterns are constants in `PlanComposer`.*
+- [x] **T047** [US3] `B/domain/plan/PortionSolver.java`, per plan D2.
   **Rules:** BR-CMP-03/09. **Done when:** T042 is green.
-- [ ] **T048** [US3] `B/domain/plan/PlanComposer.java`, per the plan D2 pseudocode (MAX_ATTEMPTS from config).
+- [x] **T048** [US3] `B/domain/plan/PlanComposer.java`, per the plan D2 pseudocode (MAX_ATTEMPTS from config).
   **Rules:** BR-CMP-01..08, BR-SAF-04. **Done when:** T043 and T044 are green.
-- [ ] **T049** [US3] `B/domain/plan/PlanLifecycle.java` (state machine, `assertMutable(plan, today)`).
+  *As built: the first version overshot protein (164–194 g against a 96 g target) and could not feed a 1,200 kcal strict-vegan profile. It was tuned to proportional protein per slot, protein sizing net of other foods, a 50% energy cap on the protein food, scoring that penalises protein both ways, and up to 3 day attempts that keep the fewest-warnings day. Measured on 800 compositions (4 profiles × 4 constraint sets × 50 seeds): 100% within ±5% and none infeasible. `LOW_PROTEIN` appears only for strict plant-based low-calorie profiles.*
+- [x] **T049** [US3] `B/domain/plan/PlanLifecycle.java` (state machine, `assertMutable(plan, today)`).
   **Rules:** BR-LIF-01/03/04. **Done when:** T045 is green.
-- [ ] **T050** [US3] `B/service/PlanCommandService.java`: the **only** class allowed to call `DietPlanRepository.save` (it calls `PlanSafetyValidator` first). Add an ArchUnit rule `onlyPlanCommandServiceSavesPlans` to `ArchitectureTest`.
+- [x] **T050** [US3] `B/service/PlanCommandService.java`: the **only** class allowed to call `DietPlanRepository.save` (it calls `PlanSafetyValidator` first). Add an ArchUnit rule `onlyPlanCommandServiceSavesPlans` to `ArchitectureTest`.
   **Rules:** BR-SAF-05 (plan D3).
-- [ ] **T051** [US3] `B/service/PlanGenerationService.java`, replacing `DietPlanService.generate`. It runs in this order:
+- [x] **T051** [US3] `B/service/PlanGenerationService.java`, replacing `DietPlanService.generate`. It runs in this order:
   1. quota check (BR-LIF-06, Bucket4j via `B/service/QuotaService.java`)
+  *As built: there is no Bucket4j `QuotaService` for generations. The quota counts stored plans since the start of the user's day, so it is exact across restarts and instances. Bucket4j is kept for the chat rate limit (BR-AI-07).*
   2. date window (BR-LIF-03)
   3. map entities → domain
   4. targets
@@ -268,21 +272,22 @@ description: "Executable task list for 001-reliable-core"
 
   Delete `buildMeals`, `selectCompatibleFoods`, `isFoodCompatible` and `MEAL_CALORIE_RATIO`.
   **Rules:** BR-LIF-02/05/06, BR-CMP-*. **Done when:** `DietPlanService` contains only read and query methods.
-- [ ] **T052** [US3] AI off the critical path:
+- [x] **T052** [US3] AI off the critical path:
   - `B/service/PlanGeneratedEvent.java` and `B/service/PlanEnrichmentService.java` (`@TransactionalEventListener(AFTER_COMMIT)` + `@Async`, its own `REQUIRES_NEW` transaction)
   - `B/config/AsyncConfig.java` (bounded executor)
   - Groq timeout taken from `app.limits.ai-timeout`
   - `ai_status` moves PENDING → READY | UNAVAILABLE
 
   **Rules:** BR-LIF-07, BR-AI-05.
-- [ ] **T053** [US3] `BT/service/PlanGenerationIT.java`:
+  *As built: the AI call timeout uses `CompletableFuture.get(timeout)` on a dedicated executor. Enrichment stops after the explanation if that call fails.*
+- [x] **T053** [US3] `BT/service/PlanGenerationIT.java`:
   - `BR_LIF_02_regenerateSupersedes` (old plan SUPERSEDED, exactly 1 ACTIVE)
   - `BR_LIF_02_concurrentGenerateOneActive` (2 threads on a latch)
   - `BR_LIF_06_eleventhGenerationRejected`
   - `BR_LIF_07_slowAiDoesNotDelayResponse` (stub with 15 s latency → 201 within 1 s, `aiStatus=PENDING`, later UNAVAILABLE)
   - `BR_LIF_05_catalogEditDoesNotChangeHistoricPlan`
   - `BR_PRF_06_profileChangeDoesNotAlterExistingPlan`
-- [ ] **T054** [P] [US3] Frontend:
+- [x] **T054** [P] [US3] Frontend:
   - `F/pages/DietPlanPage.tsx` and `DashboardPage.tsx`: list components (food, grams, role) per meal and render `warnings`
   - poll `aiStatus` once after 3 s
   - show the `PLAN_INFEASIBLE` message with the named constraint

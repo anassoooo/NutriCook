@@ -108,3 +108,16 @@ export function toApiError(err: unknown): ApiError {
 export function shouldRedirectToLogin(status: number | undefined, url: string | undefined, hadToken: boolean): boolean {
   return status === 401 && hadToken && !(url ?? '').startsWith('/auth/')
 }
+
+/**
+ * Message for a failed plan generation. For PLAN_INFEASIBLE the server explains which restriction
+ * or limit could not be met, which is more useful than the generic text.
+ */
+export function planErrorMessage(err: unknown): string {
+  const e = toApiError(err)
+  if (e.code === 'PLAN_INFEASIBLE' && e.detail) {
+    const reason = typeof e.properties.reason === 'string' ? ` ${e.properties.reason}` : ''
+    return `${e.detail}${reason}`
+  }
+  return e.message
+}

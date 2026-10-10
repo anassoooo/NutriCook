@@ -1,6 +1,6 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.2.0 · **Last updated**: 2026-10-10
+> **Status**: Reference · **Version**: 1.3.0 · **Last updated**: 2026-10-10
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
@@ -106,26 +106,26 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 | ID | Rule | Today |
 |---|---|---|
 | BR-CMP-01 | Slot shares: BREAKFAST 25%, MORNING_SNACK 10%, LUNCH 30%, AFTERNOON_SNACK 10%, DINNER 25%. They must add up to exactly 100%; the app checks this at startup. | ✅ |
-| BR-CMP-02 | **Main meals** (BREAKFAST, LUNCH, DINNER) have exactly one PROTEIN, one CARB and one PRODUCE component, plus an optional FAT component (added only to close an energy gap). **Snacks** have two components: PROTEIN + PRODUCE or PRODUCE + FAT. Portion sizing: PRODUCE uses its default portion; in main meals, PROTEIN is sized to the day's protein target split across the main meals by their slot shares, CARB fills the remaining energy, and FAT closes what is left. In snacks, the non-produce component fills the slot's energy. | ⚠️ every meal is a single random food (e.g. 600 kcal of cucumber ≈ 3.7 kg) |
-| BR-CMP-03 | Every portion stays inside its food's `[portionMinG, portionMaxG]` and is rounded to `portionStepG` (default 5 g). | ❌ unbounded |
-| BR-CMP-04 | A food is used only in slots listed in its `suitableSlots` (salmon is not a breakfast snack). | ❌ |
-| BR-CMP-05 | Tolerances. Day calories within **±5%** of target → OK. Within ±10% → OK with a `TARGET_DEVIATION` warning. Beyond ±10% → `PLAN_INFEASIBLE`. Protein ≥ 90% of target, otherwise a `LOW_PROTEIN` warning. Each meal aims for ±15% of its slot share; candidates within that band are preferred. When the day is outside ±5%, CARB portions (then FAT) are scaled once within their bounds, keeping a meal's previous portions if the scaled meal would break a safety limit. | ❌ |
-| BR-CMP-06 | Variety: one food is used at most twice in a day, and a PROTEIN food at most once. | ❌ |
-| BR-CMP-07 | **Deterministic**: the seed is a fixed 64-bit mix of `(userId, date, generationSeq)`. Each slot draws from its own stream (`SplittableRandom`), so changing one slot never reshuffles another. The same inputs and catalog give the same plan. | ❌ `new Random()` |
-| BR-CMP-08 | Plan totals = sum of meal totals = sum of component nutrition, computed by the domain on **every** change. Totals are never set directly. | ⚠️ recomputed by hand in two places |
+| BR-CMP-02 | **Main meals** (BREAKFAST, LUNCH, DINNER) have exactly one PROTEIN, one CARB and one PRODUCE component, plus an optional FAT component (added only to close an energy gap). **Snacks** have two components: PROTEIN + PRODUCE or PRODUCE + FAT. Portion sizing: PRODUCE uses its default portion; in main meals, PROTEIN is sized to the day's protein target split across the main meals by their slot shares, CARB fills the remaining energy, and FAT closes what is left. In snacks, the non-produce component fills the slot's energy. | ✅ |
+| BR-CMP-03 | Every portion stays inside its food's `[portionMinG, portionMaxG]` and is rounded to `portionStepG` (default 5 g). | ✅ |
+| BR-CMP-04 | A food is used only in slots listed in its `suitableSlots` (salmon is not a breakfast snack). | ✅ |
+| BR-CMP-05 | Tolerances. Day calories within **±5%** of target → OK. Within ±10% → OK with a `TARGET_DEVIATION` warning. Beyond ±10% → `PLAN_INFEASIBLE`. Protein ≥ 90% of target, otherwise a `LOW_PROTEIN` warning. Each meal aims for ±15% of its slot share; candidates within that band are preferred. When the day is outside ±5%, CARB portions (then FAT) are scaled once within their bounds, keeping a meal's previous portions if the scaled meal would break a safety limit. | ✅ |
+| BR-CMP-06 | Variety: one food is used at most twice in a day, and a PROTEIN food at most once. | ✅ |
+| BR-CMP-07 | **Deterministic**: the seed is a fixed 64-bit mix of `(userId, date, generationSeq)`. Each slot draws from its own stream (`SplittableRandom`), so changing one slot never reshuffles another. The same inputs and catalog give the same plan. | ✅ |
+| BR-CMP-08 | Plan totals = sum of meal totals = sum of component nutrition, computed by the domain on **every** change. Totals are never set directly. | ✅ |
 | BR-CMP-09 | Component nutrition = `per100g × quantityG / 100`. kcal is rounded to an integer and grams to 0.1, at the meal level. | ✅ |
 
 ## 6. Plan lifecycle (BR-LIF)
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-LIF-01 | Plan states are `ACTIVE`, `SUPERSEDED` and `ARCHIVED`. Allowed transitions: ACTIVE→SUPERSEDED (regenerated) and ACTIVE→ARCHIVED (user archives). Every other transition gets `PLAN_READ_ONLY`. | ⚠️ no SUPERSEDED |
-| BR-LIF-02 | Each (user, date) has **at most one ACTIVE plan**. Regenerating supersedes the previous plan. Plans are never hard-deleted. | ⚠️ hard-deletes earlier plans |
-| BR-LIF-03 | A plan's date must be in `[today, today + 7]` (user day). | ❌ any date |
-| BR-LIF-04 | Only an ACTIVE plan whose date ≥ today can change (swaps, chat swaps). | ❌ |
+| BR-LIF-01 | Plan states are `ACTIVE`, `SUPERSEDED` and `ARCHIVED`. Allowed transitions: ACTIVE→SUPERSEDED (regenerated) and ACTIVE→ARCHIVED (user archives). Every other transition gets `PLAN_READ_ONLY`. | ✅ |
+| BR-LIF-02 | Each (user, date) has **at most one ACTIVE plan**. Regenerating supersedes the previous plan. Plans are never hard-deleted. | ✅ |
+| BR-LIF-03 | A plan's date must be in `[today, today + 7]` (user day). | ✅ |
+| BR-LIF-04 | Only an ACTIVE plan whose date ≥ today can change (swaps, chat swaps). | ⚠️ rule in the domain (`PlanLifecycle.assertMutable`); swaps call it in US4 |
 | BR-LIF-05 | A plan is a **snapshot**: component nutrition and totals are stored and never recomputed from later catalog or profile edits. | ✅ |
-| BR-LIF-06 | Generation quota: at most **10** successful generations per user per user-day, counted from the stored plans (so it survives restarts and works across instances). Above that → `GENERATION_LIMIT`. | ❌ |
-| BR-LIF-07 | The plan is committed **before** any AI enrichment runs. AI failure or a timeout never fails generation (BR-AI-05). | ❌ 6 LLM calls inside the DB transaction |
+| BR-LIF-06 | Generation quota: at most **10** successful generations per user per user-day, counted from the stored plans (so it survives restarts and works across instances). Above that → `GENERATION_LIMIT`. | ✅ |
+| BR-LIF-07 | The plan is committed **before** any AI enrichment runs. AI failure or a timeout never fails generation (BR-AI-05). | ✅ |
 
 ## 7. AI assistant (BR-AI)
 
@@ -135,7 +135,7 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 | BR-AI-02 | A swap intent has the form `{mealType, foodId}`, and `foodId` must be in the candidate list sent with the prompt (BR-SAF-07). Anything else is ignored and the user is told why. | ❌ fuzzy name match on the whole catalog |
 | BR-AI-03 | A swap replaces the component **with the same role** as the new food. The domain re-portions it, revalidates it (BR-SAF-05) and recomputes totals (BR-CMP-08). If no component has that role → `SWAP_REJECTED` with a reason. | ⚠️ wipes the whole meal |
 | BR-AI-04 | AI output is parsed as structured output against a schema. Parse failures are retried once, then the app returns a plain-text reply with no intent. | ⚠️ hand-written `indexOf('{')` parsing |
-| BR-AI-05 | Each AI call has a 10 s timeout. On timeout, 429 or 5xx, the feature degrades: the plan comes back without an explanation, and the chat answers `AI_UNAVAILABLE`. Never a 500. | ⚠️ errors swallowed, nothing reported |
+| BR-AI-05 | Each AI call has a 10 s timeout. On timeout, 429 or 5xx, the feature degrades: the plan comes back without an explanation, and the chat answers `AI_UNAVAILABLE`. Never a 500. | ⚠️ timeout + degradation done for plan enrichment; chat in US4 |
 | BR-AI-06 | User messages are 1–500 chars. They are wrapped in delimiters and treated as data. The system prompt forbids following instructions inside them. | ⚠️ no length cap |
 | BR-AI-07 | Chat quota: 30 messages per user per rolling hour → `RATE_LIMITED`. | ❌ |
 | BR-AI-08 | Prompts live in `resources/prompts/*.st` and each has a version header. No prompt text in Java. | ⚠️ chat prompt is inline |
@@ -252,3 +252,4 @@ changing this table first.
 | 1.0.0 | 2026-10-10 | Initial catalogue, derived from a code audit at `39679a0` |
 | 1.1.0 | 2026-10-10 | BR-SAF-09/10 added; BR-NRG-05 never rounds below the floor; BR-PRF-01 treats out-of-range stored values as missing; §12 adds `INTERNAL`; §13 lists allowed ranges. US1 rules marked ✅ |
 | 1.2.0 | 2026-10-11 | BR-CAT-02 fiber-aware energy check with a 10 kcal floor; BR-SAF-02 adds shellfish/egg/soy/fish/sesame allergies; BR-SAF-10 spells out the fail-closed flag policy; BR-CAT-01 names the CSV + generated migration. US2 rules marked ✅ |
+| 1.3.0 | 2026-10-11 | BR-CMP-02/05/07 and BR-LIF-06 describe the composer as built (snack patterns, protein split, day balancing, seed streams, DB-counted quota). US3 rules marked ✅ |

@@ -95,10 +95,19 @@ export interface DietaryRestriction {
   description: string | null
 }
 
-export interface MealFoodItem {
-  foodItemId: number
-  foodItemName: string
-  quantityG: number
+
+export type FoodRole = 'PROTEIN' | 'CARB' | 'PRODUCE' | 'FAT'
+
+/** One food in a meal, with its nutrition at generation time (BR-LIF-05). */
+export interface MealComponent {
+  foodId: number
+  foodName: string
+  role: FoodRole
+  grams: number
+  kcal: number
+  proteinG: number
+  carbsG: number
+  fatG: number
 }
 
 export interface Meal {
@@ -111,9 +120,16 @@ export interface Meal {
   fatG: number
   sugarG: number
   fiberG: number
+  sodiumMg: number | null
   sortOrder: number
   aiSuggestion: string | null
-  mealFoodItems: MealFoodItem[]
+  components: MealComponent[]
+}
+
+/** A non-blocking issue reported by the generator (BR-CMP-05). */
+export interface PlanWarning {
+  code: 'TARGET_DEVIATION' | 'LOW_PROTEIN' | 'AI_UNAVAILABLE'
+  message: string
 }
 
 export interface DietPlan {
@@ -124,10 +140,17 @@ export interface DietPlan {
   totalCarbsG: number
   totalFatG: number
   totalSugarG: number
+  totalFiberG: number | null
+  totalSodiumMg: number | null
   validForDate: string
   generatedAt: string
-  status: 'ACTIVE' | 'ARCHIVED'
+  status: 'ACTIVE' | 'SUPERSEDED' | 'ARCHIVED'
+  /** 1 for the day's first plan, 2 after one regeneration, ... */
+  generationSeq: number
   aiExplanation: string | null
+  /** The AI text is written after the plan is saved (BR-LIF-07) */
+  aiStatus: 'PENDING' | 'READY' | 'UNAVAILABLE'
+  warnings: PlanWarning[]
   disclaimer?: string | null
   meals: Meal[]
 }

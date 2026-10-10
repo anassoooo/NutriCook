@@ -2,12 +2,15 @@ import { useEffect, useState, Suspense, lazy } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
-import { toApiError } from '../lib/errors'
+import { planErrorMessage } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan, Meal, UserProfile, ProgressEntry, SlotTarget } from '../types'
 import MacroRing from '../components/MacroRing'
 import ChatPanel from '../components/ChatPanel'
 import MedicalDisclaimer from '../components/MedicalDisclaimer'
+import PlanWarnings from '../components/PlanWarnings'
+import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
+import { useAiRefresh } from '../hooks/useAiRefresh'
 
 const NutritionOrb = lazy(() => import('../components/3d/NutritionOrb'))
 
@@ -57,6 +60,7 @@ function MealCard({ meal, index, target, onReplace }: { meal: Meal; index: numbe
             <p className="text-white/70 text-xs mt-0.5">
               {meal.mealType.replace('_', ' ')} · {meal.calories} kcal
             </p>
+            <MealComponentsSummary components={meal.components} />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -93,6 +97,7 @@ function MealCard({ meal, index, target, onReplace }: { meal: Meal; index: numbe
             className="overflow-hidden"
           >
             <div className="px-5 py-5 space-y-5">
+              <MealComponents components={meal.components} />
               <div className="flex justify-around">
                 {/* Ring maxima are this slot's share of the user's targets (from the API) */}
                 {target && <>
@@ -125,6 +130,7 @@ export default function DashboardPage() {
   const [generating,   setGenerating]   = useState(false)
   const [error,        setError]        = useState('')
   const [chatTrigger,  setChatTrigger]  = useState('')
+  useAiRefresh(userId, plan, setPlan)
 
   useEffect(() => {
     if (!userId) return
@@ -144,9 +150,9 @@ export default function DashboardPage() {
     if (!userId) return
     setGenerating(true); setError('')
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate?date=${today}`)).data)
-    } catch (err) { setError(toApiError(err).message) }
+      // No date: the server plans for the user's own today (BR-TIM-01, BR-LIF-03)
+      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate`)).data)
+    } catch (err) { setError(planErrorMessage(err)) }
     finally   { setGenerating(false) }
   }
 
@@ -265,6 +271,7 @@ export default function DashboardPage() {
       </div>
 
       <MedicalDisclaimer disclaimer={plan?.disclaimer ?? profile?.disclaimer} />
+      <PlanWarnings warnings={plan?.warnings} />
 
       {error && (
         <div className="banner-error">

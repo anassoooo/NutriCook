@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
-import { toApiError } from '../lib/errors'
+import { planErrorMessage } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan, Meal, SlotTarget } from '../types'
 import { useTargets } from '../hooks/useTargets'
 import MacroRing from '../components/MacroRing'
 import ChatPanel from '../components/ChatPanel'
 import MedicalDisclaimer from '../components/MedicalDisclaimer'
+import PlanWarnings from '../components/PlanWarnings'
+import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
+import { useAiRefresh } from '../hooks/useAiRefresh'
 
 const MEAL_META: Record<string, { icon: string; gradient: string; badge: string }> = {
   BREAKFAST:       { icon: '🌅', gradient: 'from-amber-400 to-orange-500',    badge: 'badge-amber'  },
@@ -40,6 +43,7 @@ function MealCard({ meal, index, target }: { meal: Meal; index: number; target?:
             <p className="text-white/70 text-xs mt-0.5">
               {meal.mealType.replace('_', ' ')} · {meal.calories} kcal
             </p>
+            <MealComponentsSummary components={meal.components} />
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -67,6 +71,7 @@ function MealCard({ meal, index, target }: { meal: Meal; index: number; target?:
             className="overflow-hidden"
           >
             <div className="px-5 py-5 space-y-5">
+              <MealComponents components={meal.components} />
               {/* Macro rings */}
               <div className="flex justify-around">
                 {/* Ring maxima are this slot's share of the user's targets (from the API) */}
@@ -99,6 +104,7 @@ export default function DietPlanPage() {
   const [plan,       setPlan]       = useState<DietPlan | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error,      setError]      = useState('')
+  useAiRefresh(userId, plan, setPlan)
 
   useEffect(() => {
     if (!userId) return
@@ -112,9 +118,9 @@ export default function DietPlanPage() {
     if (!userId) return
     setGenerating(true); setError('')
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate?date=${today}`)).data)
-    } catch (err) { setError(toApiError(err).message) }
+      // No date: the server plans for the user's own today (BR-TIM-01, BR-LIF-03)
+      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate`)).data)
+    } catch (err) { setError(planErrorMessage(err)) }
     finally   { setGenerating(false) }
   }
 
@@ -151,6 +157,7 @@ export default function DietPlanPage() {
       {plan ? (
         <>
           <MedicalDisclaimer disclaimer={plan.disclaimer} />
+          <PlanWarnings warnings={plan.warnings} />
           {/* Daily macro overview */}
           {targets && (
           <div className="card">
