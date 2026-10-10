@@ -1,5 +1,7 @@
 # NutriCook — AI-Powered Diet Assistant
 
+[![CI](https://github.com/anassoooo/NutriCook/actions/workflows/ci.yml/badge.svg)](https://github.com/anassoooo/NutriCook/actions/workflows/ci.yml)
+
 A full-stack web application that generates personalized AI meal plans, tracks macros and progress, awards achievements, and finds nearby healthy restaurants — all at zero cost.
 
 ---
@@ -26,7 +28,7 @@ A full-stack web application that generates personalized AI meal plans, tracks m
 | Backend | Spring Boot 3.3.4 + Spring AI 1.0.0 |
 | AI Model | Groq API — Llama 3.3 70B Versatile |
 | Auth | JJWT 0.12.3, Spring Security 6 |
-| Database | H2 (dev) / PostgreSQL (prod) |
+| Database | PostgreSQL 16 (Docker / prod), H2 (local dev) |
 | Maps | OpenStreetMap + Nominatim (free) |
 
 ---
@@ -55,73 +57,62 @@ A full-stack web application that generates personalized AI meal plans, tracks m
 
 ## Quickstart
 
-### Prerequisites
+### Option A: Docker (recommended, one command)
 
-- Java 21 (Microsoft / Temurin / Zulu)
-- Maven 3.9+ (or use the included `mvnw.cmd`)
-- Node.js 20+
-- A free [Groq API key](https://console.groq.com)
-
-### 1. Clone
+Prerequisites: Docker Desktop and a free [Groq API key](https://console.groq.com) (optional; without it, AI text is unavailable).
 
 ```bash
 git clone https://github.com/anassoooo/NutriCook.git
 cd NutriCook
+cp .env.example .env        # then set GROQ_API_KEY (and a real JWT_SECRET outside local use)
+docker compose up --build
 ```
 
-### 2. Backend
+| Service | URL |
+|---|---|
+| App (nginx + React) | http://localhost:8081 |
+| API + Swagger UI | http://localhost:8080/swagger-ui.html |
+| PostgreSQL | `localhost:5433` (user/password `nutricook`) |
 
-Copy the run script template and fill in your values:
+Stop with `docker compose down` (add `-v` to wipe the database).
+
+### Option B: Local development
+
+Prerequisites: Java 21, Node.js 24+. Maven is not needed because the wrapper is included.
 
 ```bash
-cp backend/run.bat.example backend/run.bat
-```
-
-Edit `backend/run.bat` and set:
-
-```bat
-set "GROQ_API_KEY=your_groq_api_key_here"
-set "JWT_SECRET=your_base64_secret_here"
-set "JAVA_HOME=C:\path\to\your\jdk21"
-set "M2_HOME=C:\path\to\your\maven"
-```
-
-Then start the backend:
-
-```bash
+# Backend (local profile, file-based H2, port 8080)
 cd backend
-run.bat
-```
+export GROQ_API_KEY=...            # PowerShell: $env:GROQ_API_KEY="..."
+./mvnw spring-boot:run             # Windows: mvnw.cmd spring-boot:run
 
-The API will be available at `http://localhost:8080`.
-
-#### Generate a JWT secret
-
-```bash
-openssl rand -base64 32
-```
-
-### 3. Frontend
-
-```bash
+# Frontend (Vite dev server on 5173, proxies /api → 8080)
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+### Quality checks
+
+```bash
+cd backend  && ./mvnw verify                 # tests + google-java-format
+cd frontend && npm run typecheck && npm run lint && npm test && npm run build
+```
+
+The same checks run in GitHub Actions on every push ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ---
 
 ## Environment Variables
 
+All variables are documented in [`.env.example`](.env.example).
+
 | Variable | Required | Description |
 |---|---|---|
-| `GROQ_API_KEY` | Yes | From [console.groq.com](https://console.groq.com) |
-| `JWT_SECRET` | Yes | Base64-encoded secret (min 32 bytes) |
-| `SPRING_PROFILES_ACTIVE` | No | `local` (H2) or `prod` (PostgreSQL) |
-
-No `.env` file needed for the frontend — the Vite dev server proxies `/api` to `localhost:8080` automatically.
+| `GROQ_API_KEY` | For AI features | From [console.groq.com](https://console.groq.com) |
+| `JWT_SECRET` | Yes (prod) | Base64 secret, ≥ 32 bytes: `openssl rand -base64 48` |
+| `SPRING_PROFILES_ACTIVE` | No | `local` (H2), `docker` (Compose Postgres), `prod` |
+| `DATABASE_URL` / `_USERNAME` / `_PASSWORD` | `docker`, `prod` | JDBC PostgreSQL connection |
 
 ---
 
@@ -130,7 +121,7 @@ No `.env` file needed for the frontend — the Vite dev server proxies `/api` to
 ```
 NutriCook/
 ├── backend/
-│   ├── run.bat.example          # Copy → run.bat and fill secrets
+│   ├── Dockerfile
 │   ├── pom.xml
 │   └── src/main/java/com/nutricook/
 │       ├── controller/          # REST endpoints
