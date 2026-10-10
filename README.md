@@ -28,7 +28,7 @@ A full-stack web application that generates personalized AI meal plans, tracks m
 | Backend | Spring Boot 3.3.4 + Spring AI 1.0.0 |
 | AI Model | Groq API — Llama 3.3 70B Versatile |
 | Auth | JJWT 0.12.3, Spring Security 6 |
-| Database | PostgreSQL 16 (Docker / prod), H2 (local dev) |
+| Database | PostgreSQL 16 + Flyway migrations (all environments) |
 | Maps | OpenStreetMap + Nominatim (free) |
 
 ---
@@ -44,7 +44,7 @@ A full-stack web application that generates personalized AI meal plans, tracks m
 ┌──────────────▼──────────────────────┐
 │       Spring Boot 3.3.4             │
 │  Spring Security · Spring AI        │
-│  JPA / Hibernate · H2 / PostgreSQL  │
+│  JPA / Hibernate · PostgreSQL       │
 └──────┬───────────────┬──────────────┘
        │               │
 ┌──────▼──────┐  ┌─────▼───────────────┐
@@ -78,10 +78,13 @@ Stop with `docker compose down` (add `-v` to wipe the database).
 
 ### Option B: Local development
 
-Prerequisites: Java 21, Node.js 24+. Maven is not needed because the wrapper is included.
+Prerequisites: Java 21, Node.js 24+, Docker (for PostgreSQL). Maven is not needed because the wrapper is included.
 
 ```bash
-# Backend (local profile, file-based H2, port 8080)
+# Database only (PostgreSQL 16 on localhost:5433); Flyway creates the schema on first start
+docker compose up -d db
+
+# Backend (local profile, port 8080)
 cd backend
 export GROQ_API_KEY=...            # PowerShell: $env:GROQ_API_KEY="..."
 ./mvnw spring-boot:run             # Windows: mvnw.cmd spring-boot:run
@@ -95,7 +98,7 @@ npm run dev
 ### Quality checks
 
 ```bash
-cd backend  && ./mvnw verify                 # tests + google-java-format
+cd backend  && ./mvnw verify                 # tests on Testcontainers Postgres (needs Docker) + format
 cd frontend && npm run typecheck && npm run lint && npm test && npm run build
 ```
 
@@ -111,7 +114,7 @@ All variables are documented in [`.env.example`](.env.example).
 |---|---|---|
 | `GROQ_API_KEY` | For AI features | From [console.groq.com](https://console.groq.com) |
 | `JWT_SECRET` | Yes (prod) | Base64 secret, ≥ 32 bytes: `openssl rand -base64 48` |
-| `SPRING_PROFILES_ACTIVE` | No | `local` (H2), `docker` (Compose Postgres), `prod` |
+| `SPRING_PROFILES_ACTIVE` | No | `local` (Postgres on :5433), `docker` (inside Compose), `prod` |
 | `DATABASE_URL` / `_USERNAME` / `_PASSWORD` | `docker`, `prod` | JDBC PostgreSQL connection |
 
 ---
