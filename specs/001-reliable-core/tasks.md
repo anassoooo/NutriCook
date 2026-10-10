@@ -39,7 +39,7 @@ description: "Executable task list for 001-reliable-core"
   **Done when:** `cp .env.example .env && docker compose up` → http://localhost:8081 shows the landing page and registration works.
 - [x] **T008** [P] Frontend tooling: add ESLint (typescript-eslint, react-hooks) + Prettier configs and the scripts `typecheck` (`tsc --noEmit`), `lint`, `format`. Fix the errors that come up.
   **Done when:** `npm run typecheck && npm run lint` exit 0.
-- [ ] **T009** *(written; still needs a green run on GitHub)* `.github/workflows/ci.yml`: a `backend` job (Temurin 21, Maven cache, `./mvnw -B verify`; Docker available for Testcontainers) and a `frontend` job (Node 24: `npm ci`, typecheck, lint, test, build) and a `docker` job (`docker compose build`). The backend job also runs `fmt-maven-plugin:check`. Add the badge to `README.md`.
+- [x] **T009** `.github/workflows/ci.yml`: a `backend` job (Temurin 21, Maven cache, `./mvnw -B verify`; Docker available for Testcontainers) and a `frontend` job (Node 24: `npm ci`, typecheck, lint, test, build) and a `docker` job (`docker compose build`). The backend job also runs `fmt-maven-plugin:check`. Add the badge to `README.md`.
   **Done when:** CI runs green on a pushed branch.
 
 **Checkpoint M0**: fresh clone → working app + green CI.
@@ -50,32 +50,38 @@ description: "Executable task list for 001-reliable-core"
 
 **Goal**: the infrastructure every story needs. **No story work before this phase is complete.**
 
-- [ ] **T010** `backend/pom.xml`: add `flyway-core`, `flyway-database-postgresql`, `spring-boot-testcontainers`, `testcontainers:postgresql`, `testcontainers:junit-jupiter`, `net.jqwik:jqwik`, `com.tngtech.archunit:archunit-junit5`, `com.bucket4j:bucket4j_jdk17-core`, and the `jacoco-maven-plugin` (report only for now). Remove `h2`.
+- [x] **T010** `backend/pom.xml`: add `flyway-core`, `flyway-database-postgresql`, `spring-boot-testcontainers`, `testcontainers:postgresql`, `testcontainers:junit-jupiter`, `net.jqwik:jqwik`, `com.tngtech.archunit:archunit-junit5`, `com.bucket4j:bucket4j_jdk17-core`, and the `jacoco-maven-plugin` (report only for now). Remove `h2`.
   **Done when:** `./mvnw dependency:tree` resolves and `verify` still passes (excluding the H2-based tests that T012 migrates).
-- [ ] **T011** Flyway baseline `BR/db/migration/V1__baseline.sql`: generate it from the current entities with Hibernate schema export (PostgreSQL dialect) and review it by hand (constraint names, `uq_user_progress_date`). In `application.yml`, set `ddl-auto: validate` for **all** profiles and point `local` at `jdbc:postgresql://localhost:5432/nutricook`.
+  *As built: Bucket4j is `com.bucket4j:bucket4j-core:8.10.1` (the `_jdk17` artifact has no 8.10.1). Testcontainers is pinned to 1.21.4, because the 1.19.8 managed by Boot 3.3 is rejected by Docker Engine 29. Surefire also runs `*IT` classes.*
+- [x] **T011** Flyway baseline `BR/db/migration/V1__baseline.sql`: generate it from the current entities with Hibernate schema export (PostgreSQL dialect) and review it by hand (constraint names, `uq_user_progress_date`). In `application.yml`, set `ddl-auto: validate` for **all** profiles and point `local` at `jdbc:postgresql://localhost:5432/nutricook`.
   **Done when:** the app starts against an empty compose Postgres and Flyway reports V1 applied with validate passing.
-- [ ] **T012** Test infrastructure: `BT/support/AbstractIntegrationTest.java` (a single shared `PostgreSQLContainer`, `@ServiceConnection`, `@SpringBootTest`, `@AutoConfigureMockMvc`) and `BT/support/StubChatModel.java` (scriptable responses, latency, exceptions). Migrate `NutriCookApplicationTests` and `AuthControllerTest` onto it. Delete `backend/src/test/resources/application-test.yml`.
+- [x] **T012** Test infrastructure: `BT/support/AbstractIntegrationTest.java` (a single shared `PostgreSQLContainer`, `@ServiceConnection`, `@SpringBootTest`, `@AutoConfigureMockMvc`) and `BT/support/StubChatModel.java` (scriptable responses, latency, exceptions). Migrate `NutriCookApplicationTests` and `AuthControllerTest` onto it. Delete `backend/src/test/resources/application-test.yml`.
   **Done when:** all existing tests pass on Postgres via Testcontainers and none references H2.
-- [ ] **T013** Error model: `B/exception/ErrorCode.java` (all of §12 with HTTP status), `B/domain/DomainException.java` (code + `Map<String,Object> details`, no Spring imports), and `B/exception/ProblemDetailHandler.java` (replaces `GlobalExceptionHandler`). Map validation errors to `errors[]`; map enum/JSON parse errors to `VALIDATION_FAILED` with the allowed values; send unknown exceptions to `INTERNAL` (logged with a correlation id, generic message).
+  *As built: `application-test.yml` is kept, trimmed to its non-datasource settings (JWT test key, dummy AI key).*
+- [x] **T013** Error model: `B/exception/ErrorCode.java` (all of §12 with HTTP status), `B/domain/DomainException.java` (code + `Map<String,Object> details`, no Spring imports), and `B/exception/ProblemDetailHandler.java` (replaces `GlobalExceptionHandler`). Map validation errors to `errors[]`; map enum/JSON parse errors to `VALIDATION_FAILED` with the allowed values; send unknown exceptions to `INTERNAL` (logged with a correlation id, generic message).
   **Rules:** BR-PRF-04, §12. **Tests:** `BT/exception/ProblemDetailHandlerTest` covers one case per code, plus `BR_PRF_04_unknownEnumIs400`.
   **Done when:** no response body anywhere contains `ex.getMessage()` from an unexpected exception (grep `"Unexpected error"` → 0).
-- [ ] **T014** [P] `BT/architecture/ArchitectureTest.java` with these ArchUnit rules:
+  *As built: `ErrorCode` lives in `B/domain/` with no HTTP knowledge, and the status mapping is an exhaustive switch in `ProblemDetailHandler`. Added code `INTERNAL` (500, with a `reference` id). `ProblemDetailSecurityHandlers` makes filter-level failures 401/403 ProblemDetails; they used to be an empty 403, and `@PreAuthorize` denials used to be a 500.*
+- [x] **T014** [P] `BT/architecture/ArchitectureTest.java` with these ArchUnit rules:
   - `domain..` must not depend on `org.springframework..`, `jakarta.persistence..`, `..entity..`, `..repository..`, `..ai..`
   - no `LocalDate.now()`, `LocalDateTime.now()`, `Instant.now()` or `new Random()` inside `domain..`
   - controllers must not access repositories
   - name the no-`now()` rule `BR_TIM_03_noNowInDomain`
   **Done when:** the test runs in `verify` (domain rules pass vacuously until the domain exists).
-- [ ] **T015** [P] Configuration: `B/config/NutritionProperties.java` and `B/config/LimitsProperties.java` (`@ConfigurationProperties` records, `@Validated`, with every key from catalogue §13 and its default in `application.yml`). `B/config/DomainConfig.java` exposes a `Clock` bean (`Clock.systemUTC()`). The startup validator asserts the slot shares sum to 1.0.
+  *As built: also `BR_CMP_07_noUnseededRandomnessInDomain`. `AchievementController` and `ReferenceController` now use services. A planted violation was confirmed to fail the build.*
+- [x] **T015** [P] Configuration: `B/config/NutritionProperties.java` and `B/config/LimitsProperties.java` (`@ConfigurationProperties` records, `@Validated`, with every key from catalogue §13 and its default in `application.yml`). `B/config/DomainConfig.java` exposes a `Clock` bean (`Clock.systemUTC()`). The startup validator asserts the slot shares sum to 1.0.
   **Rules:** BR-CMP-01. **Test:** `BR_CMP_01_slotSharesMustSumToOne`: a context with shares summing to 0.9 fails to start.
   **Done when:** the app fails fast on an invalid config.
-- [ ] **T016** [P] Traceability: `scripts/check-br-coverage.sh` and `.ps1`. They extract every `BR-[A-Z]+-[0-9]+` ID from `docs/domain/business-rules.md` (skipping rows marked RETIRED), search `backend/src/test` and `frontend/src` for `BR_<AREA>_<NN>`, and print the covered/missing table. A `--enforce` flag makes a missing ID exit 1. Add a CI step **without** `--enforce` (T085 switches it on).
+  *As built: the domain tunables are framework-free records `B/domain/rules/NutritionRules` and `TrackingRules` that validate in their constructors, bound by `DomainConfig` via `Binder`. Only `LimitsProperties` is a Spring `@ConfigurationProperties` class. Keys `app.progress.*` / `app.achievements.*` became `app.tracking.*` (catalogue §13 updated).*
+- [x] **T016** [P] Traceability: `scripts/check-br-coverage.sh` and `.ps1`. They extract every `BR-[A-Z]+-[0-9]+` ID from `docs/domain/business-rules.md` (skipping rows marked RETIRED), search `backend/src/test` and `frontend/src` for `BR_<AREA>_<NN>`, and print the covered/missing table. A `--enforce` flag makes a missing ID exit 1. Add a CI step **without** `--enforce` (T085 switches it on).
   **Done when:** the script lists all 76 IDs with their current status.
-- [ ] **T017** [P] Domain model value objects in `B/domain/model/`: `Sex`, `ActivityLevel`, `Goal`, `NutritionProfile`, `Nutrients` (+ `plus`, `scale`, `sum`, rounding per BR-CMP-09), `Targets`, `Allergen` (EU 14), `DietFlag`, `FoodRole`, `FoodState`, `Slot`, `FoodView`, `Component`, `MealDraft`, `PlanDraft`, `Warning`. All are immutable records or enums.
+- [x] **T017** [P] Domain model value objects in `B/domain/model/`: `Sex`, `ActivityLevel`, `Goal`, `NutritionProfile`, `Nutrients` (+ `plus`, `scale`, `sum`, rounding per BR-CMP-09), `Targets`, `Allergen` (EU 14), `DietFlag`, `FoodRole`, `FoodState`, `Slot`, `FoodView`, `Component`, `MealDraft`, `PlanDraft`, `Warning`. All are immutable records or enums.
   **Tests:** `BT/domain/model/NutrientsTest` covers `BR_CMP_09_componentNutritionScalesPer100g` and the rounding rules.
   **Done when:** compiles with zero Spring/JPA imports (ArchUnit green).
-- [ ] **T018** [P] Frontend error handling: `F/lib/errors.ts` maps every §12 `code` to a user-facing message. The axios response interceptor in `F/lib/api.ts` normalizes `ProblemDetail` into `ApiError {code, message, details}`. Add a `useApiError` hook and a toast.
+- [x] **T018** [P] Frontend error handling: `F/lib/errors.ts` maps every §12 `code` to a user-facing message. The axios response interceptor in `F/lib/api.ts` normalizes `ProblemDetail` into `ApiError {code, message, details}`. Add a `useApiError` hook and a toast.
   **Test:** `F/__tests__/errors.test.ts`: every code has a message, and an unknown code falls back to a generic message.
   **Done when:** no component renders `err.response.data.message` directly.
+  *As built: no global toast. Pages keep their inline error areas, fed by `toApiError()` / `useApiError`. Added `ErrorCodeSyncTest` (backend) so the frontend can't miss a code. The 401 interceptor no longer reloads `/auth` after a failed login.*
 
 **Checkpoint M1**: Postgres everywhere, migrations, error contract, domain skeleton and rule traceability in place.
 
