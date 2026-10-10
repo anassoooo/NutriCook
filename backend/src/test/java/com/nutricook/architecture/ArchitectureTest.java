@@ -67,6 +67,22 @@ class ArchitectureTest {
           .callMethod(Math.class, "random")
           .because("plan generation must be reproducible from its seed (BR-CMP-07)");
 
+  private static final DescribedPredicate<JavaMethodCall> SAVES_A_PLAN =
+      DescribedPredicate.describe(
+          "save a DietPlan",
+          call ->
+              call.getTargetOwner().getName().equals("com.nutricook.repository.DietPlanRepository")
+                  && call.getName().startsWith("save"));
+
+  @ArchTest
+  static final ArchRule BR_SAF_05_onlyPlanCommandServiceSavesPlans =
+      noClasses()
+          .that()
+          .doNotHaveSimpleName("PlanCommandService")
+          .should()
+          .callMethodWhere(SAVES_A_PLAN)
+          .because("every plan write must pass the safety validator first (BR-SAF-05, plan D3)");
+
   @ArchTest
   static final ArchRule controllersDoNotUseRepositories =
       noClasses()

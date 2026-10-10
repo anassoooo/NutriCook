@@ -1,8 +1,9 @@
 package com.nutricook.repository;
 
+import com.nutricook.domain.model.PlanStatus;
 import com.nutricook.entity.DietPlan;
-import com.nutricook.entity.enums.PlanStatus;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,4 +24,10 @@ public interface DietPlanRepository extends JpaRepository<DietPlan, Long> {
   Optional<DietPlan> findByIdWithMeals(Long id);
 
   List<DietPlan> findByUserIdAndValidForDate(Long userId, LocalDate date);
+
+  /** Plans already generated for this user-day: the next generation sequence (BR-CMP-07). */
+  long countByUserIdAndValidForDate(Long userId, LocalDate date);
+
+  /** Generations since a moment, for the daily quota (BR-LIF-06). */
+  long countByUserIdAndGeneratedAtGreaterThanEqual(Long userId, LocalDateTime since);
 }

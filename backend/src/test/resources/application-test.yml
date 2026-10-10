@@ -9,6 +9,10 @@ spring:
           model: llama-3.3-70b-versatile
 
 app:
+  limits:
+    generations-per-day: 10
+    chat-per-hour: 30
+    ai-timeout: 2s
   jwt:
     # 32-byte base64 key used only in tests
     secret: 4JBzn+VDduZQFSMTvQYPUj0O78ZjVjIPdf2kRGvppxY=

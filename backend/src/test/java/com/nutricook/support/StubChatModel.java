@@ -25,6 +25,7 @@ public class StubChatModel implements ChatModel {
 
   private final Deque<Supplier<String>> script = new ArrayDeque<>();
   private final List<Prompt> prompts = new ArrayList<>();
+  private Duration defaultLatency = Duration.ZERO;
 
   /** Next call returns {@code text}. */
   public synchronized StubChatModel reply(String text) {
@@ -45,24 +46,41 @@ public class StubChatModel implements ChatModel {
   public synchronized StubChatModel slowReply(Duration latency, String text) {
     script.add(
         () -> {
-          try {
-            Thread.sleep(latency.toMillis());
-          } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-          }
+          sleep(latency);
           return text;
         });
     return this;
   }
 
-  /** Clears the script and the recorded prompts. Call from {@code @BeforeEach}. */
+  /**
+   * Makes every unscripted call sleep first. Use when asynchronous callers (e.g. post-commit
+   * enrichment of other plans) may consume the model concurrently. Cleared by {@link #reset()}.
+   */
+  public synchronized StubChatModel slowByDefault(Duration latency) {
+    defaultLatency = latency;
+    return this;
+  }
+
+  /**
+   * Clears the script, the recorded prompts and any default latency. Call from {@code @BeforeEach}.
+   */
   public synchronized void reset() {
     script.clear();
     prompts.clear();
+    defaultLatency = Duration.ZERO;
   }
 
   public synchronized List<Prompt> prompts() {
     return List.copyOf(prompts);
+  }
+
+  private static void sleep(Duration latency) {
+    if (latency.isZero()) return;
+    try {
+      Thread.sleep(latency.toMillis());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   @Override
@@ -70,7 +88,14 @@ public class StubChatModel implements ChatModel {
     Supplier<String> next;
     synchronized (this) {
       prompts.add(prompt);
-      next = script.isEmpty() ? () -> DEFAULT_REPLY : script.poll();
+      Duration latency = defaultLatency;
+      next =
+          script.isEmpty()
+              ? () -> {
+                sleep(latency);
+                return DEFAULT_REPLY;
+              }
+              : script.poll();
     }
     return new ChatResponse(List.of(new Generation(new AssistantMessage(next.get()))));
   }

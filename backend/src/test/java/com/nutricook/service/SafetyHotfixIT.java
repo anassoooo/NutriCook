@@ -128,7 +128,8 @@ class SafetyHotfixIT extends AbstractIntegrationTest {
   @Test
   void BR_SAF_04_nutAllergyNeverGetsPeanutsOrTreeNutsAcrossManyPlans() throws Exception {
     addRestriction("Nut Allergy");
-    for (int i = 0; i < 30; i++) {
+    // 10 = the daily generation quota (BR-LIF-06); the composer property tests cover far more cases
+    for (int i = 0; i < 10; i++) {
       long planId = generateOk();
       assertThat(allergensIn(planId)).doesNotContain("PEANUTS", "TREE_NUTS");
     }

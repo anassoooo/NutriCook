@@ -1,6 +1,7 @@
 package com.nutricook.config;
 
 import com.nutricook.domain.energy.TargetCalculator;
+import com.nutricook.domain.plan.PlanComposer;
 import com.nutricook.domain.rules.NutritionRules;
 import com.nutricook.domain.rules.TrackingRules;
 import java.time.Clock;
@@ -33,6 +34,11 @@ public class DomainConfig {
   @Bean
   TargetCalculator targetCalculator(NutritionRules rules) {
     return new TargetCalculator(rules);
+  }
+
+  @Bean
+  PlanComposer planComposer(NutritionRules rules) {
+    return new PlanComposer(rules);
   }
 
   @Bean

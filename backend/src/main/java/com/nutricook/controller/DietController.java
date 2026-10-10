@@ -3,11 +3,10 @@ package com.nutricook.controller;
 import com.nutricook.dto.request.ChatRequest;
 import com.nutricook.dto.response.ChatResponse;
 import com.nutricook.dto.response.DietPlanResponse;
-import com.nutricook.dto.response.MealResponse;
-import com.nutricook.entity.DietPlan;
-import com.nutricook.entity.Meal;
 import com.nutricook.service.AchievementService;
 import com.nutricook.service.DietPlanService;
+import com.nutricook.service.PlanGenerationService;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,17 +23,21 @@ import org.springframework.web.bind.annotation.*;
 public class DietController {
 
   private final DietPlanService dietPlanService;
+  private final PlanGenerationService generationService;
   private final AchievementService achievementService;
 
+  /**
+   * Generates (or regenerates) the plan for a day. Without {@code date}, the user's today. Returns
+   * 201 immediately; the AI text follows asynchronously ({@code aiStatus}).
+   */
   @PostMapping("/generate")
   public ResponseEntity<DietPlanResponse> generate(
       @PathVariable Long userId,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
           LocalDate date) {
-    LocalDate targetDate = date != null ? date : LocalDate.now();
     DietPlanResponse response =
-        toResponse(
-            dietPlanService.generate(userId, targetDate), dietPlanService.disclaimerFor(userId));
+        DietPlanResponse.of(
+            generationService.generate(userId, date), dietPlanService.disclaimerFor(userId));
     achievementService.checkAndAward(userId);
     return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
@@ -43,20 +46,22 @@ public class DietController {
   public ResponseEntity<List<DietPlanResponse>> list(@PathVariable Long userId) {
     String disclaimer = dietPlanService.disclaimerFor(userId);
     return ResponseEntity.ok(
-        dietPlanService.listForUser(userId).stream().map(p -> toResponse(p, disclaimer)).toList());
+        dietPlanService.listForUser(userId).stream()
+            .map(p -> DietPlanResponse.of(p, disclaimer))
+            .toList());
   }
 
   @GetMapping("/{planId}")
   public ResponseEntity<DietPlanResponse> get(
       @PathVariable Long userId, @PathVariable Long planId) {
     return ResponseEntity.ok(
-        toResponse(
+        DietPlanResponse.of(
             dietPlanService.getByIdForUser(userId, planId), dietPlanService.disclaimerFor(userId)));
   }
 
   @PostMapping("/{planId}/chat")
   public ResponseEntity<ChatResponse> chat(
-      @PathVariable Long userId, @PathVariable Long planId, @RequestBody ChatRequest req) {
+      @PathVariable Long userId, @PathVariable Long planId, @Valid @RequestBody ChatRequest req) {
     return ResponseEntity.ok(dietPlanService.chat(userId, planId, req.getMessage()));
   }
 
@@ -64,39 +69,5 @@ public class DietController {
   public ResponseEntity<Void> archive(@PathVariable Long userId, @PathVariable Long planId) {
     dietPlanService.archive(userId, planId);
     return ResponseEntity.noContent().build();
-  }
-
-  private DietPlanResponse toResponse(DietPlan plan, String disclaimer) {
-    return DietPlanResponse.builder()
-        .id(plan.getId())
-        .title(plan.getTitle())
-        .totalCalories(plan.getTotalCalories())
-        .totalProteinG(plan.getTotalProteinG())
-        .totalCarbsG(plan.getTotalCarbsG())
-        .totalFatG(plan.getTotalFatG())
-        .totalSugarG(plan.getTotalSugarG())
-        .validForDate(plan.getValidForDate())
-        .generatedAt(plan.getGeneratedAt())
-        .status(plan.getStatus().name())
-        .aiExplanation(plan.getAiExplanation())
-        .disclaimer(disclaimer)
-        .meals(plan.getMeals().stream().map(this::mealToResponse).toList())
-        .build();
-  }
-
-  private MealResponse mealToResponse(Meal meal) {
-    return MealResponse.builder()
-        .id(meal.getId())
-        .name(meal.getName())
-        .mealType(meal.getMealType().name())
-        .calories(meal.getCalories())
-        .proteinG(meal.getProteinG())
-        .carbsG(meal.getCarbsG())
-        .fatG(meal.getFatG())
-        .sugarG(meal.getSugarG())
-        .fiberG(meal.getFiberG())
-        .sortOrder(meal.getSortOrder())
-        .aiSuggestion(meal.getAiSuggestion())
-        .build();
   }
 }

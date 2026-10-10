@@ -39,12 +39,17 @@ public class Meal {
   private Double fatG;
   private Double sugarG;
   private Double fiberG;
+
+  @Column(name = "sodium_mg")
+  private Double sodiumMg;
+
   private Integer sortOrder;
 
   @Column(columnDefinition = "TEXT")
   private String aiSuggestion;
 
   @OneToMany(mappedBy = "meal", cascade = CascadeType.ALL, orphanRemoval = true)
+  @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
   @Builder.Default
   private List<MealFoodItem> mealFoodItems = new ArrayList<>();
 }
