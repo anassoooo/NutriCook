@@ -74,6 +74,8 @@ jobs:
       - uses: actions/checkout@v4
       # Report mode for now; task T085 switches this to --enforce
       - run: bash scripts/check-br-coverage.sh
+      - name: Food catalog migration is generated from foods.csv (BR-CAT-01)
+        run: python3 scripts/gen-food-seed.py --check
 
   docker:
     name: Docker images
