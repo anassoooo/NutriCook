@@ -26,6 +26,10 @@ public class AchievementService {
   private final DietPlanRepository planRepository;
   private final UserRepository userRepository;
 
+  public List<Achievement> allAchievements() {
+    return achievementRepository.findAll();
+  }
+
   public List<UserAchievement> getUserAchievements(Long userId) {
     return userAchievementRepository.findByUserId(userId);
   }

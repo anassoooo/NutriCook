@@ -2,8 +2,7 @@ package com.nutricook.controller;
 
 import com.nutricook.entity.DietaryRestriction;
 import com.nutricook.entity.HealthCondition;
-import com.nutricook.repository.DietaryRestrictionRepository;
-import com.nutricook.repository.HealthConditionRepository;
+import com.nutricook.service.ReferenceDataService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -14,16 +13,15 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class ReferenceController {
 
-  private final DietaryRestrictionRepository restrictionRepo;
-  private final HealthConditionRepository conditionRepo;
+  private final ReferenceDataService referenceData;
 
   @GetMapping("/dietary-restrictions")
   public ResponseEntity<List<DietaryRestriction>> getAllRestrictions() {
-    return ResponseEntity.ok(restrictionRepo.findAll());
+    return ResponseEntity.ok(referenceData.restrictions());
   }
 
   @GetMapping("/health-conditions")
   public ResponseEntity<List<HealthCondition>> getAllConditions() {
-    return ResponseEntity.ok(conditionRepo.findAll());
+    return ResponseEntity.ok(referenceData.conditions());
   }
 }

@@ -3,7 +3,6 @@ package com.nutricook.controller;
 import com.nutricook.dto.response.AchievementResponse;
 import com.nutricook.entity.Achievement;
 import com.nutricook.entity.UserAchievement;
-import com.nutricook.repository.AchievementRepository;
 import com.nutricook.service.AchievementService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -16,12 +15,11 @@ import org.springframework.web.bind.annotation.*;
 public class AchievementController {
 
   private final AchievementService achievementService;
-  private final AchievementRepository achievementRepository;
 
   @GetMapping("/api/achievements")
   public ResponseEntity<List<AchievementResponse>> all() {
     return ResponseEntity.ok(
-        achievementRepository.findAll().stream().map(this::toResponse).toList());
+        achievementService.allAchievements().stream().map(this::toResponse).toList());
   }
 
   @GetMapping("/api/users/{userId}/achievements")
