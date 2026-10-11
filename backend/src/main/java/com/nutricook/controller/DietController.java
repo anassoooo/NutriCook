@@ -1,11 +1,15 @@
 package com.nutricook.controller;
 
 import com.nutricook.dto.request.ChatRequest;
+import com.nutricook.dto.request.SwapRequest;
+import com.nutricook.dto.response.AlternativesResponse;
 import com.nutricook.dto.response.ChatResponse;
 import com.nutricook.dto.response.DietPlanResponse;
 import com.nutricook.service.AchievementService;
+import com.nutricook.service.ChatService;
 import com.nutricook.service.DietPlanService;
 import com.nutricook.service.PlanGenerationService;
+import com.nutricook.service.SwapService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.List;
@@ -25,6 +29,8 @@ public class DietController {
   private final DietPlanService dietPlanService;
   private final PlanGenerationService generationService;
   private final AchievementService achievementService;
+  private final ChatService chatService;
+  private final SwapService swapService;
 
   /**
    * Generates (or regenerates) the plan for a day. Without {@code date}, the user's today. Returns
@@ -62,7 +68,27 @@ public class DietController {
   @PostMapping("/{planId}/chat")
   public ResponseEntity<ChatResponse> chat(
       @PathVariable Long userId, @PathVariable Long planId, @Valid @RequestBody ChatRequest req) {
-    return ResponseEntity.ok(dietPlanService.chat(userId, planId, req.getMessage()));
+    return ResponseEntity.ok(chatService.chat(userId, planId, req.getMessage()));
+  }
+
+  /** Manual swap: the same rules as an AI swap (BR-AI-03, BR-LIF-04, BR-SAF-05). */
+  @PostMapping("/{planId}/meals/{mealId}/swap")
+  public ResponseEntity<DietPlanResponse> swap(
+      @PathVariable Long userId,
+      @PathVariable Long planId,
+      @PathVariable Long mealId,
+      @Valid @RequestBody SwapRequest req) {
+    return ResponseEntity.ok(
+        DietPlanResponse.of(
+            swapService.swap(userId, planId, mealId, req.foodId()),
+            dietPlanService.disclaimerFor(userId)));
+  }
+
+  /** Eligible replacements for each food in the meal, closest in energy first. */
+  @GetMapping("/{planId}/meals/{mealId}/alternatives")
+  public ResponseEntity<List<AlternativesResponse>> alternatives(
+      @PathVariable Long userId, @PathVariable Long planId, @PathVariable Long mealId) {
+    return ResponseEntity.ok(swapService.alternatives(userId, planId, mealId));
   }
 
   @PatchMapping("/{planId}/archive")

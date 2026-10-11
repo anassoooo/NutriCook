@@ -99,6 +99,17 @@ class SafetyHotfixIT extends AbstractIntegrationTest {
     return json.readTree(r.getResponse().getContentAsString()).get("id").asLong();
   }
 
+  /** The plan's post-commit AI enrichment must not consume replies scripted for the chat. */
+  private void awaitEnrichment(long planId) throws InterruptedException {
+    for (int i = 0; i < 50; i++) {
+      String status =
+          jdbc.queryForObject(
+              "select ai_status from diet_plans where id = ?", String.class, planId);
+      if (!"PENDING".equals(status)) return;
+      Thread.sleep(100);
+    }
+  }
+
   /** Allergens of every food in the plan. */
   private List<String> allergensIn(long planId) {
     return jdbc.queryForList(
@@ -198,6 +209,7 @@ class SafetyHotfixIT extends AbstractIntegrationTest {
   void BR_SAF_07_theAiOnlySeesFoodsTheUserMayEat() throws Exception {
     addRestriction("Nut Allergy");
     long planId = generateOk();
+    awaitEnrichment(planId);
     chatModel.reset();
     chatModel.reply("{\"reply\":\"Happy to help!\"}");
 
@@ -210,7 +222,8 @@ class SafetyHotfixIT extends AbstractIntegrationTest {
         .andExpect(status().isOk());
 
     String prompt = chatModel.prompts().get(0).getContents();
-    String foodList = prompt.substring(prompt.indexOf("Available foods:"));
+    String foodList =
+        prompt.substring(prompt.indexOf("Foods this user may eat"), prompt.indexOf("Rules:"));
     assertThat(foodList).contains("Lentils", "Salmon");
     assertThat(foodList).doesNotContain("Peanut Butter", "Almonds", "Walnuts", "Cashews");
   }
@@ -219,6 +232,7 @@ class SafetyHotfixIT extends AbstractIntegrationTest {
   void BR_SAF_05_anAiSwapToAnIneligibleFoodIsRejectedAndThePlanIsUnchanged() throws Exception {
     addRestriction("Nut Allergy");
     long planId = generateOk();
+    awaitEnrichment(planId);
     List<Long> before =
         jdbc.queryForList(
             "select mfi.food_item_id from meal_food_items mfi join meals m on m.id = mfi.meal_id where m.diet_plan_id = ? order by m.id",
@@ -226,7 +240,10 @@ class SafetyHotfixIT extends AbstractIntegrationTest {
             planId);
     chatModel.reset();
     chatModel.reply(
-        "{\"reply\":\"Sure, swapping lunch!\",\"swap\":{\"mealType\":\"LUNCH\",\"foodName\":\"Peanut Butter\"}}");
+        "{\"reply\":\"Sure, swapping lunch!\",\"swap\":{\"mealType\":\"LUNCH\",\"foodId\":"
+            + jdbc.queryForObject(
+                "select id from food_items where name = 'Peanut Butter'", Long.class)
+            + "}}");
 
     mockMvc
         .perform(

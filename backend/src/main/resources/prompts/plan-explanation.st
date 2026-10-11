@@ -1,3 +1,4 @@
+# version: 2
 You are a professional dietitian. Write a 3-sentence explanation of this daily meal plan.
 
 Total calories: {totalCalories} kcal | Total protein: {totalProtein}g
