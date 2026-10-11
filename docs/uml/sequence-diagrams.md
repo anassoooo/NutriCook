@@ -187,13 +187,19 @@ sequenceDiagram
     participant FE as Frontend
     participant C as LocationController
     participant L as LocationService
-    participant OSM as Nominatim / Overpass
+    participant OSM as Overpass (main, then mirror)
 
     U->>FE: allow location
     FE->>C: GET /api/location/restaurants?lat&lng
-    C->>L: getNearbyRestaurants(lat, lng, restrictions)
-    L->>L: cache hit? (Caffeine, TTL)
-    L->>OSM: Overpass query within the search radius
-    OSM-->>L: places
-    L-->>FE: name, type, coordinates
+    C->>L: getNearbyRestaurants(lat, lng)
+    L->>L: snap to a ~100 m grid; cache hit? (Caffeine, 1 h)
+    loop main server, then mirror
+        L->>OSM: Overpass query (15 s server timeout)
+        OSM-->>L: JSON places, or an error page
+    end
+    alt a server answered JSON
+        L-->>FE: name, type, coordinates (cached)
+    else every server failed
+        L-->>FE: 503 MAP_UNAVAILABLE (not cached, the next request retries)
+    end
 ```

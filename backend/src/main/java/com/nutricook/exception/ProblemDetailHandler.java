@@ -50,7 +50,7 @@ public class ProblemDetailHandler {
       case PROFILE_INCOMPLETE, PROFILE_INELIGIBLE, PLAN_INFEASIBLE, SWAP_REJECTED -> HttpStatus
           .UNPROCESSABLE_ENTITY;
       case GENERATION_LIMIT, RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
-      case AI_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
+      case AI_UNAVAILABLE, MAP_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
       case INTERNAL -> HttpStatus.INTERNAL_SERVER_ERROR;
     };
   }
@@ -233,6 +233,7 @@ public class ProblemDetailHandler {
       case GENERATION_LIMIT -> "Daily generation limit reached";
       case RATE_LIMITED -> "Too many requests";
       case AI_UNAVAILABLE -> "AI assistant unavailable";
+      case MAP_UNAVAILABLE -> "Map data unavailable";
       case INTERNAL -> "Internal error";
     };
   }

@@ -19,6 +19,7 @@ export const ERROR_CODES = [
   'GENERATION_LIMIT',
   'RATE_LIMITED',
   'AI_UNAVAILABLE',
+  'MAP_UNAVAILABLE',
   'INTERNAL',
 ] as const
 
@@ -43,6 +44,7 @@ export const ERROR_MESSAGES: Record<ErrorCode | ClientErrorCode, string> = {
   GENERATION_LIMIT: "You've reached today's plan generation limit. Try again tomorrow.",
   RATE_LIMITED: "You're sending messages too quickly. Please wait a moment.",
   AI_UNAVAILABLE: 'The AI assistant is unavailable right now. Your plan still works without it.',
+  MAP_UNAVAILABLE: 'Nearby places are unavailable right now. Please try again in a minute.',
   INTERNAL: 'Something went wrong on our side. Please try again.',
   NETWORK: "Can't reach the server. Check your connection and try again.",
   UNKNOWN: 'Something went wrong. Please try again.',

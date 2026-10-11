@@ -34,6 +34,7 @@ class ProblemDetailHandlerTest {
     CATALOGUE.put(ErrorCode.GENERATION_LIMIT, 429);
     CATALOGUE.put(ErrorCode.RATE_LIMITED, 429);
     CATALOGUE.put(ErrorCode.AI_UNAVAILABLE, 503);
+    CATALOGUE.put(ErrorCode.MAP_UNAVAILABLE, 503);
     CATALOGUE.put(ErrorCode.INTERNAL, 500);
   }
 

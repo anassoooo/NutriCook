@@ -208,6 +208,7 @@ Exception messages are never returned to clients.
 | `GENERATION_LIMIT` | 429 | BR-LIF-06 |
 | `RATE_LIMITED` | 429 | BR-AI-07 |
 | `AI_UNAVAILABLE` | 503 | BR-AI-05 (chat only) |
+| `MAP_UNAVAILABLE` | 503 | Nearby places: every OpenStreetMap (Overpass) server failed or timed out; the failure is never cached |
 | `INTERNAL` | 500 | Unexpected failure. Generic message plus a `reference` id that matches the server log; nothing about the cause is returned |
 
 ## 13. Configurable constants

@@ -15,7 +15,7 @@
 | **User** | Authenticated NutriCook user with a complete profile |
 | **Admin** | A user with the ADMIN role: curates the food catalog (BR-CAT-05) |
 | **Groq AI** | External AI service — invoked by the system to generate meal content |
-| **OSM APIs** | External OpenStreetMap services (Nominatim + Overpass) — invoked for location features |
+| **OSM APIs** | OpenStreetMap's Overpass API — invoked for location features |
 
 ---
 
@@ -116,7 +116,7 @@ graph TD
 
     UC18 -.->|uses| OSM([OSM Overpass API])
     UC19 -.->|uses| OSM
-    UC20 -.->|uses| OSM2([OSM Nominatim API])
+    UC20 -.->|uses| OSM
 ```
 
 ---

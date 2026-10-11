@@ -23,7 +23,7 @@ flowchart TB
     end
     DB[("PostgreSQL 16<br/>schema owned by Flyway")]
     LLM["Groq LLM<br/>(llama-3.3-70b)"]
-    OSM["OpenStreetMap<br/>Nominatim, Overpass"]
+    OSM["OpenStreetMap<br/>Overpass API"]
 
     FE -->|REST, JSON, JWT| SEC --> WEB --> APP
     APP --> DOM

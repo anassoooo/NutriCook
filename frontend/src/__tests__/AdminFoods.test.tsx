@@ -124,7 +124,7 @@ describe('Admin food catalog', () => {
     )
     const alert = await within(form).findByRole('alert')
     expect(alert).toHaveTextContent('nutrients: energy 900 kcal does not match the macros')
-  }, 30_000) // ~1 s alone, but typing into a large form is slow when the whole suite runs in parallel
+  })
 
   it('searchesByNameRoleAndStatus', async () => {
     apiGet.mockResolvedValue(page([]))

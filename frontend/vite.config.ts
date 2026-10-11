@@ -16,5 +16,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // tests that render the whole app take < 1 s alone but several seconds when every file runs in parallel
+    testTimeout: 30_000,
   },
 })

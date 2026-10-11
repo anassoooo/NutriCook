@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import type { LocationDTO } from '../types'
 
 type Tab = 'restaurants' | 'stores'
@@ -24,8 +25,11 @@ export default function RestaurantsPage() {
           const res = await api.get<LocationDTO[]>(endpoint)
           setLocations(res.data)
           setSearched(true)
-        } catch {
-          setError('Could not fetch locations. Please try again.')
+        } catch (err) {
+          // MAP_UNAVAILABLE ("try again in a minute") is not the same as "nothing nearby"
+          setLocations([])
+          setSearched(false)
+          setError(toApiError(err).message)
         } finally { setLoading(false) }
       },
       () => { setError('Location access denied. Please allow location access in your browser.'); setLoading(false) }
@@ -83,7 +87,7 @@ export default function RestaurantsPage() {
 
       {/* Error */}
       {error && (
-        <div className="flex items-center gap-2 text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5' }}>
+        <div role="alert" className="flex items-center gap-2 text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5' }}>
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
