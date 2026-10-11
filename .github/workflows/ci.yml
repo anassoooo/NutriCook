@@ -73,7 +73,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Report mode for now; task T085 switches this to --enforce
-      - run: bash scripts/check-br-coverage.sh
+      - run: bash scripts/check-br-coverage.sh --enforce
       - name: Food catalog migration is generated from foods.csv (BR-CAT-01)
         run: python3 scripts/gen-food-seed.py --check
 

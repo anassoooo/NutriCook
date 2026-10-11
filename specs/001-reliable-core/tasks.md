@@ -449,8 +449,9 @@ description: "Executable task list for 001-reliable-core"
   **Done when:** someone who didn't write the project can run it from the README alone.
 - [ ] **T084** [P] Deployment guide `docs/deploy.md` + deploy: Neon Postgres, Render (backend Docker, env vars), Vercel (frontend, `/api` rewrite to Render). Add the live URL to the README.
   **Done when:** the public URL serves a working register → onboarding → plan → chat flow.
-- [ ] **T085** Turn the gates on: JaCoCo `check` (domain ≥ 90%, service ≥ 75% line) and `check-br-coverage --enforce` in CI.
+- [x] **T085** Turn the gates on: JaCoCo `check` (domain ≥ 90%, service ≥ 75% line) and `check-br-coverage --enforce` in CI.
   **Done when:** CI is green with both enforced (this is SC-001 and SC-005).
+  *As built: each domain package must have at least 90% line and 75% branch coverage, and the service package 75% line coverage (measured: domain 99.5% line, services 88.9%). The branch gate exposed untested startup checks of the rule tunables (`domain.rules` at 57.5% branch coverage); `RulesValidationTest` now covers every range. The gate was proven to fail by temporarily requiring 100%: it named `domain.energy` and `domain.model`.*
 - [ ] **T086** Final audit: update the **Today** column of every rule in `business-rules.md` to ✅ (or RETIRED with a reason), bump the catalogue to 1.1.0, and add the amendment-log row. Then run `/speckit.analyze` for cross-artifact consistency.
   **Done when:** no ⚠️ or ❌ rows remain.
 
