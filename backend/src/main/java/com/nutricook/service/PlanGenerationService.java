@@ -129,7 +129,8 @@ public class PlanGenerationService {
         .findByUserIdAndValidForDateAndStatus(userId, date, PlanStatus.ACTIVE)
         .ifPresent(commands::supersede);
 
-    DietPlan saved = commands.persist(toEntity(user, draft, byId, seq, seed), constraints);
+    DietPlan saved =
+        commands.persist(toEntity(user, draft, byId, seq, seed, targets.kcal()), constraints);
     events.publishEvent(new PlanGeneratedEvent(saved.getId(), userId));
     log.info(
         "Generated plan {} for user {} on {} (seq {}, seed {}, {} kcal, warnings {})",
@@ -162,7 +163,7 @@ public class PlanGenerationService {
   }
 
   private static DietPlan toEntity(
-      User user, PlanDraft draft, Map<Long, FoodItem> foods, int seq, long seed) {
+      User user, PlanDraft draft, Map<Long, FoodItem> foods, int seq, long seed, int targetKcal) {
     Nutrients totals = draft.totals();
     DietPlan plan =
         DietPlan.builder()
@@ -173,6 +174,7 @@ public class PlanGenerationService {
             .aiStatus(AiStatus.PENDING)
             .generationSeq(seq)
             .seed(seed)
+            .targetCalories(targetKcal)
             .warnings(new ArrayList<>(draft.warnings()))
             .totalCalories((int) totals.kcal())
             .totalProteinG(totals.proteinG())

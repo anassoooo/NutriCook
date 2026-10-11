@@ -2,7 +2,6 @@ package com.nutricook.controller;
 
 import com.nutricook.dto.response.AchievementResponse;
 import com.nutricook.entity.Achievement;
-import com.nutricook.entity.UserAchievement;
 import com.nutricook.service.AchievementService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +26,7 @@ public class AchievementController {
   public ResponseEntity<List<AchievementResponse>> userAchievements(@PathVariable Long userId) {
     return ResponseEntity.ok(
         achievementService.getUserAchievements(userId).stream()
-            .map(ua -> toResponseWithEarnedAt(ua))
+            .map(AchievementResponse::of)
             .toList());
   }
 
@@ -39,18 +38,6 @@ public class AchievementController {
         .iconName(a.getIconName())
         .type(a.getType().name())
         .threshold(a.getThreshold())
-        .build();
-  }
-
-  private AchievementResponse toResponseWithEarnedAt(UserAchievement ua) {
-    return AchievementResponse.builder()
-        .id(ua.getAchievement().getId())
-        .name(ua.getAchievement().getName())
-        .description(ua.getAchievement().getDescription())
-        .iconName(ua.getAchievement().getIconName())
-        .type(ua.getAchievement().getType().name())
-        .threshold(ua.getAchievement().getThreshold())
-        .earnedAt(ua.getEarnedAt())
         .build();
   }
 }

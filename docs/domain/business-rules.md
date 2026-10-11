@@ -1,6 +1,6 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.4.0 · **Last updated**: 2026-10-10
+> **Status**: Reference · **Version**: 1.5.0 · **Last updated**: 2026-10-11
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
@@ -144,12 +144,12 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-PRG-01 | One progress entry per (user, date). Logging again **merges**: only the fields provided are overwritten. | ✅ |
-| BR-PRG-02 | Entry date must be in `[today − 30, today]` (user day). No future entries. | ❌ |
-| BR-PRG-03 | Bounds: calories 0–10 000; water 0–10 000 ml; exercise 0–1440 min; weight 30–300 kg; notes ≤ 1000 chars. `mealsCompleted` is derived (BR-PRG-05). | ⚠️ lower bounds only |
-| BR-PRG-04 | When a weight is logged for the **latest** dated entry, it updates `profile.weightKg`, so future targets use the new weight. | ❌ |
-| BR-PRG-05 | Users can check off meals in their ACTIVE plan for that date. `mealsCompleted` = number checked. Unless the user overrides it, `caloriesConsumed` = sum of the checked meals' calories. | ❌ disconnected counter |
-| BR-PRG-06 | Each entry stores a `targetCalories` snapshot. It is taken from the ACTIVE plan for that date, or from the profile target if there is no plan. Achievements use it (BR-ACH-03). | ❌ |
+| BR-PRG-01 | One progress entry per (user, date). Logging again **merges**: only the fields provided are overwritten. An empty `notes` string clears the notes. | ✅ |
+| BR-PRG-02 | Entry date must be in `[today − 30, today]` (user day). No future entries. The same window applies to checking meals off (BR-PRG-05). | ✅ |
+| BR-PRG-03 | Bounds: calories 0–10 000; water 0–10 000 ml; exercise 0–1440 min; weight 30–300 kg; notes ≤ 1000 chars. Every invalid field is reported (`errors[]`). `mealsCompleted` is derived (BR-PRG-05) and is not accepted as input. The database repeats these bounds as CHECK constraints. | ✅ |
+| BR-PRG-04 | When a weight is logged for a day and no later day has a weight, it updates `profile.weightKg`, so future targets use the new weight. A backfilled weight does not replace a more recent one. Plans already generated keep their numbers. | ✅ |
+| BR-PRG-05 | Users can check off meals in their ACTIVE plan for that date (`PLAN_READ_ONLY` otherwise). `mealsCompleted` = number checked. Unless the user overrides it, `caloriesConsumed` = sum of the checked meals' calories; with no ACTIVE plan for the day it is unknown (`null`), not 0. Typing calories is an override until `resetCalories`. A checked meal cannot be swapped (`SWAP_REJECTED`, reason `MEAL_COMPLETED`). When the day's plan is regenerated or archived, the entry follows the new situation: check-offs do not carry over to a new plan. | ✅ |
+| BR-PRG-06 | Each entry stores a `targetCalories` snapshot. It is taken from the ACTIVE plan for that date (the target the plan was built for, stored on the plan). With no plan, an existing snapshot is kept, so a later profile change does not move past days; a new entry takes the profile's current target, or none while the profile is incomplete. Achievements use it (BR-ACH-03). | ✅ |
 
 ## 9. Achievements (BR-ACH)
 
@@ -198,7 +198,7 @@ Exception messages are never returned to clients.
 | `PROFILE_INCOMPLETE` | 422 | BR-PRF-01 (`missingFields[]`) |
 | `PROFILE_INELIGIBLE` | 422 | BR-PRF-02 |
 | `PLAN_INFEASIBLE` | 422 | BR-SAF-04, BR-CMP-05 (`constraint`) |
-| `SWAP_REJECTED` | 422 | BR-AI-02/03, BR-SAF-05 (`reason`) |
+| `SWAP_REJECTED` | 422 | BR-AI-02/03, BR-SAF-05, BR-PRG-05 (`reason`) |
 | `GENERATION_LIMIT` | 429 | BR-LIF-06 |
 | `RATE_LIMITED` | 429 | BR-AI-07 |
 | `AI_UNAVAILABLE` | 503 | BR-AI-05 (chat only) |
@@ -230,19 +230,6 @@ changing this table first.
 | `app.limits.chat-per-hour` | 30 | [1, 1000] | BR-AI-07 |
 | `app.limits.ai-timeout` | 10s | required | BR-AI-05 |
 
----|---|---|
-| `app.nutrition.goal-adjustment.lose` / `.gain` | −500 / +300 | BR-NRG-03 |
-| `app.nutrition.min-kcal.male` / `.other` | 1500 / 1200 | BR-NRG-04 |
-| `app.nutrition.protein-per-kg.{lose,gain,maintain,improve}` | 1.8 / 2.0 / 1.2 / 1.0 | BR-MAC-02 |
-| `app.nutrition.fat-energy-share` | 0.30 | BR-MAC-03 |
-| `app.nutrition.slot-shares` | 25/10/30/10/25 | BR-CMP-01 |
-| `app.nutrition.tolerance.day-ok` / `.day-max` / `.meal` | 0.05 / 0.10 / 0.15 | BR-CMP-05 |
-| `app.limits.generations-per-day` | 10 | BR-LIF-06 |
-| `app.limits.chat-per-hour` | 30 | BR-AI-07 |
-| `app.limits.ai-timeout` | 10s | BR-AI-05 |
-| `app.progress.backfill-days` | 30 | BR-PRG-02 |
-| `app.achievements.hydration-ml` | 2000 | BR-ACH-04 |
-
 ---
 
 ## Amendment log
@@ -254,3 +241,4 @@ changing this table first.
 | 1.2.0 | 2026-10-11 | BR-CAT-02 fiber-aware energy check with a 10 kcal floor; BR-SAF-02 adds shellfish/egg/soy/fish/sesame allergies; BR-SAF-10 spells out the fail-closed flag policy; BR-CAT-01 names the CSV + generated migration. US2 rules marked ✅ |
 | 1.3.0 | 2026-10-11 | BR-CMP-02/05/07 and BR-LIF-06 describe the composer as built (snack patterns, protein split, day balancing, seed streams, DB-counted quota). US3 rules marked ✅ |
 | 1.4.0 | 2026-10-11 | US4: AI rules and BR-LIF-04 marked ✅ |
+| 1.5.0 | 2026-10-11 | US5: BR-PRG-01..06 describe progress as built (notes clearing, check-off window, every invalid field reported, latest weigh-in, unknown vs. zero calories, `resetCalories`, no swap of an eaten meal, snapshot kept without a plan). Removed a stale duplicate of the §13 table. Progress rules marked ✅ |

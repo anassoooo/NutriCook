@@ -46,6 +46,9 @@ public class DietPlan {
   @Column(name = "total_sodium_mg")
   private Double totalSodiumMg;
 
+  /** The calorie target this plan was built for (BR-PRG-06). */
+  private Integer targetCalories;
+
   @Column(name = "valid_for_date", nullable = false)
   private LocalDate validForDate;
 

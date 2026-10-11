@@ -1,7 +1,6 @@
 package com.nutricook.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Min;
 import java.time.LocalDate;
 import lombok.*;
 
@@ -33,20 +32,25 @@ public class ProgressEntry {
 
   private Double weightKg;
 
-  @Min(0)
-  @Builder.Default
-  private Integer caloriesConsumed = 0;
+  /** Derived from checked meals unless {@link #caloriesOverridden} (BR-PRG-05). */
+  private Integer caloriesConsumed;
 
-  @Min(0)
+  /** The user typed {@link #caloriesConsumed} themselves. */
+  @Column(nullable = false)
   @Builder.Default
-  private Integer waterMl = 0;
+  private boolean caloriesOverridden = false;
 
-  @Min(0)
+  private Integer waterMl;
+
+  /** Always derived: the number of checked meals (BR-PRG-05). */
+  @Column(nullable = false)
   @Builder.Default
   private Integer mealsCompleted = 0;
 
-  @Min(0)
   private Integer exerciseMinutes;
+
+  /** The target this day is judged against (BR-PRG-06). */
+  private Integer targetCalories;
 
   @Column(columnDefinition = "TEXT")
   private String notes;

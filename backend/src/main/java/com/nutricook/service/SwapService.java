@@ -57,6 +57,13 @@ public class SwapService {
         plan.getStatus(), plan.getValidForDate(), userClock.today(profile.getTimezone()));
 
     Meal meal = mealOf(plan, mealId);
+    if (meal.isCompleted()) {
+      // it was eaten: changing it would rewrite what the user logged (BR-PRG-05)
+      throw new DomainException(
+          ErrorCode.SWAP_REJECTED,
+          "You already checked this meal off. Uncheck it before changing its food.",
+          Map.of("reason", "MEAL_COMPLETED"));
+    }
     FoodItem food =
         foods
             .findById(foodId)

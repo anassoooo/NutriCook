@@ -1,5 +1,7 @@
 package com.nutricook.service;
 
+import com.nutricook.domain.DomainException;
+import com.nutricook.domain.ErrorCode;
 import com.nutricook.domain.model.PlanStatus;
 import com.nutricook.domain.plan.PlanLifecycle;
 import com.nutricook.domain.safety.PlanSafetyValidator;
@@ -10,9 +12,12 @@ import com.nutricook.entity.Meal;
 import com.nutricook.entity.enums.AiStatus;
 import com.nutricook.exception.ResourceNotFoundException;
 import com.nutricook.repository.DietPlanRepository;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class PlanCommandService {
 
   private final DietPlanRepository plans;
+  private final ApplicationEventPublisher events;
+  private final Clock clock;
 
   /** Validates the whole plan, then saves it. Nothing unsafe is ever persisted. */
   @Transactional
@@ -36,7 +43,9 @@ public class PlanCommandService {
     if (!violations.isEmpty()) {
       throw SafetyService.infeasible("This plan breaks a safety rule.", violations.get(0));
     }
-    return plans.saveAndFlush(plan);
+    DietPlan saved = plans.saveAndFlush(plan);
+    events.publishEvent(new DayPlanChangedEvent(userIdOf(plan), plan.getValidForDate()));
+    return saved;
   }
 
   /** ACTIVE → SUPERSEDED when the day is regenerated (BR-LIF-02). Flushed before the new insert. */
@@ -49,25 +58,43 @@ public class PlanCommandService {
   @Transactional
   public void archive(DietPlan plan) {
     plan.setStatus(PlanLifecycle.transition(plan.getStatus(), PlanStatus.ARCHIVED));
-    plans.save(plan);
+    plans.saveAndFlush(plan);
+    events.publishEvent(new DayPlanChangedEvent(userIdOf(plan), plan.getValidForDate()));
+  }
+
+  /**
+   * Checks a meal off, or unchecks it (BR-PRG-05). Only the ACTIVE plan of a day records what was
+   * eaten; the caller checks the date window. No food changes, so no safety validation is needed.
+   */
+  @Transactional
+  public void setMealCompleted(DietPlan plan, Meal meal, boolean completed) {
+    if (plan.getStatus() != PlanStatus.ACTIVE) {
+      throw new DomainException(
+          ErrorCode.PLAN_READ_ONLY,
+          "Only the current plan of a day can be checked off.",
+          Map.of("status", plan.getStatus().name()));
+    }
+    if (meal.isCompleted() == completed) return;
+    meal.setCompleted(completed);
+    meal.setCompletedAt(completed ? LocalDateTime.now(clock) : null);
+    plans.saveAndFlush(plan);
+  }
+
+  private static Long userIdOf(DietPlan plan) {
+    return plan.getUser().getId();
   }
 
   /**
    * Stores the optional AI text in its own transaction, after the plan was committed (BR-LIF-07).
-   * Touches no nutrition data, so no safety validation is needed.
+   * Touches no nutrition data, so no safety validation is needed. Only the AI columns are written,
+   * so a check-off or swap made while the AI was answering is kept.
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void saveAiText(
       Long planId, String explanation, Map<Long, String> mealTips, AiStatus status) {
-    DietPlan plan =
-        plans
-            .findByIdWithMeals(planId)
-            .orElseThrow(() -> new ResourceNotFoundException("Plan not found: " + planId));
-    plan.setAiExplanation(explanation);
-    for (Meal meal : plan.getMeals()) {
-      if (mealTips.containsKey(meal.getId())) meal.setAiSuggestion(mealTips.get(meal.getId()));
+    if (plans.updateAiText(planId, explanation, status) == 0) {
+      throw new ResourceNotFoundException("Plan not found: " + planId);
     }
-    plan.setAiStatus(status);
-    plans.save(plan);
+    mealTips.forEach((mealId, tip) -> plans.updateMealTip(planId, mealId, tip));
   }
 }

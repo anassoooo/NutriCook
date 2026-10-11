@@ -80,7 +80,7 @@ public class AchievementService {
         .findByUserIdAndDateBetweenOrderByDateAsc(
             userId, LocalDate.now().minusDays(30), LocalDate.now())
         .stream()
-        .filter(p -> p.getCaloriesConsumed() > 0)
+        .filter(p -> p.getCaloriesConsumed() != null && p.getCaloriesConsumed() > 0)
         .count();
   }
 
@@ -89,7 +89,7 @@ public class AchievementService {
         .findByUserIdAndDateBetweenOrderByDateAsc(
             userId, LocalDate.now().minusDays(30), LocalDate.now())
         .stream()
-        .filter(p -> p.getWaterMl() >= 2000)
+        .filter(p -> p.getWaterMl() != null && p.getWaterMl() >= 2000)
         .count();
   }
 }

@@ -22,6 +22,9 @@ public class MealResponse {
   private Integer sortOrder;
   private String aiSuggestion;
 
+  /** Checked off by the user (BR-PRG-05). */
+  private boolean completed;
+
   /** The foods and portions in this meal: protein, carb, produce, then fat (BR-CMP-02). */
   private List<ComponentResponse> components;
 
@@ -39,6 +42,7 @@ public class MealResponse {
         .sodiumMg(meal.getSodiumMg())
         .sortOrder(meal.getSortOrder())
         .aiSuggestion(meal.getAiSuggestion())
+        .completed(meal.isCompleted())
         .components(
             meal.getMealFoodItems().stream()
                 .map(ComponentResponse::of)
