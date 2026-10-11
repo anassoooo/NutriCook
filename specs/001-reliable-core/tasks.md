@@ -456,8 +456,22 @@ description: "Executable task list for 001-reliable-core"
 - [x] **T085** Turn the gates on: JaCoCo `check` (domain ≥ 90%, service ≥ 75% line) and `check-br-coverage --enforce` in CI.
   **Done when:** CI is green with both enforced (this is SC-001 and SC-005).
   *As built: each domain package must have at least 90% line and 75% branch coverage, and the service package 75% line coverage (measured: domain 99.5% line, services 88.9%). The branch gate exposed untested startup checks of the rule tunables (`domain.rules` at 57.5% branch coverage); `RulesValidationTest` now covers every range. The gate was proven to fail by temporarily requiring 100%: it named `domain.energy` and `domain.model`.*
-- [ ] **T086** Final audit: update the **Today** column of every rule in `business-rules.md` to ✅ (or RETIRED with a reason), bump the catalogue to 1.1.0, and add the amendment-log row. Then run `/speckit.analyze` for cross-artifact consistency.
+- [x] **T086** Final audit: update the **Today** column of every rule in `business-rules.md` to ✅ (or RETIRED with a reason), bump the catalogue to 1.1.0, and add the amendment-log row. Then run `/speckit.analyze` for cross-artifact consistency.
   **Done when:** no ⚠️ or ❌ rows remain.
+  *As built: all 76 rules ✅, none retired; the catalogue went through 1.1.0–1.7.0 during the phases, and the audit is 1.8.0. `/speckit.analyze` was not available in this environment, so the cross-artifact check was done by hand:*
+
+  | Criterion | Evidence | Status |
+  |---|---|---|
+  | SC-001 rules tested by ID | `check-br-coverage.sh --enforce` in CI: 76/76 | ✅ |
+  | SC-002 no safety violations | `SafetyPropertiesTest` 2 × 1,000 cases and `PlanPropertiesTest` 1,000 plan generations per run | ✅ |
+  | SC-003 reference profiles within ±5% | `PlanComposerTest.BR_CMP_05_referenceProfilesLandWithin5Percent` (A–D, many seeds) | ✅ |
+  | SC-004 generation p95 < 300 ms; AI never blocks | `plan_generated … ms=` over the 98 generations of a full test run: p50 74 ms, p95 142 ms, max 263 ms (Testcontainers DB); AI runs after commit | ✅ |
+  | SC-005 coverage gates | JaCoCo `check` in `verify`; proven to fail when unmet | ✅ |
+  | SC-006 fresh clone < 5 min | Compose stack builds and starts from `.env.example`; not timed on a clean machine | ⚠️ not measured |
+  | SC-007 no hard-coded nutrition numbers | CI grep step | ✅ |
+  | FR-001…FR-009 | Endpoints and behavior covered by `TargetsIT`, `SwapIT`, `ProgressIT`, `AdminFoodIT`, `ProblemDetailHandlerTest`, `ErrorCodeSyncTest`, the Compose job | ✅ |
+
+  *Open item outside the code: T084's deployment needs the author's accounts.*
 
 ---
 

@@ -1,17 +1,22 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.7.0 · **Last updated**: 2026-10-11
+> **Status**: Reference · **Version**: 1.8.0 · **Last updated**: 2026-10-11
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
 Every rule has a stable ID (`BR-<AREA>-<NN>`). IDs are never reused or renumbered. Each rule
 MUST be covered by at least one automated test whose name starts with the rule ID
-(e.g. `BR_NRG_01_bmrUsesMifflinStJeor`). The **Today** column shows how the code at commit
-`39679a0` compares to the rule:
+(e.g. `BR_NRG_01_bmrUsesMifflinStJeor`); `scripts/check-br-coverage.sh --enforce` fails CI
+otherwise. The **Today** column shows how the code compares to the rule. It started as an audit of
+commit `39679a0` (v1.0.0); every rule is now ✅ (audited at the end of `001-reliable-core`, v1.8.0):
 
-- ✅ **OK**: implemented as written
+- ✅ **OK**: implemented as written, and tested by its ID
 - ⚠️ **DIVERGES**: something exists but behaves differently
 - ❌ **MISSING**: not implemented
+- **RETIRED**: no longer applies; the row stays, with the reason, and the ID is never reused
+
+A change of behavior starts here: amend the rule, record it in the amendment log, then change the
+tests and the code.
 
 Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br-nrg) ·
 [Macros](#3-macronutrient-targets-br-mac) · [Safety](#4-food-safety--eligibility-br-saf) ·
@@ -245,3 +250,4 @@ changing this table first.
 | 1.5.0 | 2026-10-11 | US5: BR-PRG-01..06 describe progress as built (notes clearing, check-off window, every invalid field reported, latest weigh-in, unknown vs. zero calories, `resetCalories`, no swap of an eaten meal, snapshot kept without a plan). Removed a stale duplicate of the §13 table. Progress rules marked ✅ |
 | 1.6.0 | 2026-10-11 | US6: BR-ACH-01..07 as built (365-day history, day without target not judged, weight direction per goal, rounding down, `LOGGING_STREAK`, constant statement count, `currentValue` in responses). Achievement rules marked ✅ |
 | 1.7.0 | 2026-10-11 | US7: food `origin` (SEED/ADMIN) so the seed never overwrites admin work; case-insensitive names; diet-label consistency in BR-CAT-02; startup gate; reactivation gate; §12 adds `FOOD_READ_ONLY`. Catalog rules marked ✅ |
+| 1.8.0 | 2026-10-11 | Final audit of `001-reliable-core`: all 76 rules ✅ and tested by ID (CI enforces it); §13 keys checked against `application.yml`, §12 against `ErrorCode`; the status legend gains RETIRED |
