@@ -1,6 +1,6 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.5.0 · **Last updated**: 2026-10-11
+> **Status**: Reference · **Version**: 1.6.0 · **Last updated**: 2026-10-11
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
@@ -155,13 +155,13 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-ACH-01 | **Logging streak**: the number of consecutive days with an entry, ending today. If today has no entry yet, the streak ends **yesterday** (grace until the end of the user-day). | ⚠️ resets to 0 every morning |
-| BR-ACH-02 | **Plans generated** counts distinct (user, date) plans, so superseded regenerations don't count. | ⚠️ counts every row |
-| BR-ACH-03 | **Calorie goal day**: `|caloriesConsumed − targetCalories| ≤ 10% × targetCalories` and `caloriesConsumed > 0`. Counted over a rolling 30 days. | ⚠️ any calories > 0 counts |
-| BR-ACH-04 | **Hydration day**: water ≥ 2000 ml. Counted over a rolling 30 days. Each achievement description must state the exact rule. | ⚠️ description says "7 days" without saying how they're counted |
-| BR-ACH-05 | Every `AchievementType` has exactly one evaluator, and a test fails if one is missing. Types that can't be measured yet (PROTEIN_GOAL) are removed until protein intake is tracked. WEIGHT_MILESTONE = net weight change of `threshold` kg in the goal's direction since the first logged weight. | ⚠️ PROTEIN_GOAL and WEIGHT_MILESTONE silently never fire |
-| BR-ACH-06 | Awards are **idempotent** (unique per user and achievement; a duplicate insert is a no-op) and **permanent** (never revoked, even if data is later edited). | ⚠️ unique constraint exists; a race gives a 500 |
-| BR-ACH-07 | Evaluation runs after a progress log, a meal check-off or a plan generation, using **one** range query (not one query per day). | ⚠️ up to 365 queries |
+| BR-ACH-01 | **Logging streak**: the number of consecutive days with an entry, ending today. If today has no entry yet, the streak ends **yesterday** (grace until the end of the user-day). History is read for 365 days, so longer streaks are capped there. | ✅ |
+| BR-ACH-02 | **Plans generated** counts distinct (user, date) plans, so superseded regenerations don't count. | ✅ |
+| BR-ACH-03 | **Calorie goal day**: `|caloriesConsumed − targetCalories| ≤ 10% × targetCalories` and `caloriesConsumed > 0`. Counted over a rolling 30 days (`[today − 29, today]`). `targetCalories` is the day's snapshot (BR-PRG-06); a day without one cannot be judged and does not count. | ✅ |
+| BR-ACH-04 | **Hydration day**: water ≥ 2000 ml. Counted over a rolling 30 days. Each achievement description must state the exact rule. | ✅ |
+| BR-ACH-05 | Every `AchievementType` has exactly one evaluator, and a test fails if one is missing. Types that can't be measured yet (PROTEIN_GOAL) are removed until protein intake is tracked. WEIGHT_MILESTONE = net weight change of `threshold` kg in the goal's direction since the first logged weight: down for LOSE_WEIGHT, up for GAIN_MUSCLE. MAINTAIN_WEIGHT and IMPROVE_HEALTH have no direction, so the value stays 0. The change is rounded down to 0.1 kg. The old `LOGIN_STREAK` type is `LOGGING_STREAK`. | ✅ |
+| BR-ACH-06 | Awards are **idempotent** (unique per user and achievement; a duplicate insert is a no-op) and **permanent** (never revoked, even if data is later edited). | ✅ |
+| BR-ACH-07 | Evaluation runs after a progress log, a meal check-off or a plan generation, using **one** range query (not one query per day). The number of statements does not depend on the history length. Every achievement is returned with `currentValue`, `threshold` and `earned`, so clients never compute progress. | ✅ |
 
 ## 10. Food catalog (BR-CAT)
 
@@ -242,3 +242,4 @@ changing this table first.
 | 1.3.0 | 2026-10-11 | BR-CMP-02/05/07 and BR-LIF-06 describe the composer as built (snack patterns, protein split, day balancing, seed streams, DB-counted quota). US3 rules marked ✅ |
 | 1.4.0 | 2026-10-11 | US4: AI rules and BR-LIF-04 marked ✅ |
 | 1.5.0 | 2026-10-11 | US5: BR-PRG-01..06 describe progress as built (notes clearing, check-off window, every invalid field reported, latest weigh-in, unknown vs. zero calories, `resetCalories`, no swap of an eaten meal, snapshot kept without a plan). Removed a stale duplicate of the §13 table. Progress rules marked ✅ |
+| 1.6.0 | 2026-10-11 | US6: BR-ACH-01..07 as built (365-day history, day without target not judged, weight direction per goal, rounding down, `LOGGING_STREAK`, constant statement count, `currentValue` in responses). Achievement rules marked ✅ |

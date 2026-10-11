@@ -1,7 +1,6 @@
 package com.nutricook.controller;
 
 import com.nutricook.dto.response.AchievementResponse;
-import com.nutricook.entity.Achievement;
 import com.nutricook.service.AchievementService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,26 +17,17 @@ public class AchievementController {
   @GetMapping("/api/achievements")
   public ResponseEntity<List<AchievementResponse>> all() {
     return ResponseEntity.ok(
-        achievementService.allAchievements().stream().map(this::toResponse).toList());
+        achievementService.allAchievements().stream().map(AchievementResponse::of).toList());
   }
 
+  /**
+   * Every achievement with the user's progress: {@code currentValue}, {@code threshold} and {@code
+   * earned} (BR-ACH-01..05).
+   */
   @GetMapping("/api/users/{userId}/achievements")
   @PreAuthorize("@security.isOwner(authentication, #userId)")
   public ResponseEntity<List<AchievementResponse>> userAchievements(@PathVariable Long userId) {
     return ResponseEntity.ok(
-        achievementService.getUserAchievements(userId).stream()
-            .map(AchievementResponse::of)
-            .toList());
-  }
-
-  private AchievementResponse toResponse(Achievement a) {
-    return AchievementResponse.builder()
-        .id(a.getId())
-        .name(a.getName())
-        .description(a.getDescription())
-        .iconName(a.getIconName())
-        .type(a.getType().name())
-        .threshold(a.getThreshold())
-        .build();
+        achievementService.standingsFor(userId).stream().map(AchievementResponse::of).toList());
   }
 }

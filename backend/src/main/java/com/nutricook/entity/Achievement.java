@@ -1,6 +1,6 @@
 package com.nutricook.entity;
 
-import com.nutricook.entity.enums.AchievementType;
+import com.nutricook.domain.model.AchievementType;
 import jakarta.persistence.*;
 import lombok.*;
 

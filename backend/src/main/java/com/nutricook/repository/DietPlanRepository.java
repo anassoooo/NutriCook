@@ -30,6 +30,10 @@ public interface DietPlanRepository extends JpaRepository<DietPlan, Long> {
   /** Plans already generated for this user-day: the next generation sequence (BR-CMP-07). */
   long countByUserIdAndValidForDate(Long userId, LocalDate date);
 
+  /** Days with a plan; regenerations of a day count once (BR-ACH-02). */
+  @Query("SELECT COUNT(DISTINCT p.validForDate) FROM DietPlan p WHERE p.user.id = :userId")
+  long countPlannedDays(Long userId);
+
   /** Generations since a moment, for the daily quota (BR-LIF-06). */
   long countByUserIdAndGeneratedAtGreaterThanEqual(Long userId, LocalDateTime since);
 

@@ -1,5 +1,6 @@
 package com.nutricook.config;
 
+import com.nutricook.domain.achievement.EvaluatorRegistry;
 import com.nutricook.domain.energy.TargetCalculator;
 import com.nutricook.domain.plan.PlanComposer;
 import com.nutricook.domain.rules.NutritionRules;
@@ -46,5 +47,11 @@ public class DomainConfig {
     return Binder.get(env)
         .bind("app.tracking", TrackingRules.class)
         .orElseThrow(() -> new IllegalStateException("Missing configuration: app.tracking"));
+  }
+
+  /** Fails startup when an achievement type has no evaluator (BR-ACH-05). */
+  @Bean
+  EvaluatorRegistry evaluatorRegistry(TrackingRules rules) {
+    return EvaluatorRegistry.standard(rules);
   }
 }

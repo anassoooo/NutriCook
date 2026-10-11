@@ -15,6 +15,9 @@ public interface ProgressRepository extends JpaRepository<ProgressEntry, Long> {
 
   long countByUserIdAndDateBetween(Long userId, LocalDate from, LocalDate to);
 
+  /** The first weigh-in ever, the reference of weight milestones (BR-ACH-05). */
+  Optional<ProgressEntry> findFirstByUserIdAndWeightKgIsNotNullOrderByDateAsc(Long userId);
+
   /** The most recent day, other than {@code date}, with a weight logged (BR-PRG-04). */
   @Query(
       "SELECT MAX(e.date) FROM ProgressEntry e"

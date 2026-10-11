@@ -1,5 +1,9 @@
 # Integration-test settings. The datasource comes from Testcontainers (@ServiceConnection).
 spring:
+  jpa:
+    properties:
+      # statement counts for BR-ACH-07
+      hibernate.generate_statistics: true
   ai:
     openai:
       api-key: test-dummy-groq-key
@@ -24,3 +28,8 @@ app:
     search-radius-meters: 2000
   cache:
     location-ttl-minutes: 60
+
+logging:
+  level:
+    # statistics are read in tests, not logged per session
+    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: WARN
