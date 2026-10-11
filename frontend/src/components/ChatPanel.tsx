@@ -19,12 +19,14 @@ interface Props {
   onPlanUpdate: (plan: DietPlan) => void
   triggerMessage?: string
   onTriggerConsumed?: () => void
+  /** Changes when the page asks to open the panel (the desktop header button). */
+  openRequest?: number
 }
 
 const WELCOME =
   'Ask about today\'s plan, or say what to change, for example "something lighter for dinner" or "no salmon, please". Any swap I suggest is checked against your allergies and limits before it is saved.'
 
-export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTriggerConsumed }: Props) {
+export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTriggerConsumed, openRequest }: Props) {
   const { userId } = useAuth()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: WELCOME }])
@@ -43,6 +45,10 @@ export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTrig
       onTriggerConsumed?.()
     }
   }, [triggerMessage])
+
+  useEffect(() => {
+    if (openRequest) setOpen(true)
+  }, [openRequest])
 
   const send = async () => {
     const text = input.trim()
@@ -73,7 +79,9 @@ export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTrig
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
         aria-label={open ? 'Close the assistant' : 'Ask the assistant'}
-        className="fixed bottom-24 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-semibold text-chalk shadow-lift transition-colors hover:bg-brand-600 lg:bottom-8 lg:right-8"
+        className={`fixed bottom-24 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-semibold text-chalk shadow-lift transition-colors hover:bg-brand-600 lg:bottom-8 lg:right-8 ${
+          open ? '' : 'lg:hidden'
+        }`}
       >
         {open ? <CloseIcon size={18} /> : <ChatIcon size={18} />}
         <span className="hidden sm:inline">{open ? 'Close' : 'Ask the assistant'}</span>

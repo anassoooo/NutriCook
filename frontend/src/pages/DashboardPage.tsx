@@ -13,7 +13,7 @@ import SwapMenu from '../components/SwapMenu'
 import MealCheck from '../components/MealCheck'
 import DayPlate, { RoleKey } from '../components/DayPlate'
 import { ROLE_COLORS } from '../lib/roles'
-import { ChevronIcon, RefreshIcon, SparkIcon } from '../components/Icons'
+import { ChatIcon, ChevronIcon, RefreshIcon, SparkIcon } from '../components/Icons'
 import { localIsoDate } from '../lib/progressRules'
 import { useAiRefresh } from '../hooks/useAiRefresh'
 
@@ -202,6 +202,7 @@ export default function DashboardPage() {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
   const [chatTrigger, setChatTrigger] = useState('')
+  const [chatOpenRequest, setChatOpenRequest] = useState(0)
   useAiRefresh(userId, plan, setPlan)
 
   useEffect(() => {
@@ -257,10 +258,17 @@ export default function DashboardPage() {
           )}
         </div>
         {plan && (
-          <button type="button" onClick={generate} disabled={generating} className="btn-secondary">
-            <RefreshIcon size={17} className={generating ? 'animate-spin' : ''} />
-            {generating ? 'Planning…' : 'Plan the day again'}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={generate} disabled={generating} className="btn-secondary">
+              <RefreshIcon size={17} className={generating ? 'animate-spin' : ''} />
+              {generating ? 'Planning…' : 'Plan the day again'}
+            </button>
+            {/* phones use the floating button instead */}
+            <button type="button" onClick={() => setChatOpenRequest(n => n + 1)} className="btn-primary hidden lg:inline-flex">
+              <ChatIcon size={17} />
+              Ask the assistant
+            </button>
+          </div>
         )}
       </header>
 
@@ -358,6 +366,7 @@ export default function DashboardPage() {
           onPlanUpdate={setPlan}
           triggerMessage={chatTrigger}
           onTriggerConsumed={() => setChatTrigger('')}
+          openRequest={chatOpenRequest}
         />
       )}
     </>
