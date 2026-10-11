@@ -1,6 +1,8 @@
 package com.nutricook.config;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
+import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
@@ -32,6 +34,19 @@ public class AsyncConfig {
     e.setCorePoolSize(core);
     e.setMaxPoolSize(max);
     e.setQueueCapacity(queue);
+    // the request id follows the work onto the AI threads
+    e.setTaskDecorator(
+        task -> {
+          Map<String, String> context = MDC.getCopyOfContextMap();
+          return () -> {
+            if (context != null) MDC.setContextMap(context);
+            try {
+              task.run();
+            } finally {
+              MDC.clear();
+            }
+          };
+        });
     e.initialize();
     return e;
   }

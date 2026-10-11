@@ -167,7 +167,7 @@ public class ChatService {
 
   private String callModel(String prompt) {
     try {
-      return CompletableFuture.supplyAsync(() -> ai.complete(prompt), aiCalls)
+      return CompletableFuture.supplyAsync(() -> ai.complete("chat", prompt), aiCalls)
           .get(limits.aiTimeout().toMillis(), TimeUnit.MILLISECONDS);
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();

@@ -421,7 +421,7 @@ description: "Executable task list for 001-reliable-core"
 
 ## Phase 10: Hardening, documentation, delivery (M5)
 
-- [ ] **T079** Security configuration (`B/config/SecurityConfig.java`, `application.yml`):
+- [x] **T079** Security configuration (`B/config/SecurityConfig.java`, `application.yml`):
   - CORS origins come from `CORS_ALLOWED_ORIGINS`
   - remove `/h2-console` and the `frameOptions().disable()`
   - Swagger/api-docs off in `prod`
@@ -429,7 +429,9 @@ description: "Executable task list for 001-reliable-core"
   - `DataInitializer` becomes `DemoDataInitializer` with `@Profile("local")`, credentials from `DEMO_ADMIN_*`, and it never logs passwords
 
   **Test:** `BT/config/ProdProfileIT.java` checks the secret fail-fast and that `/swagger-ui.html` → 404 in prod.
-- [ ] **T080** [P] Observability: a `B/config/CorrelationIdFilter.java` (MDC `requestId`, echoed in the `X-Request-Id` header and the ProblemDetail `instance`); structured log lines for generation (userId, seed, seq, attempts, warnings, ms) and AI calls (latency, outcome; never prompt contents). Expose Actuator `metrics` and `prometheus` to admins only.
+  *As built: there was no H2 left to remove. The demo admin runs in the `local` and `docker` profiles and is created only when `DEMO_ADMIN_PASSWORD` is set, so no deployment has a default admin. `JwtSecretValidator` also rejects the two secrets published in this repository, and invalid base64; the old `application.yml` default was itself invalid base64, so local token signing would have failed without `JWT_SECRET`. CORS allows only listed origins and headers. The OSM user agent (which held a personal email) is configurable. `AdminFoodIT` promotes its own admin. The secret checks are unit-tested (`JwtSecretValidatorTest`); `ProdProfileIT` covers the docs 404s, the absence of a demo admin and CORS.*
+- [x] **T080** [P] Observability: a `B/config/CorrelationIdFilter.java` (MDC `requestId`, echoed in the `X-Request-Id` header and the ProblemDetail `instance`); structured log lines for generation (userId, seed, seq, attempts, warnings, ms) and AI calls (latency, outcome; never prompt contents). Expose Actuator `metrics` and `prometheus` to admins only.
+  *As built: the id is in an MDC-aware log pattern, copied onto the AI executor threads, and added to error bodies as a `requestId` property (`instance` stays the path, as RFC 9457 intends). A caller's id is kept only if it matches `[A-Za-z0-9._-]{1,64}`, so it cannot forge log lines. The generation log line carries `ms` and the target; composer attempts are not exposed by the domain. Timers: `nutricook.plan.generation`, `nutricook.ai.calls` (tags: prompt, outcome). `ObservabilityIT` also asserts that a chat message never reaches the logs.*
 - [ ] **T081** [P] Update `docs/diagrams/class-data.mmd` (new entities and columns) and `docs/diagrams/seq-diet.mmd` (generate → commit → async enrich; chat → intent → swap command), then re-render the PNGs.
   **Done when:** the diagrams match the V1–V7 schema.
 - [ ] **T082** [P] Update `.specify/templates/plan-template.md` (Constitution Check table for I–X) and `tasks-template.md` (mandatory tests, a "Done when" line, BR references). This clears the ⚠ items in the constitution's Sync Impact Report.

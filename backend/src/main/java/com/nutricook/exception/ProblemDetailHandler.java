@@ -1,6 +1,7 @@
 package com.nutricook.exception;
 
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import com.nutricook.config.CorrelationIdFilter;
 import com.nutricook.domain.DomainException;
 import com.nutricook.domain.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
@@ -62,6 +64,8 @@ public class ProblemDetailHandler {
     if (path != null) pd.setInstance(URI.create(path));
     pd.setProperty("code", code.name());
     pd.setProperty("timestamp", Instant.now().toString());
+    String requestId = MDC.get(CorrelationIdFilter.MDC_KEY);
+    if (requestId != null) pd.setProperty("requestId", requestId);
     return pd;
   }
 

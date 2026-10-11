@@ -37,18 +37,20 @@ class AdminFoodIT extends AbstractIntegrationTest {
 
   @BeforeEach
   void setUp() throws Exception {
-    admin =
-        "Bearer "
-            + read(mockMvc
-                    .perform(
-                        post("/api/auth/login")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(
-                                "{\"email\":\"admin@nutricook.dev\",\"password\":\"Admin1234!\"}"))
-                    .andExpect(status().isOk())
-                    .andReturn())
-                .get("token")
-                .asText();
+    // there is no default admin outside local development: promote a fresh account
+    JsonNode adminReg =
+        read(
+            mockMvc
+                .perform(
+                    post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(
+                            "{\"email\":\"admin-"
+                                + UUID.randomUUID()
+                                + "@t.dev\",\"password\":\"Password123!\"}"))
+                .andReturn());
+    jdbc.update("update users set role = 'ADMIN' where id = ?", adminReg.get("userId").asLong());
+    admin = "Bearer " + adminReg.get("token").asText(); // roles are read per request
     JsonNode reg =
         read(
             mockMvc

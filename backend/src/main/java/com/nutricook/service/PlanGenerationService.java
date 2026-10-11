@@ -24,6 +24,8 @@ import com.nutricook.entity.enums.MealType;
 import com.nutricook.exception.ResourceNotFoundException;
 import com.nutricook.repository.DietPlanRepository;
 import com.nutricook.repository.UserRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -60,6 +62,7 @@ public class PlanGenerationService {
   private final LimitsProperties limits;
   private final ApplicationEventPublisher events;
   private final TransactionTemplate tx;
+  private final Timer generationTimer;
 
   public PlanGenerationService(
       DietPlanRepository plans,
@@ -72,7 +75,8 @@ public class PlanGenerationService {
       UserClock userClock,
       LimitsProperties limits,
       ApplicationEventPublisher events,
-      PlatformTransactionManager txManager) {
+      PlatformTransactionManager txManager,
+      MeterRegistry meters) {
     this.plans = plans;
     this.users = users;
     this.profileService = profileService;
@@ -84,6 +88,7 @@ public class PlanGenerationService {
     this.limits = limits;
     this.events = events;
     this.tx = new TransactionTemplate(txManager);
+    this.generationTimer = meters.timer("nutricook.plan.generation");
   }
 
   /**
@@ -102,6 +107,7 @@ public class PlanGenerationService {
   }
 
   private DietPlan generateOnce(Long userId, LocalDate requestedDate) {
+    long start = System.nanoTime();
     User user =
         users
             .findById(userId)
@@ -132,15 +138,19 @@ public class PlanGenerationService {
     DietPlan saved =
         commands.persist(toEntity(user, draft, byId, seq, seed, targets.kcal()), constraints);
     events.publishEvent(new PlanGeneratedEvent(saved.getId(), userId));
+    long ms = (System.nanoTime() - start) / 1_000_000;
+    generationTimer.record(ms, java.util.concurrent.TimeUnit.MILLISECONDS);
     log.info(
-        "Generated plan {} for user {} on {} (seq {}, seed {}, {} kcal, warnings {})",
+        "plan_generated planId={} userId={} date={} seq={} seed={} kcal={} target={} warnings={} ms={}",
         saved.getId(),
         userId,
         date,
         seq,
         seed,
         saved.getTotalCalories(),
-        draft.warnings().stream().map(w -> w.code().name()).toList());
+        targets.kcal(),
+        draft.warnings().stream().map(w -> w.code().name()).toList(),
+        ms);
     return saved;
   }
 

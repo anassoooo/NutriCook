@@ -122,6 +122,11 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
+    <!-- /actuator/prometheus (admins only) -->
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+    </dependency>
 
     <!-- Schema migrations (Constitution VI) -->
     <dependency>

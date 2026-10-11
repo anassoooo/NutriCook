@@ -4,6 +4,8 @@ import com.nutricook.ai.PromptLibrary;
 import com.nutricook.entity.DietPlan;
 import com.nutricook.entity.Meal;
 import com.nutricook.entity.UserProfile;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -25,11 +27,13 @@ public class GroqAiService {
 
   private final ChatClient.Builder chatClientBuilder;
   private final PromptLibrary prompts;
+  private final MeterRegistry meters;
 
   /** A short tip for one meal, or null if the AI is unavailable. */
   public String getMealSuggestion(Meal meal, UserProfile profile) {
     try {
       return complete(
+          "meal-suggestion",
           prompts.render(
               "meal-suggestion",
               Map.of(
@@ -49,6 +53,7 @@ public class GroqAiService {
   public String getPlanExplanation(DietPlan plan, UserProfile profile) {
     try {
       return complete(
+          "plan-explanation",
           prompts.render(
               "plan-explanation",
               Map.of(
@@ -68,13 +73,33 @@ public class GroqAiService {
   /**
    * Sends a fully rendered prompt as-is (no further templating, so braces in format instructions
    * are safe). Exceptions propagate: callers decide how to degrade (BR-AI-05).
+   *
+   * <p>Logs one line per call with the prompt name, outcome and latency, and records the {@code
+   * nutricook.ai.calls} timer. Prompt and answer texts are never logged: they hold user data.
+   *
+   * @param promptName the prompt file, for logs and metrics
    */
-  public String complete(String renderedPrompt) {
-    return chatClientBuilder
-        .build()
-        .prompt(new Prompt(new UserMessage(renderedPrompt)))
-        .call()
-        .content();
+  public String complete(String promptName, String renderedPrompt) {
+    long start = System.nanoTime();
+    String outcome = "error";
+    try {
+      String answer =
+          chatClientBuilder
+              .build()
+              .prompt(new Prompt(new UserMessage(renderedPrompt)))
+              .call()
+              .content();
+      outcome = answer == null || answer.isBlank() ? "empty" : "ok";
+      return answer;
+    } finally {
+      long nanos = System.nanoTime() - start;
+      Timer.builder("nutricook.ai.calls")
+          .tag("prompt", promptName)
+          .tag("outcome", outcome)
+          .register(meters)
+          .record(nanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+      log.info("ai_call prompt={} outcome={} ms={}", promptName, outcome, nanos / 1_000_000);
+    }
   }
 
   static String goal(UserProfile profile) {

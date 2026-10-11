@@ -31,12 +31,36 @@ spring:
 server:
   port: 8080
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # health is public; everything else is for admins (SecurityConfig)
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  pattern:
+    # every line carries the request id (CorrelationIdFilter)
+    level: "%5p [%X{requestId:-}]"
+
 app:
   jwt:
-    secret: ${JWT_SECRET:devOnlySecretKeyMustBeAtLeast32CharactersLong!!}
+    # Base64, at least 32 bytes. The default is for local development only; prod refuses it.
+    secret: ${JWT_SECRET:bnV0cmljb29rLWxvY2FsLWRldi1vbmx5LXNlY3JldC1DSEFOR0UtTUUtMDAwMQ==}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  cors:
+    # comma-separated; the Vite dev server and the Compose frontend by default
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8081}
+  demo:
+    # local and docker profiles only; no admin is created without a password
+    admin-email: ${DEMO_ADMIN_EMAIL:admin@nutricook.local}
+    admin-password: ${DEMO_ADMIN_PASSWORD:}
   osm:
-    user-agent: "NutriCook Diet Assistant / anasbougrine63@gmail.com"
+    # Nominatim asks for an identifying user agent with a contact
+    user-agent: ${OSM_USER_AGENT:NutriCook diet assistant}
     overpass-url: https://overpass-api.de/api/interpreter
     nominatim-url: https://nominatim.openstreetmap.org
     search-radius-meters: 2000
@@ -119,3 +143,10 @@ spring:
     password: ${DATABASE_PASSWORD}
     hikari:
       maximum-pool-size: 5
+
+# API documentation is for development only
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
