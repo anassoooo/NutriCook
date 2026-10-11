@@ -93,7 +93,7 @@ export default function DayPlate({
 
       <figcaption className="pointer-events-none absolute inset-0 grid place-items-center text-center">
         <div>
-          <p className="font-heading text-[2.6rem] font-bold leading-none num">{eaten.toLocaleString()}</p>
+          <p className="font-heading text-[2.6rem] font-bold leading-none text-ink num">{eaten.toLocaleString()}</p>
           <p className="mt-1.5 text-sm text-ink-soft num">of {plannedKcal.toLocaleString()} kcal</p>
           {targetKcal !== null && <p className="text-xs text-ink-faint num">target {targetKcal.toLocaleString()}</p>}
         </div>
