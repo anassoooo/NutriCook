@@ -437,7 +437,7 @@ description: "Executable task list for 001-reliable-core"
   *As built: `docs/diagrams/` holds personal, untracked report files, so the tracked `docs/uml/*.md` were rewritten instead, as Mermaid that GitHub renders (no PNGs to keep in sync). `data-model.md` was built from the live V8 schema and lists the constraints that enforce rules; `class-diagram.md` shows the layers, the domain core and the event flow; `sequence-diagrams.md` covers generate → commit → async AI, chat → intent → swap, meal check-off → progress → achievements, and catalog administration; `use-case.md` adds the Admin actor and UC21–UC24.*
 - [x] **T082** [P] Update `.specify/templates/plan-template.md` (Constitution Check table for I–X) and `tasks-template.md` (mandatory tests, a "Done when" line, BR references). This clears the ⚠ items in the constitution's Sync Impact Report.
   *As built: the plan template has a ten-row Constitution Check table, one row per principle; the tasks template makes tests mandatory and shows the `Rules:` / `Done when:` / `As built` format used in this file. Both Sync Impact Report items are ✅.*
-- [ ] **T083** README rewrite:
+- [x] **T083** README rewrite:
   - a one-paragraph pitch
   - a GIF demo
   - a live link
@@ -449,8 +449,10 @@ description: "Executable task list for 001-reliable-core"
   - a link to the business rules
 
   **Done when:** someone who didn't write the project can run it from the README alone.
+  *As built: pitch, features, a "How correctness is guaranteed" section with a Mermaid pipeline, an architecture diagram, quickstart, testing, configuration, structure and an API table checked against the controllers. The GIF demo and the live link are placeholders: recording and deploying need the author (see T084).*
 - [ ] **T084** [P] Deployment guide `docs/deploy.md` + deploy: Neon Postgres, Render (backend Docker, env vars), Vercel (frontend, `/api` rewrite to Render). Add the live URL to the README.
   **Done when:** the public URL serves a working register → onboarding → plan → chat flow.
+  *As built: `render.yaml` (Render Blueprint: Docker, prod profile, generated JWT secret, secrets as `sync: false`), `frontend/vercel.json` (`/api` rewrite to Render plus SPA fallback), `server.port` from `PORT`, forwarded headers in prod, and `docs/deploy.md`, including how to promote the first admin and how to read the request ids. **Still open:** creating the Neon, Render and Vercel projects needs the author's accounts; then add the live URL to the README and tick this task.*
 - [x] **T085** Turn the gates on: JaCoCo `check` (domain ≥ 90%, service ≥ 75% line) and `check-br-coverage --enforce` in CI.
   **Done when:** CI is green with both enforced (this is SC-001 and SC-005).
   *As built: each domain package must have at least 90% line and 75% branch coverage, and the service package 75% line coverage (measured: domain 99.5% line, services 88.9%). The branch gate exposed untested startup checks of the rule tunables (`domain.rules` at 57.5% branch coverage); `RulesValidationTest` now covers every range. The gate was proven to fail by temporarily requiring 100%: it named `domain.energy` and `domain.model`.*

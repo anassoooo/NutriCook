@@ -29,7 +29,8 @@ spring:
           max-tokens: 1024
 
 server:
-  port: 8080
+  # hosts such as Render pass the port in PORT
+  port: ${PORT:8080}
 
 management:
   endpoints:
@@ -143,6 +144,10 @@ spring:
     password: ${DATABASE_PASSWORD}
     hikari:
       maximum-pool-size: 5
+
+# behind the host's HTTPS proxy: trust X-Forwarded-* for scheme and client address
+server:
+  forward-headers-strategy: framework
 
 # API documentation is for development only
 springdoc:
