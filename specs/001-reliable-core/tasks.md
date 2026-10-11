@@ -342,24 +342,30 @@ description: "Executable task list for 001-reliable-core"
 
 ## Phase 7: US5, Progress reflects reality (P2) M4
 
-- [ ] **T062** [US5] `BR/db/migration/V6__progress_meal_completion.sql`:
+- [x] **T062** [US5] `BR/db/migration/V6__progress_meal_completion.sql`:
   - `meals` gets `completed BOOLEAN NOT NULL DEFAULT FALSE` and `completed_at`
   - `progress_entries` gets `target_calories INT` and `calories_overridden BOOLEAN NOT NULL DEFAULT FALSE`
   - CHECK constraints mirror BR-PRG-03 (defense in depth)
-- [ ] **T063** [P] [US5] `BT/domain/progress/ProgressRulesTest.java`:
+  *As built: V6 also stores `diet_plans.target_calories`, because the plan's target was not recorded anywhere; earlier plans get their planned total. Legacy values outside the bounds become unknown (`null`) before the constraints are added, hand-typed calories are kept as overrides, and the old disconnected `meals_completed` counter is reset. Checked with an upgrade of the Docker database that held out-of-range rows.*
+- [x] **T063** [P] [US5] `BT/domain/progress/ProgressRulesTest.java`:
   - `BR_PRG_01_mergeKeepsOmittedFields`
   - `BR_PRG_02_dateWindow` (today ok, today+1 rejected, today−30 ok, today−31 rejected)
   - `BR_PRG_03_bounds` (one case per field, edges included)
   - `BR_PRG_05_derivedCalories`
   - `BR_PRG_05_overrideWins`
   - `BR_PRG_06_targetSnapshotFromPlanElseProfile`
-- [ ] **T064** [US5] `B/domain/progress/ProgressRules.java` (pure): bounds, date window, derivation, merge semantics.
+  *As built: 35 cases, including every bound edge, NaN weight, all invalid fields reported at once, notes clearing, reset to derived calories, and unknown (no plan) vs. zero (nothing checked).*
+- [x] **T064** [US5] `B/domain/progress/ProgressRules.java` (pure): bounds, date window, derivation, merge semantics.
   **Rules:** BR-PRG-01..03/05/06. **Done when:** T063 is green.
-- [ ] **T065** [US5] `PlanCommandService.setMealCompleted(...)` + `PUT …/meals/{m}/completion`. This updates the day's progress entry (created if absent) through `ProgressService`, then triggers achievement evaluation.
+  *As built: `domain/progress/{ProgressRules, DayLog, LogUpdate, PlanDay}`. `merge` applies the user's fields, `derive` applies what the plan decides, and `isLatestWeighIn` covers BR-PRG-04.*
+- [x] **T065** [US5] `PlanCommandService.setMealCompleted(...)` + `PUT …/meals/{m}/completion`. This updates the day's progress entry (created if absent) through `ProgressService`, then triggers achievement evaluation.
   **Rules:** BR-PRG-05, FR-004.
-- [ ] **T066** [US5] Rewrite `B/service/ProgressService.java`: user-day dates (`UserClock`), `ProgressRules`, target snapshot, and update `profile.weightKg` when the entry is the latest dated one.
+  *As built: `ProgressService.setMealCompleted` orchestrates; `PlanCommandService.setMealCompleted` only flips the flag and refuses non-ACTIVE plans. The response carries the plan, the day's entry and new achievements. `PlanCommandService` publishes `DayPlanChangedEvent` after it saves or archives a plan, and `ProgressService` handles it in the same transaction, so regenerating, swapping or archiving keeps the day consistent without a service cycle. A checked meal cannot be swapped (`MEAL_COMPLETED`). Fixed a lost update found here: asynchronous AI text saved the whole plan row and could undo a check-off made in the meantime; it now writes only its own columns (`updateAiText`, `updateMealTip`).*
+- [x] **T066** [US5] Rewrite `B/service/ProgressService.java`: user-day dates (`UserClock`), `ProgressRules`, target snapshot, and update `profile.weightKg` when the entry is the latest dated one.
   **Rules:** BR-PRG-01..06. **Test:** `BT/service/ProgressIT.java` covers `BR_PRG_04_latestWeightUpdatesProfileAndTargets` and `BR_PRG_04_backfilledWeightDoesNotOverwrite`.
-- [ ] **T067** [P] [US5] Frontend: meal check-off toggles on the dashboard; `ProgressPage` input bounds mirror BR-PRG-03 (the server stays authoritative); show "auto" vs "manual" calories with a reset-to-auto action.
+  *As built: 15 scenarios in `ProgressIT`, including regeneration, archiving, the late AI text regression and the range guard on reads (ordered, at most 366 days). `mealsCompleted` is no longer accepted as input; `resetCalories` returns to derived calories.*
+- [x] **T067** [P] [US5] Frontend: meal check-off toggles on the dashboard; `ProgressPage` input bounds mirror BR-PRG-03 (the server stays authoritative); show "auto" vs "manual" calories with a reset-to-auto action.
+  *As built: `components/MealCheck` (an accessible checkbox), `lib/progressRules` for the bounds and local dates (the pages used the UTC date from `toISOString`), and server errors are now shown, field by field, where they used to be swallowed. `__tests__/Progress.test.tsx`.*
 
 ---
 

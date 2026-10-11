@@ -11,6 +11,8 @@ import MedicalDisclaimer from '../components/MedicalDisclaimer'
 import PlanWarnings from '../components/PlanWarnings'
 import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
 import SwapMenu from '../components/SwapMenu'
+import MealCheck from '../components/MealCheck'
+import { localIsoDate } from '../lib/progressRules'
 import { useAiRefresh } from '../hooks/useAiRefresh'
 
 const NutritionOrb = lazy(() => import('../components/3d/NutritionOrb'))
@@ -39,7 +41,7 @@ const MEAL_META: Record<string, { icon: string; gradient: string }> = {
   DINNER:          { icon: '🌙', gradient: 'from-slate-500 to-indigo-700'   },
 }
 
-function MealCard({ meal, index, target, onReplace, planId, onSwapped }: { meal: Meal; index: number; target?: SlotTarget; onReplace: () => void; planId: number; onSwapped: (plan: DietPlan) => void }) {
+function MealCard({ meal, index, target, onReplace, planId, onSwapped, onCompleted }: { meal: Meal; index: number; target?: SlotTarget; onReplace: () => void; planId: number; onSwapped: (plan: DietPlan) => void; onCompleted: (plan: DietPlan, progress: ProgressEntry) => void }) {
   const [open, setOpen] = useState(false)
   const meta = MEAL_META[meal.mealType] ?? { icon: '🍴', gradient: 'from-slate-400 to-slate-600' }
 
@@ -87,6 +89,8 @@ function MealCard({ meal, index, target, onReplace, planId, onSwapped }: { meal:
           </svg>
         </div>
       </button>
+
+      <MealCheck planId={planId} meal={meal} onChanged={onCompleted} />
 
       <AnimatePresence>
         {open && (
@@ -142,7 +146,7 @@ export default function DashboardPage() {
       if (active) setPlan(active)
     }).catch(() => {})
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localIsoDate()
     api.get<ProgressEntry[]>(`/users/${userId}/progress/weekly?start=${today}&end=${today}`)
        .then(r => { if (r.data.length > 0) setTodayEntry(r.data[0]) })
        .catch(() => {})
@@ -304,7 +308,7 @@ export default function DashboardPage() {
           <div className="card !p-0 overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ background: 'rgba(0,0,0,0.25)', borderColor: 'rgba(255,255,255,0.08)' }}>
               <p className="section-label">Today at a glance</p>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>Planned vs. what you've logged in Progress</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>Planned vs. what you've eaten{todayEntry && todayEntry.mealsCompleted > 0 ? ` · ${todayEntry.mealsCompleted} of ${plan.meals.length} meals` : ''}</p>
             </div>
 
             <div className="p-6 space-y-4">
@@ -347,7 +351,7 @@ export default function DashboardPage() {
                 </div>
                 {!actual && (
                   <p className="text-xs text-slate-400 mt-1">
-                    Log today's calories in{' '}
+                    Mark meals as eaten below, or log calories in{' '}
                     <Link to="/progress" className="text-brand-600 font-semibold hover:underline">Progress</Link>
                     {' '}to compare.
                   </p>
@@ -397,6 +401,7 @@ export default function DashboardPage() {
                 target={slotTarget(meal)}
                 planId={plan.id}
                 onSwapped={setPlan}
+                onCompleted={(p, progress) => { setPlan(p); setTodayEntry(progress) }}
                 onReplace={() =>
                   setChatTrigger(
                     `Replace my ${meal.mealType.replace(/_/g, ' ').toLowerCase()} "${meal.name}" with something different`

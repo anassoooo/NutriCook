@@ -6,6 +6,8 @@ import {
   CartesianGrid, Tooltip as ChartTooltip, ReferenceLine,
 } from 'recharts'
 import api from '../lib/api'
+import { toApiError, type FieldError } from '../lib/errors'
+import { BACKFILL_DAYS, MAX_NOTES_LENGTH, PROGRESS_BOUNDS, daysAgo, localIsoDate } from '../lib/progressRules'
 import { useAuth } from '../contexts/AuthContext'
 import type { ProgressEntry } from '../types'
 
@@ -44,7 +46,7 @@ function TrendBadge({ diff, unit }: { diff: number; unit: string }) {
   )
 }
 
-function EntryRow({ entry }: { entry: ProgressEntry }) {
+function EntryRow({ entry, onResetCalories }: { entry: ProgressEntry; onResetCalories: (date: string) => void }) {
   return (
     <div className="flex items-start justify-between py-3.5 -mx-2 px-2 rounded-xl transition-colors hover:bg-white/5"
          style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -56,7 +58,18 @@ function EntryRow({ entry }: { entry: ProgressEntry }) {
       </div>
       <div className="flex flex-wrap justify-end gap-1.5">
         {entry.weightKg         != null && <span className="badge" style={{ background: 'rgba(59,130,246,0.15)',  color: '#93c5fd' }}>{entry.weightKg} kg</span>}
-        {entry.caloriesConsumed != null && <span className="badge" style={{ background: 'rgba(249,115,22,0.15)',  color: '#fdba74' }}>{entry.caloriesConsumed} kcal</span>}
+        {entry.caloriesConsumed != null && (
+          <span className="badge" style={{ background: 'rgba(249,115,22,0.15)',  color: '#fdba74' }}
+                title={entry.caloriesOverridden ? 'Typed by you' : `From ${entry.mealsCompleted} meal${entry.mealsCompleted === 1 ? '' : 's'} checked off`}>
+            {entry.caloriesConsumed} kcal · {entry.caloriesOverridden ? 'manual' : 'auto'}
+          </span>
+        )}
+        {entry.caloriesOverridden && (
+          <button type="button" onClick={() => onResetCalories(entry.date)}
+                  className="text-[11px] underline underline-offset-2" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            Use checked meals
+          </button>
+        )}
         {entry.waterMl          != null && <span className="badge" style={{ background: 'rgba(6,182,212,0.15)',   color: '#67e8f9' }}>{entry.waterMl} ml</span>}
         {entry.exerciseMinutes  != null && <span className="badge" style={{ background: 'rgba(16,185,129,0.15)',  color: '#6ee7b7' }}>{entry.exerciseMinutes} min</span>}
       </div>
@@ -144,24 +157,43 @@ export default function ProgressPage() {
   const [saved,         setSaved]         = useState(false)
   const [loading,       setLoading]       = useState(false)
   const [activeMetric,  setActiveMetric]  = useState<Metric>('weightKg')
+  const [error,         setError]         = useState('')
+  const [fieldErrors,   setFieldErrors]   = useState<FieldError[]>([])
 
   const { register, handleSubmit, reset } = useForm<FormData>({
-    defaultValues: { date: new Date().toISOString().slice(0, 10) },
+    defaultValues: { date: localIsoDate() },
   })
 
   const fetchEntries = () => {
     if (!userId) return
-    const end   = new Date().toISOString().slice(0, 10)
-    const start = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const end   = localIsoDate()
+    const start = daysAgo(BACKFILL_DAYS)
     api.get<ProgressEntry[]>(`/users/${userId}/progress/weekly?start=${start}&end=${end}`)
        .then(r => setEntries(r.data)).catch(() => {})
   }
 
   useEffect(fetchEntries, [userId])
 
+  const fail = (err: unknown) => {
+    const e = toApiError(err)
+    setError(e.detail ?? e.message)
+    setFieldErrors(e.fieldErrors)
+  }
+
+  /** Back to calories counted from checked meals (BR-PRG-05). */
+  const resetCalories = async (date: string) => {
+    if (!userId) return
+    setError(''); setFieldErrors([])
+    try {
+      await api.post(`/users/${userId}/progress`, { date, resetCalories: true })
+      fetchEntries()
+    } catch (err) { fail(err) }
+  }
+
   const onSubmit = async (data: FormData) => {
     if (!userId) return
     setLoading(true)
+    setError(''); setFieldErrors([])
     try {
       await api.post(`/users/${userId}/progress`, {
         date:             data.date,
@@ -173,9 +205,9 @@ export default function ProgressPage() {
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
-      reset({ date: new Date().toISOString().slice(0, 10) })
+      reset({ date: localIsoDate() })
       fetchEntries()
-    } catch { /* ignore */ }
+    } catch (err) { fail(err) }
     finally { setLoading(false) }
   }
 
@@ -267,7 +299,7 @@ export default function ProgressPage() {
           </div>
           <div>
             <h2 className="section-title">Log today's entry</h2>
-            <p className="text-xs text-slate-400">All fields are optional — log what you have.</p>
+            <p className="text-xs text-slate-400">All fields are optional — log what you have. Leave calories empty to count the meals you checked off.</p>
           </div>
         </div>
 
@@ -275,29 +307,40 @@ export default function ProgressPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label">Date</label>
-              <input className="input" type="date" {...register('date', { required: true })} />
+              <input className="input" type="date" min={daysAgo(BACKFILL_DAYS)} max={localIsoDate()} {...register('date', { required: true })} />
             </div>
             <div>
               <label className="label">Weight (kg)</label>
-              <input className="input" type="number" step="0.1" placeholder="70.5" {...register('weightKg')} />
+              <input className="input" type="number" step="0.1" placeholder="70.5" {...PROGRESS_BOUNDS.weightKg} {...register('weightKg')} />
             </div>
             <div>
               <label className="label">Calories (kcal)</label>
-              <input className="input" type="number" placeholder="1800" {...register('caloriesConsumed')} />
+              <input className="input" type="number" placeholder="From checked meals" {...PROGRESS_BOUNDS.caloriesConsumed} {...register('caloriesConsumed')} />
             </div>
             <div>
               <label className="label">Water (ml)</label>
-              <input className="input" type="number" placeholder="2000" {...register('waterMl')} />
+              <input className="input" type="number" placeholder="2000" {...PROGRESS_BOUNDS.waterMl} {...register('waterMl')} />
             </div>
             <div>
               <label className="label">Exercise (min)</label>
-              <input className="input" type="number" placeholder="30" {...register('exerciseMinutes')} />
+              <input className="input" type="number" placeholder="30" {...PROGRESS_BOUNDS.exerciseMinutes} {...register('exerciseMinutes')} />
             </div>
             <div>
               <label className="label">Notes</label>
-              <input className="input" type="text" placeholder="Feeling great!" {...register('notes')} />
+              <input className="input" type="text" placeholder="Feeling great!" maxLength={MAX_NOTES_LENGTH} {...register('notes')} />
             </div>
           </div>
+
+          {error && (
+            <div role="alert" className="text-sm text-red-300">
+              <p>{error}</p>
+              {fieldErrors.length > 0 && (
+                <ul className="list-disc pl-5 text-xs mt-1">
+                  {fieldErrors.map(f => <li key={f.field}>{f.field}: {f.message}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-4 pt-1">
             <button type="submit" disabled={loading} className="btn-primary">
@@ -337,7 +380,7 @@ export default function ProgressPage() {
               <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.58)' }}>Start logging above to track your journey.</p>
             </div>
           ) : (
-            <div>{[...entries].reverse().map(e => <EntryRow key={e.id} entry={e} />)}</div>
+            <div>{[...entries].reverse().map(e => <EntryRow key={e.id} entry={e} onResetCalories={resetCalories} />)}</div>
           )}
         </div>
       </div>

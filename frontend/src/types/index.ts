@@ -123,6 +123,8 @@ export interface Meal {
   sodiumMg: number | null
   sortOrder: number
   aiSuggestion: string | null
+  /** Checked off by the user (BR-PRG-05) */
+  completed: boolean
   components: MealComponent[]
 }
 
@@ -159,7 +161,14 @@ export interface ProgressEntry {
   id: number
   date: string
   weightKg: number | null
+  /** From checked meals, unless `caloriesOverridden` (BR-PRG-05) */
   caloriesConsumed: number | null
+  /** true when the user typed the calories themselves */
+  caloriesOverridden: boolean
+  /** Derived: the number of meals checked off */
+  mealsCompleted: number
+  /** The target this day is judged against (BR-PRG-06) */
+  targetCalories: number | null
   waterMl: number | null
   exerciseMinutes: number | null
   notes: string | null
