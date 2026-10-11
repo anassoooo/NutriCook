@@ -31,7 +31,21 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+Every principle of `.specify/memory/constitution.md` is checked. A ❌ needs a row in
+Complexity Tracking, or the plan changes.
+
+| # | Principle | How this plan complies | ✅/❌ |
+|---|-----------|------------------------|------|
+| I | Business rules are the product: every behavior traces to a `BR-*` ID in `docs/domain/business-rules.md`; new or changed rules are amended there first | [rules touched, amendments needed] | |
+| II | Safety fails closed: unknown allergens, flags or conditions exclude a food; no unsafe plan is ever saved | [safety impact] | |
+| III | AI advises, domain decides: AI output is validated data, never trusted numbers; the app works without AI | [AI involvement, fallback] | |
+| IV | Pure, deterministic domain core: business logic in `com.nutricook.domain..`, no framework, injected time | [new domain classes] | |
+| V | Every rule is tested by its ID: test names start with the `BR_*` ID; coverage gates stay green | [tests planned per rule] | |
+| VI | Migrations own the schema: Flyway only, existing data upgraded and checked | [migrations, upgrade check] | |
+| VII | Ownership and least privilege: every resource checks its owner; admin features need ADMIN | [authorization] | |
+| VIII | Frontend displays, backend decides: no business numbers computed in the client; stable error codes | [client changes] | |
+| IX | Zero-cost, reproducible operation: free tiers, `docker compose up`, no secrets in git | [infra impact] | |
+| X | Scope discipline: only what the spec asks; follow-ups are recorded, not built | [out of scope] | |
 
 ## Project Structure
 

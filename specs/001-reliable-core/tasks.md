@@ -434,7 +434,8 @@ description: "Executable task list for 001-reliable-core"
   *As built: the id is in an MDC-aware log pattern, copied onto the AI executor threads, and added to error bodies as a `requestId` property (`instance` stays the path, as RFC 9457 intends). A caller's id is kept only if it matches `[A-Za-z0-9._-]{1,64}`, so it cannot forge log lines. The generation log line carries `ms` and the target; composer attempts are not exposed by the domain. Timers: `nutricook.plan.generation`, `nutricook.ai.calls` (tags: prompt, outcome). `ObservabilityIT` also asserts that a chat message never reaches the logs.*
 - [ ] **T081** [P] Update `docs/diagrams/class-data.mmd` (new entities and columns) and `docs/diagrams/seq-diet.mmd` (generate → commit → async enrich; chat → intent → swap command), then re-render the PNGs.
   **Done when:** the diagrams match the V1–V7 schema.
-- [ ] **T082** [P] Update `.specify/templates/plan-template.md` (Constitution Check table for I–X) and `tasks-template.md` (mandatory tests, a "Done when" line, BR references). This clears the ⚠ items in the constitution's Sync Impact Report.
+- [x] **T082** [P] Update `.specify/templates/plan-template.md` (Constitution Check table for I–X) and `tasks-template.md` (mandatory tests, a "Done when" line, BR references). This clears the ⚠ items in the constitution's Sync Impact Report.
+  *As built: the plan template has a ten-row Constitution Check table, one row per principle; the tasks template makes tests mandatory and shows the `Rules:` / `Done when:` / `As built` format used in this file. Both Sync Impact Report items are ✅.*
 - [ ] **T083** README rewrite:
   - a one-paragraph pitch
   - a GIF demo

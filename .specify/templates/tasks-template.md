@@ -8,7 +8,16 @@ description: "Task list template for feature implementation"
 **Input**: Design documents from `/specs/[###-feature-name]/`
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
+**Tests**: REQUIRED (Constitution V). Every business rule a task touches has at least one test whose name starts with its ID (e.g. `BR_PRG_02_dateWindow`); `scripts/check-br-coverage.sh --enforce` fails CI otherwise.
+
+**Task format**: each implementation task names the rules it implements and how it is verified:
+
+```text
+- [ ] T0NN [P] [USn] Short description with the exact file path
+  **Rules:** BR-XXX-NN, BR-YYY-NN. **Done when:** <observable result, usually a named test is green>
+```
+
+When a task is finished, tick it and add an `*As built:*` note for anything that differs from the plan.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -79,7 +88,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 1 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 1 (REQUIRED: named after the BR IDs they cover)
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
@@ -105,7 +114,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 2 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 2 (REQUIRED: named after the BR IDs they cover)
 
 - [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
@@ -127,7 +136,7 @@ Examples of foundational tasks (adjust based on your project):
 
 **Independent Test**: [How to verify this story works on its own]
 
-### Tests for User Story 3 (OPTIONAL - only if tests requested) ⚠️
+### Tests for User Story 3 (REQUIRED: named after the BR IDs they cover)
 
 - [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py

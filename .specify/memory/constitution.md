@@ -34,8 +34,8 @@ Removed:
 
 Templates requiring updates:
   ✅ specs/001-reliable-core/plan.md: Constitution Check uses principles I–X
-  ⚠  .specify/templates/plan-template.md: Constitution Check block is generic
-  ⚠  .specify/templates/tasks-template.md: should require "Done when" + BR refs
+  ✅ .specify/templates/plan-template.md: Constitution Check table for I–X (T082)
+  ✅ .specify/templates/tasks-template.md: mandatory tests, Rules and Done-when lines (T082)
 
 Deferred TODOs: none
 ==============================================================================
