@@ -1,354 +1,198 @@
-# NutriCook — Class Diagram (Software Architecture)
+# NutriCook — Architecture and Class Diagram
 
-**Version**: 1.0.0 | **Date**: 2026-04-26
+**Version**: 2.0.0 | **Date**: 2026-10-11
 
-> This diagram covers the Spring Boot application layer —
-> Controllers, Services, Repositories, and DTOs.
-> For JPA entities and DB relationships see `data-model.md`.
-
----
-
-## Layer Overview
-
-```
-┌─────────────────────────────────────────┐
-│  Frontend (React + Vite)                │
-│  Axios HTTP client with JWT interceptor │
-└──────────────┬──────────────────────────┘
-               │ REST / JSON
-┌──────────────▼──────────────────────────┐
-│  Controller Layer  (@RestController)    │
-│  AuthController  DietController         │
-│  ProfileController  ProgressController  │
-│  LocationController  AchievementController │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│  Service Layer  (@Service)              │
-│  AuthService  DietPlanService           │
-│  UserProfileService  NutritionService   │
-│  ProgressService  AchievementService    │
-│  LocationService  GroqAiService         │
-└──────────┬────────────────┬────────────┘
-           │                │
-┌──────────▼──────┐  ┌──────▼──────────────┐
-│  Repository     │  │  External Clients   │
-│  Layer          │  │  GroqClient         │
-│  (Spring Data   │  │  NominatimClient    │
-│   JPA)          │  │  OverpassClient     │
-└──────────┬──────┘  └─────────────────────┘
-           │
-┌──────────▼──────────────────────────────┐
-│  Database  (H2 / Supabase PostgreSQL)   │
-└─────────────────────────────────────────┘
-```
+> How the backend is layered and where each business rule lives. Tables are in
+> [`data-model.md`](data-model.md), runtime flows in [`sequence-diagrams.md`](sequence-diagrams.md)
+> and the rules themselves in [`../domain/business-rules.md`](../domain/business-rules.md).
 
 ---
 
-## Controller Layer
+## 1. Layers
+
+```mermaid
+flowchart TB
+    FE["Frontend (React 18, Vite, TypeScript)<br/>displays; never computes business numbers"]
+    subgraph Backend["Backend (Spring Boot 3.3, Java 21)"]
+        direction TB
+        WEB["Web: controllers, DTOs, ProblemDetailHandler<br/>validation, stable error codes"]
+        SEC["Security: JWT filter, owner checks,<br/>ADMIN for /api/admin and /actuator"]
+        APP["Application services<br/>transactions, orchestration, persistence"]
+        DOM["Domain (pure Java)<br/>energy, safety, composer, swaps, lifecycle,<br/>progress, achievements, catalog gate"]
+        AI["AI adapter: GroqAiService, PromptLibrary<br/>versioned prompts, timeouts"]
+    end
+    DB[("PostgreSQL 16<br/>schema owned by Flyway")]
+    LLM["Groq LLM<br/>(llama-3.3-70b)"]
+    OSM["OpenStreetMap<br/>Nominatim, Overpass"]
+
+    FE -->|REST, JSON, JWT| SEC --> WEB --> APP
+    APP --> DOM
+    APP --> DB
+    APP --> AI --> LLM
+    APP --> OSM
+```
+
+The arrows are the only allowed dependencies. ArchUnit (`ArchitectureTest`) fails the build if:
+
+- `com.nutricook.domain..` depends on Spring, JPA, the web layer or the system clock
+  (Constitution IV, BR-TIM-03);
+- any class other than `PlanCommandService` saves a plan (BR-SAF-05: nothing unsafe is persisted).
+
+---
+
+## 2. The domain core
+
+Everything that decides something lives here, as plain Java with injected time and tunables.
+It is tested without Spring: unit, table-driven and property-based (jqwik) tests.
 
 ```mermaid
 classDiagram
-    class AuthController {
-        -AuthService authService
-        +register(RegisterRequest) ResponseEntity~AuthResponse~
-        +login(LoginRequest) ResponseEntity~AuthResponse~
+    direction LR
+    class TargetCalculator {
+        +compute(NutritionProfile, LocalDate today) Targets
+        +perSlot(Targets) Map
+    }
+    class EnergyCalculator {
+        +target(...) EnergyTarget
+    }
+    class MacroCalculator
+    class EligibilityPolicy {
+        +allows(FoodView, SafetyConstraints) boolean
+    }
+    class PlanSafetyValidator {
+        +validate(PlanDraft, SafetyConstraints) List~Violation~
+    }
+    class PlanComposer {
+        +compose(Targets, constraints, foods, date, seed) PlanDraft
+    }
+    class PortionSolver
+    class PlanSeed {
+        +of(userId, date, seq) long
+    }
+    class SwapPlanner {
+        +swap(PlanDraft, Slot, FoodView, constraints) Result
+        +alternatives(...) List~Component~
+    }
+    class PlanLifecycle {
+        +transition(from, to) PlanStatus
+        +assertMutable(status, planDate, today)
+    }
+    class ProgressRules {
+        +assertLoggable(date, today, backfill)
+        +assertWithinBounds(LogUpdate)
+        +merge(DayLog, LogUpdate) DayLog
+        +derive(DayLog, PlanDay, profileTarget) DayLog
+    }
+    class EvaluatorRegistry {
+        +currentValue(type, ctx) double
+        +earned(type, threshold, ctx) boolean
+    }
+    class AchievementEvaluator {
+        <<interface>>
+        +currentValue(EvaluationContext) double
+    }
+    class FoodQualityGate {
+        +problems(Nutrients) List~String~
+        +labelProblems(allergens, flags, meat) List~String~
+    }
+    class NutritionRules {
+        <<record>>
+    }
+    class TrackingRules {
+        <<record>>
     }
 
-    class ProfileController {
-        -UserProfileService profileService
-        +getProfile(Long userId) ResponseEntity~ProfileResponse~
-        +updateProfile(Long userId, ProfileRequest) ResponseEntity~ProfileResponse~
-        +addHealthCondition(Long userId, Long conditionId) ResponseEntity~Void~
-        +removeHealthCondition(Long userId, Long conditionId) ResponseEntity~Void~
-        +addDietaryRestriction(Long userId, Long restrictionId) ResponseEntity~Void~
-        +removeDietaryRestriction(Long userId, Long restrictionId) ResponseEntity~Void~
-    }
-
-    class DietController {
-        -DietPlanService dietPlanService
-        +generatePlan(Long userId, LocalDate date) ResponseEntity~DietPlanResponse~
-        +getPlan(Long planId) ResponseEntity~DietPlanResponse~
-        +listPlans(Long userId) ResponseEntity~List~DietPlanResponse~~
-        +archivePlan(Long planId) ResponseEntity~Void~
-    }
-
-    class ProgressController {
-        -ProgressService progressService
-        +logProgress(Long userId, ProgressRequest) ResponseEntity~ProgressResponse~
-        +getWeeklyProgress(Long userId, LocalDate weekStart) ResponseEntity~List~ProgressResponse~~
-    }
-
-    class AchievementController {
-        -AchievementService achievementService
-        +getUserAchievements(Long userId) ResponseEntity~List~AchievementResponse~~
-        +getAllAchievements() ResponseEntity~List~AchievementResponse~~
-    }
-
-    class LocationController {
-        -LocationService locationService
-        +getNearbyRestaurants(Double lat, Double lng, List~String~ restrictions) ResponseEntity~LocationResponse~
-        +getNearbyStores(Double lat, Double lng) ResponseEntity~LocationResponse~
-    }
+    TargetCalculator --> EnergyCalculator
+    TargetCalculator --> MacroCalculator
+    TargetCalculator --> NutritionRules
+    PlanComposer --> PortionSolver
+    PlanComposer --> EligibilityPolicy
+    PlanComposer --> PlanSafetyValidator
+    PlanComposer --> NutritionRules
+    SwapPlanner --> EligibilityPolicy
+    SwapPlanner --> PlanSafetyValidator
+    EvaluatorRegistry --> AchievementEvaluator
+    EvaluatorRegistry --> TrackingRules
 ```
+
+| Package | Rules | Key idea |
+|---|---|---|
+| `domain.energy` | BR-NRG, BR-MAC | Mifflin-St Jeor, goal adjustment, a floor that rounding never breaks |
+| `domain.safety` | BR-SAF | Allergens, diet flags and condition limits; unknown data fails closed |
+| `domain.plan` | BR-CMP, BR-LIF, BR-AI-03 | Seeded composer, portion solver, role-based swaps, lifecycle state machine |
+| `domain.progress` | BR-PRG | Date window, bounds, merge, derived calories, target snapshot |
+| `domain.achievement` | BR-ACH | One evaluator per type, registry that fails startup when one is missing |
+| `domain.catalog` | BR-CAT-02 | Energy matches macros, labels match the food |
+| `domain.rules` | §13 | Every tunable (`app.nutrition.*`, `app.tracking.*`), range-checked at startup |
 
 ---
 
-## Service Layer
+## 3. Application services
 
 ```mermaid
 classDiagram
-    class AuthService {
-        -UserRepository userRepository
-        -PasswordEncoder passwordEncoder
-        -JwtService jwtService
-        +register(RegisterRequest) AuthResponse
-        +login(LoginRequest) AuthResponse
-        -buildJwt(User) String
+    direction TB
+    class PlanGenerationService {
+        +generate(userId, date) DietPlan
     }
-
-    class JwtService {
-        -String secretKey
-        -long expirationMs
-        +generateToken(User) String
-        +extractEmail(String token) String
-        +isTokenValid(String token, UserDetails) boolean
-        +extractExpiration(String token) Date
+    class PlanCommandService {
+        <<SoleWriter>>
+        +persist(plan, constraints)
+        +supersede(plan)
+        +archive(plan)
+        +setMealCompleted(plan, meal, completed)
+        +saveAiText(planId, text, tips, status)
     }
-
-    class UserProfileService {
-        -UserProfileRepository profileRepository
-        -HealthConditionRepository conditionRepository
-        -DietaryRestrictionRepository restrictionRepository
-        +getProfile(Long userId) UserProfile
-        +updateProfile(Long userId, ProfileRequest) UserProfile
-        +addHealthCondition(Long userId, Long conditionId) void
-        +addDietaryRestriction(Long userId, Long restrictionId) void
+    class PlanEnrichmentService {
+        <<Async>>
     }
-
-    class DietPlanService {
-        -DietPlanRepository planRepository
-        -FoodItemRepository foodRepository
-        -UserProfileService profileService
-        -NutritionService nutritionService
-        -GroqAiService groqService
-        +generatePlan(Long userId, LocalDate date) DietPlan
-        +archivePlan(Long planId) void
-        +listPlans(Long userId) List~DietPlan~
-        -selectCompatibleFoods(UserProfile) List~FoodItem~
-        -buildMeals(List~FoodItem~, int targetCalories) List~Meal~
-        -computeTDEE(UserProfile) int
-    }
-
-    class NutritionService {
-        +computeTotals(List~Meal~) NutritionTotals
-        +validateAgainstConditions(List~Meal~, List~HealthCondition~) List~Meal~
-        -computeAtwater(FoodItem, double quantityG) MacroBreakdown
-    }
-
-    class GroqAiService {
-        -ChatClient chatClient
-        -String modelName
-        +getMealSuggestion(Meal, UserProfile) String
-        +getPlanExplanation(DietPlan, UserProfile) String
-        -loadPrompt(String templateName) String
-    }
-
+    class SwapService
+    class ChatService
+    class GroqAiService
     class ProgressService {
-        -ProgressRepository progressRepository
-        -AchievementService achievementService
-        +logProgress(Long userId, ProgressRequest) ProgressEntry
-        +getWeeklyProgress(Long userId, LocalDate weekStart) List~ProgressEntry~
+        +log(userId, request)
+        +setMealCompleted(userId, planId, mealId, completed)
+        +onDayPlanChanged(event)
     }
-
     class AchievementService {
-        -UserAchievementRepository userAchievementRepository
-        -AchievementRepository achievementRepository
-        -ProgressRepository progressRepository
-        +checkAndAward(Long userId) List~UserAchievement~
-        -evaluateStreak(Long userId) int
-        -evaluateGoalCount(Long userId, AchievementType) int
+        +checkAndAward(userId)
+        +standingsFor(userId)
     }
+    class CatalogAdminService
+    class SafetyService
+    class TargetService
+    class UserClock
 
-    class LocationService {
-        -OverpassClient overpassClient
-        -NominatimClient nominatimClient
-        -CacheManager cacheManager
-        +getNearbyRestaurants(Double lat, Double lng, List~String~ restrictions) List~LocationDTO~
-        +getNearbyStores(Double lat, Double lng) List~LocationDTO~
-        -buildOverpassQuery(Double lat, Double lng, String amenity) String
-    }
+    PlanGenerationService --> PlanCommandService
+    PlanGenerationService --> TargetService
+    PlanGenerationService --> SafetyService
+    PlanGenerationService ..> PlanEnrichmentService : PlanGeneratedEvent
+    PlanEnrichmentService --> GroqAiService
+    PlanEnrichmentService --> PlanCommandService
+    SwapService --> PlanCommandService
+    ChatService --> GroqAiService
+    ChatService --> SwapService
+    ProgressService --> PlanCommandService
+    PlanCommandService ..> ProgressService : DayPlanChangedEvent
+    ProgressService --> TargetService
+    TargetService --> UserClock
 ```
+
+- **One writer.** `PlanCommandService` (`<<SoleWriter>>`) is the only class that saves plans.
+- **Events instead of cycles.** `PlanCommandService` publishes `DayPlanChangedEvent` after it saves
+  or archives a plan; `ProgressService` handles it in the same transaction, so a day's entry always
+  follows its plan. `PlanGeneratedEvent` is handled only after commit, so the AI never delays or
+  breaks plan creation (BR-LIF-07).
+- **Lost updates avoided.** The AI text arrives asynchronously, so it is written with targeted
+  `UPDATE`s of its own columns, never by saving the whole plan row.
 
 ---
 
-## Repository Layer
+## 4. Web and security
 
-```mermaid
-classDiagram
-    class UserRepository {
-        +findByEmail(String email) Optional~User~
-        +existsByEmail(String email) boolean
-    }
-
-    class UserProfileRepository {
-        +findByUserId(Long userId) Optional~UserProfile~
-    }
-
-    class DietPlanRepository {
-        +findByUserIdAndStatus(Long userId, PlanStatus) List~DietPlan~
-        +findByUserIdAndValidForDateAndStatus(Long, LocalDate, PlanStatus) Optional~DietPlan~
-        +findAllByUserId(Long userId) List~DietPlan~
-    }
-
-    class FoodItemRepository {
-        +findByCategory(String category) List~FoodItem~
-        +findCompatibleFoods(List~Long~ excludedRestrictionIds) List~FoodItem~
-    }
-
-    class ProgressRepository {
-        +findByUserIdAndDate(Long userId, LocalDate) Optional~ProgressEntry~
-        +findByUserIdAndDateBetween(Long, LocalDate, LocalDate) List~ProgressEntry~
-    }
-
-    class AchievementRepository {
-        +findByType(AchievementType) List~Achievement~
-    }
-
-    class UserAchievementRepository {
-        +findByUserId(Long userId) List~UserAchievement~
-        +existsByUserIdAndAchievementId(Long, Long) boolean
-    }
-
-    class HealthConditionRepository {
-        +findAll() List~HealthCondition~
-    }
-
-    class DietaryRestrictionRepository {
-        +findAll() List~DietaryRestriction~
-    }
-```
-
----
-
-## External API Clients
-
-```mermaid
-classDiagram
-    class GroqClient {
-        <<Spring AI ChatClient>>
-        +call(Prompt) ChatResponse
-    }
-
-    class OverpassClient {
-        -RestTemplate restTemplate
-        -String baseUrl
-        -String userAgent
-        +query(String overpassQL) OverpassResponse
-    }
-
-    class NominatimClient {
-        -RestTemplate restTemplate
-        -String baseUrl
-        -String userAgent
-        +geocode(String address) List~NominatimResult~
-        +reverseGeocode(Double lat, Double lng) NominatimResult
-    }
-```
-
----
-
-## Key DTOs (Request / Response)
-
-```mermaid
-classDiagram
-    class RegisterRequest {
-        +String email
-        +String password
-    }
-
-    class LoginRequest {
-        +String email
-        +String password
-    }
-
-    class AuthResponse {
-        +String token
-        +String email
-        +String role
-    }
-
-    class ProfileRequest {
-        +String firstName
-        +String lastName
-        +LocalDate dateOfBirth
-        +String gender
-        +Double weightKg
-        +Double heightCm
-        +String activityLevel
-        +String healthGoal
-    }
-
-    class DietPlanResponse {
-        +Long id
-        +String title
-        +LocalDate validForDate
-        +Integer totalCalories
-        +Double totalProteinG
-        +Double totalCarbsG
-        +Double totalFatG
-        +String aiExplanation
-        +List~MealResponse~ meals
-    }
-
-    class MealResponse {
-        +Long id
-        +String name
-        +String mealType
-        +Integer calories
-        +Double proteinG
-        +Double carbsG
-        +Double fatG
-        +String aiSuggestion
-    }
-
-    class ProgressRequest {
-        +LocalDate date
-        +Integer caloriesConsumed
-        +Integer waterMl
-        +Integer mealsCompleted
-        +Double weightKg
-        +String notes
-    }
-
-    class LocationDTO {
-        +String name
-        +String type
-        +Double latitude
-        +Double longitude
-        +String address
-        +Long osmNodeId
-    }
-```
-
----
-
-## Security Filter Chain
-
-```mermaid
-classDiagram
-    class SecurityConfig {
-        -JwtAuthFilter jwtAuthFilter
-        +securityFilterChain(HttpSecurity) SecurityFilterChain
-        +passwordEncoder() PasswordEncoder
-        +authenticationManager() AuthenticationManager
-    }
-
-    class JwtAuthFilter {
-        -JwtService jwtService
-        -UserDetailsService userDetailsService
-        +doFilterInternal(request, response, chain) void
-    }
-
-    SecurityConfig --> JwtAuthFilter : registers
-    JwtAuthFilter --> JwtService : validates token
+| Area | Classes | Notes |
+|---|---|---|
+| Endpoints | `AuthController`, `ProfileController`, `TargetController`, `DietController`, `ProgressController`, `AchievementController`, `LocationController`, `ReferenceController`, `AdminFoodController` | Every `/api/users/{userId}/**` endpoint checks ownership (`@security.isOwner`) |
+| Errors | `ProblemDetailHandler`, `ProblemDetailSecurityHandlers` | RFC 9457 bodies with a stable `code` and the request id |
+| Security | `JwtAuthFilter`, `JwtService`, `SecurityConfig`, `JwtSecretValidator` | Stateless JWT; prod refuses weak or published secrets |
+| Operations | `CorrelationIdFilter`, `CatalogStartupCheck`, Actuator | `X-Request-Id` everywhere; bad catalog data stops startup; metrics for admins |

@@ -1,211 +1,199 @@
 # NutriCook — Sequence Diagrams
 
-**Version**: 1.0.0 | **Date**: 2026-04-26
+**Version**: 2.0.0 | **Date**: 2026-10-11
+
+> The main runtime flows as built. Rule IDs refer to
+> [`../domain/business-rules.md`](../domain/business-rules.md).
 
 ---
 
-## SD-01 — User Registration & Login (JWT Flow)
+## SD-01 — Register and sign in
 
 ```mermaid
 sequenceDiagram
-    actor Guest
-    participant FE as Frontend (React)
-    participant Auth as AuthController
-    participant AS as AuthService
-    participant JwtSvc as JwtService
-    participant DB as Database (H2/Supabase)
+    actor U as User
+    participant FE as Frontend
+    participant API as AuthController
+    participant S as AuthService
+    participant DB as PostgreSQL
 
-    Note over Guest, DB: Registration
-    Guest->>FE: Fill email + password form
-    FE->>Auth: POST /api/auth/register {email, password}
-    Auth->>AS: register(request)
-    AS->>DB: existsByEmail(email)
-    DB-->>AS: false
-
-    AS->>AS: BCrypt.encode(password, strength=10)
-    AS->>DB: save(User{email, passwordHash, role=USER})
-    DB-->>AS: User{id=1}
-    AS->>DB: save(UserProfile{userId=1})
-    AS->>JwtSvc: generateToken(user)
-    JwtSvc-->>AS: "eyJ..."
-
-    AS-->>Auth: AuthResponse{token, email, role}
-    Auth-->>FE: 201 {token, email, role}
-    FE->>FE: localStorage.setItem("jwt", token)
-    FE-->>Guest: Redirect to Profile Setup
-
-    Note over Guest, DB: Login (subsequent visits)
-    Guest->>FE: Submit email + password
-    FE->>Auth: POST /api/auth/login {email, password}
-    Auth->>AS: login(request)
-    AS->>DB: findByEmail(email)
-    DB-->>AS: User
-    AS->>AS: BCrypt.matches(password, hash)
-    AS->>JwtSvc: generateToken(user)
-    JwtSvc-->>AS: "eyJ..."
-    AS-->>Auth: AuthResponse{token}
-    Auth-->>FE: 200 {token, email, role}
-    FE->>FE: localStorage.setItem("jwt", token)
-    FE-->>Guest: Redirect to Dashboard
-```
-
----
-
-## SD-02 — Generate Diet Plan (Core Flow)
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant FE as Frontend (React)
-    participant Filter as JwtAuthFilter
-    participant DC as DietController
-    participant DPS as DietPlanService
-    participant NS as NutritionService
-    participant AI as GroqAiService
-    participant Groq as Groq API
-    participant DB as Database
-
-    User->>FE: Click "Generate Plan" for today
-    FE->>Filter: POST /api/diet/generate?date=2026-04-26
-    Note over FE, Filter: Authorization: Bearer eyJ...
-
-    Filter->>Filter: extractEmail(token)
-    Filter->>DB: loadUserByEmail(email)
-    DB-->>Filter: UserDetails
-    Filter->>Filter: isTokenValid → true
-    Filter->>DC: forward authenticated request
-
-    DC->>DPS: generatePlan(userId=1, date=2026-04-26)
-
-    DPS->>DB: findByUserIdAndValidForDateAndStatus(1, date, ACTIVE)
-    DB-->>DPS: existingPlan (if any)
-    DPS->>DB: archive existing plan (status = ARCHIVED)
-
-    DPS->>DB: findByUserId(1) [UserProfile]
-    DB-->>DPS: UserProfile{weight, height, activityLevel, healthGoal, restrictions, conditions}
-
-    DPS->>DPS: computeTDEE(profile) → 2100 kcal
-
-    DPS->>DB: findCompatibleFoods(restrictionIds)
-    DB-->>DPS: List~FoodItem~
-
-    DPS->>NS: validateAgainstConditions(foods, conditions)
-    NS-->>DPS: filteredFoods
-
-    DPS->>DPS: buildMeals(filteredFoods, targetCalories=2100)
-    Note over DPS: 5 meals: Breakfast 500, Snack 200,<br/>Lunch 600, Snack 200, Dinner 600
-
-    loop For each Meal (5 total)
-        DPS->>AI: getMealSuggestion(meal, profile)
-        AI->>AI: loadPrompt("meal-suggestion.st")
-        AI->>Groq: POST /openai/v1/chat/completions
-        Groq-->>AI: suggestion text
-        AI-->>DPS: "Try grilled chicken with..."
-        DPS->>DPS: meal.aiSuggestion = suggestion
+    U->>FE: email + password
+    FE->>API: POST /api/auth/register
+    API->>S: register(request)
+    S->>DB: email taken? (unique)
+    alt already registered
+        S-->>FE: 409 EMAIL_TAKEN
+    else new
+        S->>DB: insert user (BCrypt hash) + empty profile
+        S-->>FE: 201 {userId, token}
     end
-
-    DPS->>AI: getPlanExplanation(plan, profile)
-    AI->>Groq: POST /openai/v1/chat/completions
-    Groq-->>AI: explanation text
-    AI-->>DPS: "This plan is designed for..."
-
-    DPS->>NS: computeTotals(meals)
-    NS-->>DPS: NutritionTotals{2100 kcal, 140g protein...}
-
-    DPS->>DB: save(DietPlan{status=ACTIVE, meals, totals, aiExplanation})
-    DB-->>DPS: DietPlan{id=42}
-
-    DPS-->>DC: DietPlan
-    DC-->>FE: 201 DietPlanResponse{id, meals, nutrition, aiExplanation}
-    FE-->>User: Render 3D diet plan page
+    Note over FE,API: Later calls send "Authorization: Bearer <token>".<br/>JwtAuthFilter loads the user and role on every request;<br/>/api/users/{id}/** also checks that id is the caller (Constitution VII).
 ```
 
 ---
 
-## SD-03 — Find Nearby Restaurants (OSM Flow)
+## SD-02 — Generate a plan: commit first, AI afterwards
 
 ```mermaid
 sequenceDiagram
-    actor User
-    participant FE as Frontend (React + Leaflet)
-    participant LC as LocationController
-    participant LS as LocationService
-    participant Cache as Caffeine Cache
-    participant OV as OverpassClient
-    participant OSM as Overpass API (OSM)
+    actor U as User
+    participant C as DietController
+    participant G as PlanGenerationService
+    participant D as Domain (TargetCalculator,<br/>PlanComposer, validator)
+    participant CMD as PlanCommandService
+    participant P as ProgressService
+    participant DB as PostgreSQL
+    participant E as PlanEnrichmentService
+    participant AI as Groq
 
-    User->>FE: Click "Nearby Restaurants"
-    FE->>FE: navigator.geolocation.getCurrentPosition()
-    FE->>FE: lat=36.8606, lng=10.2087
-
-    FE->>LC: GET /api/location/restaurants?lat=36.86&lng=10.21&restrictions=vegan
-    LC->>LS: getNearbyRestaurants(36.86, 10.21, ["vegan"])
-
-    LS->>Cache: get("restaurants:36.86:10.21:vegan")
-    Cache-->>LS: null (cache miss)
-
-    LS->>LS: buildOverpassQuery(lat, lng, "restaurant")
-    Note over LS: [out:json]; node["amenity"="restaurant"]<br/>(around:2000, 36.86, 10.21); out body;
-
-    LS->>OV: query(overpassQL)
-    Note over OV: User-Agent: NutriCook / anasbougrine63@gmail.com
-    OV->>OSM: POST https://overpass-api.de/api/interpreter
-    OSM-->>OV: {elements: [{id, lat, lon, tags}...]}
-    OV-->>LS: OverpassResponse
-
-    LS->>LS: map to List~LocationDTO~
-    LS->>LS: filter by restrictions (tag matching)
-    LS->>Cache: put("restaurants:36.86:10.21:vegan", results, TTL=1h)
-
-    LS-->>LC: List~LocationDTO~
-    LC-->>FE: 200 [{name, lat, lng, address, osmNodeId}...]
-
-    FE->>FE: Render markers on Leaflet map
-    FE-->>User: Interactive map with restaurant pins
+    U->>C: POST /api/users/{id}/diet-plans/generate[?date]
+    C->>G: generate(userId, date)
+    G->>G: user's today from the profile timezone (BR-TIM-01)
+    G->>G: date within [today, today+7] (BR-LIF-03), daily quota (BR-LIF-06)
+    G->>D: targets from the profile (BR-NRG, BR-MAC)
+    G->>D: eligible foods: allergens, flags, conditions (BR-SAF)
+    G->>D: compose(targets, foods, date, seed = f(user, date, seq))
+    D-->>G: PlanDraft (deterministic, validated, warnings)
+    G->>CMD: supersede the day's ACTIVE plan (BR-LIF-02)
+    G->>CMD: persist(new plan)
+    CMD->>D: PlanSafetyValidator.validate (BR-SAF-05)
+    CMD->>DB: insert plan, meals, component snapshots
+    CMD-)P: DayPlanChangedEvent (same transaction)
+    P->>DB: refresh the day's progress entry, if any
+    G-)E: PlanGeneratedEvent
+    Note over G,DB: commit (ux_active_plan keeps one ACTIVE plan;<br/>a concurrent duplicate is retried once)
+    C-->>U: 201 plan, aiStatus = PENDING
+    Note over E: runs only after commit, on a bounded executor
+    E->>AI: explanation + meal tips (versioned prompts, timeout)
+    alt AI answers
+        E->>CMD: saveAiText(...) → READY
+    else timeout or error
+        E->>CMD: saveAiText(...) → UNAVAILABLE
+    end
+    CMD->>DB: UPDATE only the AI columns (no lost update)
+    U->>C: GET plan (the frontend polls while PENDING)
 ```
 
 ---
 
-## SD-04 — Daily Progress Log + Achievement Unlock
+## SD-03 — Chat: the AI proposes, the domain decides
 
 ```mermaid
 sequenceDiagram
-    actor User
-    participant FE as Frontend (React)
-    participant PC as ProgressController
-    participant PS as ProgressService
-    participant AS as AchievementService
-    participant DB as Database
+    actor U as User
+    participant C as DietController
+    participant CH as ChatService
+    participant AI as GroqAiService
+    participant SW as SwapService
+    participant D as SwapPlanner + validator
+    participant CMD as PlanCommandService
 
-    User->>FE: Submit progress form {date, calories, water, meals, weight}
-    FE->>PC: POST /api/progress {date, caloriesConsumed=1950, waterMl=2500, mealsCompleted=5}
+    U->>C: POST .../diet-plans/{planId}/chat {message ≤ 500 chars}
+    C->>CH: chat(userId, planId, message)
+    CH->>CH: rate limit, 30 per hour (BR-AI-07)
+    CH->>CH: candidate foods = only the user's eligible foods (BR-AI-02)
+    CH->>AI: prompt "chat" v1, user text fenced in user_message tags
+    alt timeout or failure
+        CH-->>U: 503 AI_UNAVAILABLE (BR-AI-05)
+    end
+    AI-->>CH: JSON ChatIntent {reply, swap?}
+    Note over CH: unparseable → one retry → plain text reply (BR-AI-04)
+    opt swap {mealType, foodId}
+        CH->>CH: foodId must be a candidate
+        CH->>SW: swap(userId, planId, meal, foodId)
+        SW->>SW: owner, plan mutable (BR-LIF-04), meal not eaten (BR-PRG-05)
+        SW->>D: same-role replacement, re-portioned, validated (BR-AI-03)
+        alt rejected
+            D-->>CH: reason → explained in the reply
+        else accepted
+            SW->>CMD: persist(plan) → safety check (BR-SAF-05)
+        end
+    end
+    CH-->>U: {reply, updatedPlan?}
+    Note over AI,CMD: Numbers written by the AI are never stored:<br/>nutrition always comes from the domain (BR-AI-01).
+```
 
-    PC->>PS: logProgress(userId=1, request)
+The manual swap menu (`GET .../alternatives`, `POST .../swap`) uses the same `SwapService`.
 
-    PS->>DB: findByUserIdAndDate(1, 2026-04-26)
-    DB-->>PS: null (no entry today)
+---
 
-    PS->>DB: save(ProgressEntry{userId=1, date, calories=1950, water=2500, meals=5})
-    DB-->>PS: ProgressEntry{id=77}
+## SD-04 — Check a meal off: progress and achievements follow
 
-    PS->>AS: checkAndAward(userId=1)
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant C as DietController
+    participant P as ProgressService
+    participant CMD as PlanCommandService
+    participant R as ProgressRules
+    participant A as AchievementService
+    participant EV as EvaluatorRegistry
+    participant DB as PostgreSQL
 
-    AS->>DB: findByUserIdAndDateBetween(1, last7days)
-    DB-->>AS: [7 entries, each with mealsCompleted >= 1]
-    AS->>AS: evaluateStreak(userId) → 7 consecutive days
+    U->>C: PUT .../meals/{mealId}/completion {completed: true}
+    C->>P: setMealCompleted(...)
+    P->>R: plan day within [today − 30, today] (BR-PRG-02)
+    P->>CMD: setMealCompleted(plan, meal) — ACTIVE plans only
+    P->>R: derive(day): meals checked, calories = their sum<br/>unless typed by the user; target from the plan (BR-PRG-05/06)
+    P->>DB: upsert the day's entry
+    C->>A: checkAndAward(userId)
+    A->>DB: profile, 365 days of entries, first weigh-in,<br/>distinct plan days, awards, catalog (fixed number of queries, BR-ACH-07)
+    A->>EV: currentValue per achievement (BR-ACH-01..05)
+    A->>DB: INSERT ... ON CONFLICT DO NOTHING (BR-ACH-06)
+    C-->>U: {plan, progress, newAchievements}
+```
 
-    AS->>DB: findByType(LOGIN_STREAK)
-    DB-->>AS: [Achievement{name="Week Warrior", threshold=7}]
+Logging progress (`POST .../progress`) follows the same path through `ProgressRules`: merge only
+the fields sent (BR-PRG-01), check bounds (BR-PRG-03), and update the profile weight when the
+weigh-in is the latest one (BR-PRG-04).
 
-    AS->>DB: existsByUserIdAndAchievementId(1, achievementId)
-    DB-->>AS: false (not yet earned)
+---
 
-    AS->>DB: save(UserAchievement{userId=1, achievementId, earnedAt=now})
-    DB-->>AS: UserAchievement{id=12}
+## SD-05 — Curate the food catalog
 
-    AS-->>PS: [UserAchievement{name="Week Warrior"}]
-    PS-->>PC: ProgressEntry + newAchievements
+```mermaid
+sequenceDiagram
+    actor A as Admin
+    participant C as AdminFoodController
+    participant S as CatalogAdminService
+    participant G as FoodQualityGate
+    participant DB as PostgreSQL
 
-    PC-->>FE: 200 {progress, newAchievements: ["Week Warrior"]}
-    FE-->>User: Show progress saved + 🏆 "Week Warrior" unlocked toast
+    A->>C: POST /api/admin/foods (role ADMIN, BR-CAT-05)
+    C->>S: create(request)
+    S->>DB: name free, ignoring case? (BR-CAT-01)
+    S->>G: energy matches macros, labels match the food (BR-CAT-02)
+    alt problems
+        S-->>A: 400 VALIDATION_FAILED, every problem listed
+    else clean
+        S->>DB: insert, origin = ADMIN
+        S-->>A: 201 food
+    end
+    A->>C: DELETE /api/admin/foods/{id}
+    C->>S: deactivate → active = false (BR-CAT-04)
+    Note over S,DB: Past plans keep their component snapshots;<br/>new plans and swaps no longer offer the food.
+```
+
+At startup, `CatalogStartupCheck` runs the same gate on every active food and refuses to start,
+naming the food, if one fails.
+
+---
+
+## SD-06 — Find nearby restaurants
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant FE as Frontend
+    participant C as LocationController
+    participant L as LocationService
+    participant OSM as Nominatim / Overpass
+
+    U->>FE: allow location
+    FE->>C: GET /api/location/restaurants?lat&lng
+    C->>L: getNearbyRestaurants(lat, lng, restrictions)
+    L->>L: cache hit? (Caffeine, TTL)
+    L->>OSM: Overpass query within the search radius
+    OSM-->>L: places
+    L-->>FE: name, type, coordinates
 ```

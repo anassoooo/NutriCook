@@ -1,375 +1,187 @@
-# NutriCook — UML Data Model
+# NutriCook — Data Model
 
-**Version**: 1.0.0 | **Date**: 2026-04-26 | **Status**: Approved
+**Version**: 2.0.0 | **Date**: 2026-10-11 | **Schema**: Flyway V1–V8 + `R__food_catalog`
 
-> **Constitution rule (Principle V):** This diagram MUST be updated before any
-> JPA entity is created or modified. No entity class may be merged without a
-> corresponding update here.
-
----
-
-## 1. Entity Overview
-
-| Entity | Type | Purpose |
-|---|---|---|
-| `User` | Core | Authentication identity (email + BCrypt password) |
-| `UserProfile` | Core | Health & diet profile linked 1-to-1 to User |
-| `HealthCondition` | Lookup | Conditions a user can have (Diabetes, Hypertension…) |
-| `DietaryRestriction` | Lookup | Food restrictions/preferences (Vegan, Gluten-Free…) |
-| `DietPlan` | Core | AI-generated daily meal plan for a user |
-| `Meal` | Core | Individual meal within a DietPlan |
-| `FoodItem` | Reference | Food database entry with per-100g nutrition values |
-| `MealFoodItem` | Junction | Links a Meal to a FoodItem with serving quantity |
-| `ProgressEntry` | Tracking | One daily health-tracking record per user per day |
-| `Achievement` | Lookup | Achievement definitions (streak, goals…) |
-| `UserAchievement` | Junction | Links a User to an Achievement they have earned |
+> The schema belongs to the Flyway migrations in `backend/src/main/resources/db/migration`
+> (Constitution VI); Hibernate only validates it. This page is a reading aid: the migrations win
+> when they disagree. Rules are referenced by their IDs in
+> [`docs/domain/business-rules.md`](../domain/business-rules.md).
 
 ---
 
-## 2. Main Class Diagram
+## 1. Entity–relationship diagram
 
 ```mermaid
-classDiagram
-    direction TB
+erDiagram
+    users ||--|| user_profiles : "has"
+    users ||--o{ diet_plans : "owns"
+    users ||--o{ progress_entries : "logs"
+    users ||--o{ user_achievements : "earns"
+    achievements ||--o{ user_achievements : "awarded as"
 
-    class User {
-        +Long id
-        +String email
-        +String passwordHash
-        +Role role
-        +LocalDateTime createdAt
-        +LocalDateTime updatedAt
+    user_profiles }o--o{ health_conditions : "user_health_conditions"
+    user_profiles }o--o{ dietary_restrictions : "user_dietary_restrictions"
+    health_conditions ||--o{ condition_implied_allergens : "implies"
+    dietary_restrictions ||--o{ restriction_excluded_allergens : "excludes"
+
+    diet_plans ||--|{ meals : "5 slots"
+    meals ||--|{ meal_food_items : "components"
+    food_items ||--o{ meal_food_items : "snapshotted in"
+    food_items ||--o{ food_allergens : ""
+    food_items ||--o{ food_diet_flags : ""
+    food_items ||--o{ food_suitable_slots : ""
+
+    users {
+        bigint id PK
+        varchar email UK
+        varchar password_hash "BCrypt"
+        varchar role "USER | ADMIN"
     }
-
-    class UserProfile {
-        +Long id
-        +String firstName
-        +String lastName
-        +LocalDate dateOfBirth
-        +Gender gender
-        +Double weightKg
-        +Double heightCm
-        +ActivityLevel activityLevel
-        +HealthGoal healthGoal
-        +LocalDateTime updatedAt
+    user_profiles {
+        bigint id PK
+        bigint user_id FK,UK
+        date date_of_birth
+        varchar gender
+        float weight_kg "updated by the latest weigh-in (BR-PRG-04)"
+        float height_cm
+        varchar activity_level
+        varchar health_goal
+        varchar timezone "IANA zone, defines the user's day (BR-TIM-01)"
     }
-
-    class HealthCondition {
-        +Long id
-        +String name
-        +String description
-        +Double sugarLimitG
-        +Double fatLimitG
+    health_conditions {
+        bigint id PK
+        varchar name UK
+        float sugar_limit_per_meal_g
+        float fat_limit_per_meal_g
+        float sodium_limit_per_day_mg
     }
-
-    class DietaryRestriction {
-        +Long id
-        +String name
-        +RestrictionType type
-        +String description
+    dietary_restrictions {
+        bigint id PK
+        varchar name UK
+        varchar type "ALLERGY | DIET | ..."
+        varchar required_diet_flag "e.g. VEGAN (BR-SAF-10)"
     }
-
-    class DietPlan {
-        +Long id
-        +String title
-        +Integer totalCalories
-        +Double totalProteinG
-        +Double totalCarbsG
-        +Double totalFatG
-        +Double totalSugarG
-        +LocalDate validForDate
-        +LocalDateTime generatedAt
-        +PlanStatus status
-        +String aiExplanation
+    food_items {
+        bigint id PK
+        varchar name "unique, case-insensitive"
+        varchar role "PROTEIN | CARB | PRODUCE | FAT"
+        varchar state "RAW | COOKED | DRY (BR-CAT-03)"
+        float calories_per100g
+        float protein_per100g
+        float carbs_per100g
+        float fat_per100g
+        float sugar_per100g
+        float fiber_per100g
+        float sodium_mg_per100g
+        float portion_min_g
+        float portion_max_g
+        float portion_step_g
+        float default_portion_g
+        varchar source "dataset, e.g. USDA SR Legacy"
+        boolean active "soft delete (BR-CAT-04)"
+        boolean allergens_known "false fails closed (BR-SAF-03)"
+        boolean meat
+        varchar origin "SEED | ADMIN (BR-CAT-05)"
     }
-
-    class Meal {
-        +Long id
-        +String name
-        +MealType mealType
-        +Integer calories
-        +Double proteinG
-        +Double carbsG
-        +Double fatG
-        +Double sugarG
-        +Double fiberG
-        +Integer sortOrder
-        +String aiSuggestion
+    diet_plans {
+        bigint id PK
+        bigint user_id FK
+        date valid_for_date "the user's day"
+        varchar status "ACTIVE | SUPERSEDED | ARCHIVED"
+        int generation_seq "1, 2, ... per day"
+        bigint seed "reproducible composition (BR-CMP-07)"
+        int target_calories "what the plan was built for (BR-PRG-06)"
+        int total_calories
+        jsonb warnings "e.g. TARGET_DEVIATION"
+        varchar ai_status "PENDING | READY | UNAVAILABLE"
+        text ai_explanation "optional, async (BR-LIF-07)"
     }
-
-    class FoodItem {
-        +Long id
-        +String name
-        +String category
-        +Double caloriesPer100g
-        +Double proteinPer100g
-        +Double carbsPer100g
-        +Double fatPer100g
-        +Double sugarPer100g
-        +Double fiberPer100g
-        +Double sodiumMgPer100g
+    meals {
+        bigint id PK
+        bigint diet_plan_id FK
+        varchar meal_type "5 slots"
+        int calories
+        text ai_suggestion
+        boolean completed "checked off (BR-PRG-05)"
+        timestamp completed_at
     }
-
-    class MealFoodItem {
-        +Long id
-        +Double quantityG
+    meal_food_items {
+        bigint id PK
+        bigint meal_id FK
+        bigint food_item_id FK
+        float quantityg
+        varchar role
+        float kcal "snapshot: catalog edits never rewrite history (BR-LIF-05)"
+        float protein_g
+        float carbs_g
+        float fat_g
     }
-
-    class ProgressEntry {
-        +Long id
-        +LocalDate date
-        +Double weightKg
-        +Integer caloriesConsumed
-        +Integer waterMl
-        +Integer mealsCompleted
-        +String notes
+    progress_entries {
+        bigint id PK
+        bigint user_id FK
+        date date "one per user and day (BR-PRG-01)"
+        float weight_kg
+        int calories_consumed "derived unless overridden"
+        boolean calories_overridden
+        int water_ml
+        int meals_completed "derived"
+        int exercise_minutes
+        int target_calories "snapshot (BR-PRG-06)"
+        text notes
     }
-
-    class Achievement {
-        +Long id
-        +String name
-        +String description
-        +String iconName
-        +AchievementType type
-        +Integer threshold
+    achievements {
+        bigint id PK
+        varchar name UK
+        text description "states the exact rule (BR-ACH-04)"
+        varchar type
+        int threshold
     }
-
-    class UserAchievement {
-        +Long id
-        +LocalDateTime earnedAt
-    }
-
-    %% ── Composition (child cannot exist without parent) ─────────────────
-    User        "1"     *--  "1"     UserProfile    : owns ▶
-    DietPlan    "1"     *--  "1..*"  Meal           : contains ▶
-
-    %% ── Association (independent entities, FK relationship) ─────────────
-    User        "1"     -->  "0..*"  DietPlan       : generates ▶
-    User        "1"     -->  "0..*"  ProgressEntry  : tracks ▶
-    User        "1"     -->  "0..*"  UserAchievement : earns ▶
-
-    %% ── Many-to-Many (via implicit junction tables) ──────────────────────
-    UserProfile "0..*"  -->  "0..*"  HealthCondition    : has ▶
-    UserProfile "0..*"  -->  "0..*"  DietaryRestriction : has ▶
-
-    %% ── Junction entity relationships ────────────────────────────────────
-    Meal        "1"     -->  "0..*"  MealFoodItem   : composed of ▶
-    MealFoodItem "0..*" -->  "1"     FoodItem       : references ▶
-    UserAchievement "0..*" --> "1"   Achievement    : references ▶
-```
-
----
-
-## 3. Enum Definitions
-
-```mermaid
-classDiagram
-    class Role {
-        <<enumeration>>
-        USER
-        ADMIN
-    }
-
-    class Gender {
-        <<enumeration>>
-        MALE
-        FEMALE
-        OTHER
-        PREFER_NOT_TO_SAY
-    }
-
-    class ActivityLevel {
-        <<enumeration>>
-        SEDENTARY
-        LIGHTLY_ACTIVE
-        MODERATELY_ACTIVE
-        VERY_ACTIVE
-        EXTRA_ACTIVE
-    }
-
-    class HealthGoal {
-        <<enumeration>>
-        LOSE_WEIGHT
-        MAINTAIN_WEIGHT
-        GAIN_MUSCLE
-        IMPROVE_HEALTH
-    }
-
-    class RestrictionType {
-        <<enumeration>>
-        ALLERGY
-        INTOLERANCE
-        PREFERENCE
-        RELIGIOUS
-    }
-
-    class MealType {
-        <<enumeration>>
-        BREAKFAST
-        MORNING_SNACK
-        LUNCH
-        AFTERNOON_SNACK
-        DINNER
-    }
-
-    class PlanStatus {
-        <<enumeration>>
-        ACTIVE
-        ARCHIVED
-    }
-
-    class AchievementType {
-        <<enumeration>>
-        LOGIN_STREAK
-        CALORIE_GOAL
-        PROTEIN_GOAL
-        HYDRATION
-        WEIGHT_MILESTONE
-        PLANS_GENERATED
+    user_achievements {
+        bigint id PK
+        bigint user_id FK
+        bigint achievement_id FK
+        timestamp earned_at
     }
 ```
 
-### Enum-to-Entity mapping
+The five collection tables (`food_allergens`, `food_diet_flags`, `food_suitable_slots`,
+`condition_implied_allergens`, `restriction_excluded_allergens`) hold one enum value per row.
 
-| Enum | Used in entity | Field |
+---
+
+## 2. Constraints that enforce business rules
+
+The application checks every rule first; these constraints are the last line of defense
+(defense in depth), so even a bug or a manual edit cannot store an invalid state.
+
+| Constraint | Table | Rule |
 |---|---|---|
-| `Role` | `User` | `role` |
-| `Gender` | `UserProfile` | `gender` |
-| `ActivityLevel` | `UserProfile` | `activityLevel` |
-| `HealthGoal` | `UserProfile` | `healthGoal` |
-| `RestrictionType` | `DietaryRestriction` | `type` |
-| `MealType` | `Meal` | `mealType` |
-| `PlanStatus` | `DietPlan` | `status` |
-| `AchievementType` | `Achievement` | `type` |
+| `ux_active_plan` (partial unique on `user_id, valid_for_date` where `ACTIVE`) | `diet_plans` | One ACTIVE plan per user-day, even under concurrent generation (BR-LIF-02) |
+| `ck_diet_plans_status`, `ck_diet_plans_ai_status` | `diet_plans` | Lifecycle states (BR-LIF-01, BR-LIF-07) |
+| `uq_user_progress_date` | `progress_entries` | One entry per user and day (BR-PRG-01) |
+| `ck_progress_*` (calories, water, exercise, weight, notes, meals, target) | `progress_entries` | Bounds (BR-PRG-03) |
+| `ck_meals_completed_at` | `meals` | `completed_at` only on checked meals (BR-PRG-05) |
+| `uq_user_achievement` | `user_achievements` | Awards are unique; inserts use `ON CONFLICT DO NOTHING` (BR-ACH-06) |
+| `ck_achievements_type` | `achievements` | Only measurable types (BR-ACH-05) |
+| `uq_food_items_name`, `ux_food_items_name_ci` | `food_items` | Unique names, ignoring case (BR-CAT-01) |
+| `ck_food_items_origin` | `food_items` | SEED or ADMIN (BR-CAT-05) |
+| `ck_mfi_role` | `meal_food_items` | Component roles (BR-CMP-02) |
 
 ---
 
-## 4. Relationship Details
+## 3. Migration history
 
-| Relationship | Type | Cardinality | JPA mapping | Notes |
-|---|---|---|---|---|
-| User → UserProfile | Composition | 1 : 1 | `@OneToOne(cascade=ALL, orphanRemoval=true)` | Deleting User cascades to Profile |
-| User → DietPlan | Association | 1 : 0..* | `@OneToMany(mappedBy="user")` | Plan archived, never deleted |
-| User → ProgressEntry | Association | 1 : 0..* | `@OneToMany(mappedBy="user")` | Unique constraint on (user_id, date) |
-| User → UserAchievement | Association | 1 : 0..* | `@OneToMany(mappedBy="user")` | |
-| UserProfile ↔ HealthCondition | M:N Association | 0..* : 0..* | `@ManyToMany` — junction table `user_health_conditions` | Lookup seeded at startup |
-| UserProfile ↔ DietaryRestriction | M:N Association | 0..* : 0..* | `@ManyToMany` — junction table `user_dietary_restrictions` | Lookup seeded at startup |
-| DietPlan → Meal | Composition | 1 : 1..* | `@OneToMany(cascade=ALL, orphanRemoval=true)` | At least 1 meal required |
-| Meal → MealFoodItem | Association | 1 : 0..* | `@OneToMany(cascade=ALL, orphanRemoval=true)` | |
-| MealFoodItem → FoodItem | Association | 0..* : 1 | `@ManyToOne` | FoodItem is reference data, never deleted |
-| UserAchievement → Achievement | Association | 0..* : 1 | `@ManyToOne` | Achievement is reference data |
-
----
-
-## 5. Business Rules & Constraints
-
-### User
-- `email` MUST be unique across the table.
-- `passwordHash` MUST be BCrypt-encoded (strength ≥ 10). Never store plaintext.
-- Default `role` = `USER`; `ADMIN` is assigned manually.
-
-### UserProfile
-- `dateOfBirth` is used to derive age dynamically — do not store `age` directly.
-- `weightKg` range: 20.0 – 500.0 kg (validated at service layer).
-- `heightCm` range: 50.0 – 300.0 cm (validated at service layer).
-- A `UserProfile` MUST be created atomically with its `User` during registration.
-
-### HealthCondition (lookup)
-- `sugarLimitG`: max grams of sugar per meal for users with this condition.
-  - Diabetes → 15g
-  - (null) → no limit
-- `fatLimitG`: max grams of fat per meal for users with this condition.
-  - High Cholesterol → 25g
-  - (null) → no limit
-- Seeded at application startup; not user-editable.
-
-### DietaryRestriction (lookup)
-- Seeded at application startup with: Vegan, Vegetarian, Gluten-Free, Lactose-Free, Nut Allergy.
-- Not user-editable (users only select from the predefined list).
-
-### DietPlan
-- Only one `DietPlan` per user per `validForDate` can have `status = ACTIVE`.
-  Enforced via unique constraint on `(user_id, valid_for_date, status)` —
-  or by archiving the old active plan before inserting a new one.
-- `totalCalories`, `totalProteinG`, `totalCarbsG`, `totalFatG`, `totalSugarG`
-  MUST equal the sum of their respective `Meal` fields (enforced at service layer).
-
-### Meal
-- At least 1 `Meal` per `DietPlan` (enforced by `@OneToMany(cascade=ALL)` with a
-  `@Size(min=1)` validation on the collection).
-- `sortOrder` determines display order: 1=Breakfast, 2=Morning Snack, etc.
-
-### ProgressEntry
-- Unique constraint on `(user_id, date)` — one entry per user per calendar day.
-- `caloriesConsumed`, `waterMl`, `mealsCompleted` MUST be ≥ 0.
-- `weightKg` is nullable (user may not weigh themselves every day).
-
-### FoodItem
-- `name` MUST be unique.
-- All `*Per100g` fields MUST be ≥ 0.
-- `caloriesPer100g` is derived from macros using Atwater factors
-  (protein × 4 + carbs × 4 + fat × 9) — validated at import time, not enforced in DB.
-
-### MealFoodItem
-- `quantityG` MUST be > 0.
-
-### Achievement (lookup)
-- Seeded at startup; not user-editable.
-- `threshold` meaning depends on `type`:
-  - `LOGIN_STREAK` → consecutive days
-  - `CALORIE_GOAL` → number of days goal hit
-  - `PLANS_GENERATED` → number of plans created
-
----
-
-## 6. Database Table Conventions
-
-| Convention | Value |
+| Migration | What it does |
 |---|---|
-| Table naming | `snake_case`, plural (e.g., `diet_plans`, `food_items`) |
-| Column naming | `snake_case` (e.g., `valid_for_date`, `calories_per_100g`) |
-| Primary keys | `BIGSERIAL` (auto-increment) named `id` |
-| Foreign keys | `{referenced_table_singular}_id` (e.g., `user_id`, `diet_plan_id`) |
-| Junction tables | `{table_a}_{table_b}` alphabetical (e.g., `user_dietary_restrictions`) |
-| Timestamps | `TIMESTAMP WITH TIME ZONE`, column names `created_at` / `updated_at` |
-| Soft delete | Not used — `status` enum on `DietPlan` (ACTIVE/ARCHIVED) handles lifecycle |
-| Indexes | All FK columns indexed; `(user_id, date)` on `progress_entries` (unique); `email` on `users` (unique) |
+| `V1__baseline` | The original schema, captured as the first migration |
+| `V2__profile_timezone` | `user_profiles.timezone`: "today" is the user's day (BR-TIM-01) |
+| `V3__food_attributes` | Food roles, states, portions, allergens, diet flags, slots and sources (BR-CAT, BR-SAF) |
+| `V4__reference_data` | Restrictions, conditions and achievements as data, with the allergens they exclude or imply |
+| `V5__plan_lifecycle` | SUPERSEDED status, `ux_active_plan`, seed and sequence, warnings, AI status, component snapshots |
+| `V6__progress_meal_completion` | Meal check-off, plan target, progress override and target snapshot, progress bounds |
+| `V7__achievement_types` | `LOGGING_STREAK`, PROTEIN_GOAL removed, rule-stating descriptions, weight milestones |
+| `V8__food_origin` | `origin` SEED/ADMIN, case-insensitive unique names |
+| `R__food_catalog` | The curated catalog, generated from `db/catalog/foods.csv`; touches SEED rows only |
 
----
-
-## 7. Recommended Seed Data
-
-These lookup tables MUST be populated via a Spring Boot `DataInitializer`
-component on first startup if empty.
-
-**HealthCondition seed:**
-
-| name | sugarLimitG | fatLimitG |
-|---|---|---|
-| Diabetes | 15 | null |
-| High Cholesterol | null | 25 |
-| Hypertension | null | null |
-| Celiac Disease | null | null |
-| Lactose Intolerance | null | null |
-
-**DietaryRestriction seed:**
-
-| name | type |
-|---|---|
-| Vegan | PREFERENCE |
-| Vegetarian | PREFERENCE |
-| Gluten-Free | INTOLERANCE |
-| Lactose-Free | INTOLERANCE |
-| Nut Allergy | ALLERGY |
-| Halal | RELIGIOUS |
-| Kosher | RELIGIOUS |
-
-**Achievement seed (examples):**
-
-| name | type | threshold | iconName |
-|---|---|---|---|
-| First Steps | PLANS_GENERATED | 1 | seedling |
-| Week Warrior | LOGIN_STREAK | 7 | fire |
-| Protein Champion | PROTEIN_GOAL | 5 | dumbbell |
-| Hydration Hero | HYDRATION | 7 | droplet |
-| Transformation | WEIGHT_MILESTONE | 1 | star |
+Every versioned migration was also applied to a database holding earlier data, not only to an
+empty one, and the upgraded rows were checked.
