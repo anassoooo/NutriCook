@@ -196,6 +196,42 @@ export interface Achievement {
   earnedAt: string | null
 }
 
+/** A catalog food as administered (BR-CAT-01). Values are per 100 g. */
+export interface CatalogFood {
+  id: number
+  name: string
+  category: string | null
+  role: FoodRole
+  state: 'RAW' | 'COOKED' | 'DRY'
+  caloriesPer100g: number
+  proteinPer100g: number
+  carbsPer100g: number
+  fatPer100g: number
+  sugarPer100g: number
+  fiberPer100g: number
+  sodiumMgPer100g: number
+  portionMinG: number
+  portionMaxG: number
+  portionStepG: number
+  defaultPortionG: number
+  allergens: string[]
+  dietFlags: string[]
+  suitableSlots: string[]
+  meat: boolean
+  source: string | null
+  /** SEED foods change through foods.csv; only ADMIN foods are editable here */
+  origin: 'SEED' | 'ADMIN'
+  active: boolean
+}
+
+export interface Page<T> {
+  items: T[]
+  page: number
+  size: number
+  totalItems: number
+  totalPages: number
+}
+
 export interface LocationDTO {
   name: string
   type: string

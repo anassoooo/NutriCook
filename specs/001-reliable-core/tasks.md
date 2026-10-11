@@ -399,18 +399,23 @@ description: "Executable task list for 001-reliable-core"
 
 ## Phase 9: US7, Curated food catalog (P3) M5
 
-- [ ] **T074** [US7] `B/domain/catalog/FoodQualityGate.java` (pure, BR-CAT-02; reused by `CatalogQualityIT` from T032) and `B/service/CatalogAdminService.java` (create, update, soft-delete; name unique, case-insensitive).
+- [x] **T074** [US7] `B/domain/catalog/FoodQualityGate.java` (pure, BR-CAT-02; reused by `CatalogQualityIT` from T032) and `B/service/CatalogAdminService.java` (create, update, soft-delete; name unique, case-insensitive).
   **Rules:** BR-CAT-01/02/04.
-- [ ] **T075** [US7] `B/controller/AdminFoodController.java` (`/api/admin/foods`, `@PreAuthorize("hasRole('ADMIN')")`, paginated GET with `?q=&role=&active=`) with request/response DTOs.
+  *As built: a conflict surfaced here: `R__food_catalog.sql` upserted by name and set `active = true`, so the next CSV change would have overwritten admin edits and undone deactivations. V8 adds `food_items.origin` (SEED/ADMIN) and a case-insensitive unique index; the generator now touches only SEED rows and leaves `active` alone. Seeded foods are read-only through the API (`FOOD_READ_ONLY`, a new error code) except for (de)activation. The gate gained diet-label consistency (mirrored in the generator) and a whole-food check; reactivation runs it too.*
+- [x] **T075** [US7] `B/controller/AdminFoodController.java` (`/api/admin/foods`, `@PreAuthorize("hasRole('ADMIN')")`, paginated GET with `?q=&role=&active=`) with request/response DTOs.
   **Rules:** BR-CAT-05, FR-005.
-- [ ] **T076** [US7] Startup gate `B/config/CatalogStartupCheck.java`: an `ApplicationRunner` that validates every active food and refuses to start if any fails, naming them.
+  *As built: URL rule `/api/admin/**` → ADMIN in `SecurityConfig` plus `@PreAuthorize` on the controller. `DELETE` deactivates, `POST /{id}/activate` reactivates. Pages use a `PageResponse` record (size 1–100) instead of serializing Spring's `PageImpl`.*
+- [x] **T076** [US7] Startup gate `B/config/CatalogStartupCheck.java`: an `ApplicationRunner` that validates every active food and refuses to start if any fails, naming them.
   **Rules:** BR-CAT-02.
-- [ ] **T077** [US7] `BT/controller/AdminFoodIT.java`:
+  *As built: `CatalogStartupCheck`, unit-tested with a mocked repository (`CatalogStartupCheckTest`); `CatalogQualityIT` also runs the whole gate on the seeded catalog.*
+- [x] **T077** [US7] `BT/controller/AdminFoodIT.java`:
   - `BR_CAT_02_atwaterViolationRejected`
   - `BR_CAT_04_softDeleteKeepsHistory`
   - `BR_CAT_04_inactiveExcludedFromNewPlans`
   - `BR_CAT_05_nonAdminForbidden`
-- [ ] **T078** [P] [US7] Frontend `F/pages/admin/FoodsPage.tsx`: a table with search and a form with allergen/flag checkboxes. The route is guarded by `role === 'ADMIN'`.
+  *As built: 10 scenarios, adding seeded foods read-only, admin create and edit, case-insensitive names, search and paging, contradictory labels, and the reactivation gate. Tests that deactivate a shared seed food reactivate it in `finally`.*
+- [x] **T078** [P] [US7] Frontend `F/pages/admin/FoodsPage.tsx`: a table with search and a form with allergen/flag checkboxes. The route is guarded by `role === 'ADMIN'`.
+  *As built: `pages/admin/FoodsPage.tsx` with filters, paging, (de)activation, and an editor only for ADMIN foods; a "Catalog" navbar link only for admins. `__tests__/AdminFoods.test.tsx` renders the real routes.*
 
 ---
 
