@@ -6,6 +6,8 @@ services:
     name: nutricook-api
     runtime: docker
     plan: free
+    # next to the Neon database (aws-eu-central-1); a region cannot be changed later
+    region: frankfurt
     # both relative to the repository root
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
