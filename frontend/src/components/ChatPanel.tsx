@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan } from '../types'
+
+/** Server limit (BR-AI-06). */
+export const MAX_MESSAGE_LENGTH = 500
 
 interface Message {
   role: 'user' | 'assistant'
@@ -54,10 +58,12 @@ export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTrig
       )
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
       if (data.updatedPlan) onPlanUpdate(data.updatedPlan)
-    } catch {
+    } catch (err) {
+      // RATE_LIMITED, AI_UNAVAILABLE, ... each have their own message (Constitution VIII)
+      const message = toApiError(err).message
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.' },
+        { role: 'assistant', content: message },
       ])
     } finally {
       setLoading(false)
@@ -146,11 +152,14 @@ export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTrig
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
                 placeholder="Ask me anything…"
+                maxLength={MAX_MESSAGE_LENGTH}
+                aria-describedby="chat-counter"
                 disabled={loading}
                 className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-500 transition-all disabled:opacity-50"
               />
               <button
                 onClick={send}
+                aria-label="Send message"
                 disabled={!input.trim() || loading}
                 className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 disabled:opacity-40 transition-opacity"
                 style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}
@@ -160,6 +169,9 @@ export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTrig
                 </svg>
               </button>
             </div>
+            <p id="chat-counter" className="text-[10px] text-right px-4 pb-2 text-slate-400 tabular-nums">
+              {input.length}/{MAX_MESSAGE_LENGTH}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>

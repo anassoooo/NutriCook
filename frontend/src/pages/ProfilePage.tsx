@@ -4,8 +4,10 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
-import type { UserProfile, ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition } from '../types'
+import type { UserProfile, ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, Gender } from '../types'
+import { GENDER_OPTIONS } from '../types'
 
 interface FormData {
   firstName:     string
@@ -13,7 +15,7 @@ interface FormData {
   weightKg:      number
   heightCm:      number
   dateOfBirth:   string
-  gender:        'MALE' | 'FEMALE'
+  gender:        Gender
   activityLevel: ActivityLevel
   healthGoal:    HealthGoal
 }
@@ -46,9 +48,9 @@ const COMPLETION_STEPS = [
   { key: 'weightKg',    label: 'Weight'   },
   { key: 'heightCm',    label: 'Height'   },
   { key: 'dateOfBirth', label: 'Birthday' },
-]
+] as const
 
-function isDone(v: any): boolean {
+function isDone(v: unknown): boolean {
   if (v === undefined || v === null || v === '') return false
   if (typeof v === 'number') return !isNaN(v) && v > 0
   return true
@@ -92,7 +94,7 @@ export default function ProfilePage() {
   const all = useWatch({ control })
   const watchFirst       = (all.firstName      ?? '') as string
   const watchLast        = (all.lastName       ?? '') as string
-  const watchGender      = (all.gender         ?? 'MALE') as 'MALE' | 'FEMALE'
+  const watchGender      = (all.gender         ?? 'MALE') as Gender
   const selectedActivity = (all.activityLevel  ?? 'SEDENTARY') as ActivityLevel
   const selectedGoal     = (all.healthGoal     ?? 'IMPROVE_HEALTH') as HealthGoal
   const watchWeight      = all.weightKg  as number | undefined
@@ -105,7 +107,7 @@ export default function ProfilePage() {
   const displayName = [watchFirst, watchLast].filter(Boolean).join(' ') || 'Your'
   const initial     = (watchFirst || email || 'U').charAt(0).toUpperCase()
 
-  const completedCount = COMPLETION_STEPS.filter(s => isDone((all as any)[s.key])).length
+  const completedCount = COMPLETION_STEPS.filter(s => isDone(all[s.key])).length
   const completionPct  = Math.round((completedCount / COMPLETION_STEPS.length) * 100)
 
   useEffect(() => {
@@ -119,25 +121,23 @@ export default function ProfilePage() {
 
   const toggleRestriction = async (id: number) => {
     const isSelected = selectedRestrictions.has(id)
-    setSelectedRestrictions(prev => { const s = new Set(prev); isSelected ? s.delete(id) : s.add(id); return s })
+    setSelectedRestrictions(prev => { const s = new Set(prev); if (isSelected) s.delete(id); else s.add(id); return s })
     try {
-      isSelected
-        ? await api.delete(`/users/${userId}/profile/dietary-restrictions/${id}`)
-        : await api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)
+      if (isSelected) await api.delete(`/users/${userId}/profile/dietary-restrictions/${id}`)
+      else await api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)
     } catch {
-      setSelectedRestrictions(prev => { const s = new Set(prev); isSelected ? s.add(id) : s.delete(id); return s })
+      setSelectedRestrictions(prev => { const s = new Set(prev); if (isSelected) s.add(id); else s.delete(id); return s })
     }
   }
 
   const toggleCondition = async (id: number) => {
     const isSelected = selectedConditions.has(id)
-    setSelectedConditions(prev => { const s = new Set(prev); isSelected ? s.delete(id) : s.add(id); return s })
+    setSelectedConditions(prev => { const s = new Set(prev); if (isSelected) s.delete(id); else s.add(id); return s })
     try {
-      isSelected
-        ? await api.delete(`/users/${userId}/profile/health-conditions/${id}`)
-        : await api.post(`/users/${userId}/profile/health-conditions/${id}`)
+      if (isSelected) await api.delete(`/users/${userId}/profile/health-conditions/${id}`)
+      else await api.post(`/users/${userId}/profile/health-conditions/${id}`)
     } catch {
-      setSelectedConditions(prev => { const s = new Set(prev); isSelected ? s.add(id) : s.delete(id); return s })
+      setSelectedConditions(prev => { const s = new Set(prev); if (isSelected) s.add(id); else s.delete(id); return s })
     }
   }
 
@@ -174,8 +174,8 @@ export default function ProfilePage() {
       })
       setSaved(true)
       setTimeout(() => navigate(-1), 1500)
-    } catch {
-      setError('Failed to save. Please check your inputs and try again.')
+    } catch (err) {
+      setError(toApiError(err).message)
     } finally { setLoading(false) }
   }
 
@@ -205,7 +205,7 @@ export default function ProfilePage() {
             {/* Completion pills — only track explicitly-filled fields */}
             <div className="flex items-center gap-1.5 mt-3 flex-wrap">
               {COMPLETION_STEPS.map(s => {
-                const done = isDone((all as any)[s.key])
+                const done = isDone(all[s.key])
                 return (
                   <span key={s.key}
                         className="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-all"
@@ -270,7 +270,7 @@ export default function ProfilePage() {
             <div>
               <label className="label">Gender</label>
               <div className="flex gap-2">
-                {(['MALE', 'FEMALE'] as const).map(g => (
+                {GENDER_OPTIONS.map(({ value: g, label }) => (
                   <label key={g}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-all"
                     style={watchGender === g
@@ -278,7 +278,7 @@ export default function ProfilePage() {
                       : { borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.65)' }}
                   >
                     <input type="radio" value={g} {...register('gender')} className="sr-only" />
-                    {g === 'MALE' ? '♂ Male' : '♀ Female'}
+                    {label}
                   </label>
                 ))}
               </div>

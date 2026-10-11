@@ -3,20 +3,11 @@ package com.nutricook.controller;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.nutricook.support.AbstractIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class AuthControllerTest {
-
-  @Autowired MockMvc mockMvc;
+class AuthControllerTest extends AbstractIntegrationTest {
 
   @Test
   void register_returnsCreatedWithToken() throws Exception {
@@ -45,7 +36,8 @@ class AuthControllerTest {
 
     mockMvc
         .perform(post("/api/auth/register").contentType(MediaType.APPLICATION_JSON).content(body))
-        .andExpect(status().isConflict());
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("EMAIL_TAKEN"));
   }
 
   @Test
@@ -97,11 +89,12 @@ class AuthControllerTest {
                     """
                 {"email":"wrongpass@example.com","password":"WrongPassword!"}
                 """))
-        .andExpect(status().isUnauthorized());
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
   }
 
   @Test
-  void register_withShortPassword_returns422() throws Exception {
+  void register_withShortPassword_returns400ValidationFailed() throws Exception {
     mockMvc
         .perform(
             post("/api/auth/register")
@@ -110,11 +103,13 @@ class AuthControllerTest {
                     """
                 {"email":"short@example.com","password":"123"}
                 """))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+        .andExpect(jsonPath("$.errors[0].field").exists());
   }
 
   @Test
-  void register_withInvalidEmail_returns422() throws Exception {
+  void register_withInvalidEmail_returns400ValidationFailed() throws Exception {
     mockMvc
         .perform(
             post("/api/auth/register")
@@ -123,6 +118,8 @@ class AuthControllerTest {
                     """
                 {"email":"not-an-email","password":"Password123!"}
                 """))
-        .andExpect(status().isUnprocessableEntity());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+        .andExpect(jsonPath("$.errors[0].field").exists());
   }
 }

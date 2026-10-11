@@ -3,6 +3,7 @@ package com.nutricook.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.nutricook.entity.enums.MealType;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.*;
@@ -39,12 +40,24 @@ public class Meal {
   private Double fatG;
   private Double sugarG;
   private Double fiberG;
+
+  @Column(name = "sodium_mg")
+  private Double sodiumMg;
+
   private Integer sortOrder;
 
   @Column(columnDefinition = "TEXT")
   private String aiSuggestion;
 
+  /** Checked off by the user: they ate this meal (BR-PRG-05). */
+  @Column(nullable = false)
+  @Builder.Default
+  private boolean completed = false;
+
+  private LocalDateTime completedAt;
+
   @OneToMany(mappedBy = "meal", cascade = CascadeType.ALL, orphanRemoval = true)
+  @org.hibernate.annotations.Fetch(org.hibernate.annotations.FetchMode.SUBSELECT)
   @Builder.Default
   private List<MealFoodItem> mealFoodItems = new ArrayList<>();
 }

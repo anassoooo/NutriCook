@@ -2,12 +2,29 @@ import { useEffect, useState, Suspense, lazy } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
+import { planErrorMessage } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
-import type { DietPlan, Meal, UserProfile, ProgressEntry } from '../types'
+import type { DietPlan, Meal, UserProfile, ProgressEntry, SlotTarget } from '../types'
 import MacroRing from '../components/MacroRing'
 import ChatPanel from '../components/ChatPanel'
+import MedicalDisclaimer from '../components/MedicalDisclaimer'
+import PlanWarnings from '../components/PlanWarnings'
+import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
+import SwapMenu from '../components/SwapMenu'
+import MealCheck from '../components/MealCheck'
+import { localIsoDate } from '../lib/progressRules'
+import { useAiRefresh } from '../hooks/useAiRefresh'
 
 const NutritionOrb = lazy(() => import('../components/3d/NutritionOrb'))
+
+const FIELD_LABELS: Record<string, string> = {
+  dateOfBirth: 'date of birth',
+  gender: 'gender',
+  weightKg: 'weight',
+  heightCm: 'height',
+  activityLevel: 'activity level',
+  healthGoal: 'goal',
+}
 
 function greeting() {
   const h = new Date().getHours()
@@ -24,7 +41,7 @@ const MEAL_META: Record<string, { icon: string; gradient: string }> = {
   DINNER:          { icon: '🌙', gradient: 'from-slate-500 to-indigo-700'   },
 }
 
-function MealCard({ meal, index, onReplace }: { meal: Meal; index: number; onReplace: () => void }) {
+function MealCard({ meal, index, target, onReplace, planId, onSwapped, onCompleted }: { meal: Meal; index: number; target?: SlotTarget; onReplace: () => void; planId: number; onSwapped: (plan: DietPlan) => void; onCompleted: (plan: DietPlan, progress: ProgressEntry) => void }) {
   const [open, setOpen] = useState(false)
   const meta = MEAL_META[meal.mealType] ?? { icon: '🍴', gradient: 'from-slate-400 to-slate-600' }
 
@@ -46,6 +63,7 @@ function MealCard({ meal, index, onReplace }: { meal: Meal; index: number; onRep
             <p className="text-white/70 text-xs mt-0.5">
               {meal.mealType.replace('_', ' ')} · {meal.calories} kcal
             </p>
+            <MealComponentsSummary components={meal.components} />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -72,6 +90,8 @@ function MealCard({ meal, index, onReplace }: { meal: Meal; index: number; onRep
         </div>
       </button>
 
+      <MealCheck planId={planId} meal={meal} onChanged={onCompleted} />
+
       <AnimatePresence>
         {open && (
           <motion.div
@@ -82,11 +102,16 @@ function MealCard({ meal, index, onReplace }: { meal: Meal; index: number; onRep
             className="overflow-hidden"
           >
             <div className="px-5 py-5 space-y-5">
+              <MealComponents components={meal.components} />
+              <SwapMenu planId={planId} mealId={meal.id} onSwapped={onSwapped} />
               <div className="flex justify-around">
-                <MacroRing label="Protein" value={Math.round(meal.proteinG ?? 0)} max={60}  color="#3b82f6" size={76} strokeWidth={8} />
-                <MacroRing label="Carbs"   value={Math.round(meal.carbsG   ?? 0)} max={120} color="#f59e0b" size={76} strokeWidth={8} />
-                <MacroRing label="Fat"     value={Math.round(meal.fatG     ?? 0)} max={40}  color="#ef4444" size={76} strokeWidth={8} />
-                <MacroRing label="Fiber"   value={Math.round(meal.fiberG   ?? 0)} max={15}  color="#10b981" size={76} strokeWidth={8} />
+                {/* Ring maxima are this slot's share of the user's targets (from the API) */}
+                {target && <>
+                  <MacroRing label="Protein" value={Math.round(meal.proteinG ?? 0)} max={target.proteinG} color="#3b82f6" size={76} strokeWidth={8} />
+                  <MacroRing label="Carbs"   value={Math.round(meal.carbsG   ?? 0)} max={target.carbsG}   color="#f59e0b" size={76} strokeWidth={8} />
+                  <MacroRing label="Fat"     value={Math.round(meal.fatG     ?? 0)} max={target.fatG}     color="#ef4444" size={76} strokeWidth={8} />
+                  <MacroRing label="Fiber"   value={Math.round(meal.fiberG   ?? 0)} max={target.fiberG}   color="#10b981" size={76} strokeWidth={8} />
+                </>}
               </div>
 
               {meal.aiSuggestion && (
@@ -111,6 +136,7 @@ export default function DashboardPage() {
   const [generating,   setGenerating]   = useState(false)
   const [error,        setError]        = useState('')
   const [chatTrigger,  setChatTrigger]  = useState('')
+  useAiRefresh(userId, plan, setPlan)
 
   useEffect(() => {
     if (!userId) return
@@ -120,7 +146,7 @@ export default function DashboardPage() {
       if (active) setPlan(active)
     }).catch(() => {})
 
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localIsoDate()
     api.get<ProgressEntry[]>(`/users/${userId}/progress/weekly?start=${today}&end=${today}`)
        .then(r => { if (r.data.length > 0) setTodayEntry(r.data[0]) })
        .catch(() => {})
@@ -130,19 +156,25 @@ export default function DashboardPage() {
     if (!userId) return
     setGenerating(true); setError('')
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate?date=${today}`)).data)
-    } catch { setError('Could not generate plan. Make sure your profile is complete.') }
+      // No date: the server plans for the user's own today (BR-TIM-01, BR-LIF-03)
+      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate`)).data)
+    } catch (err) { setError(planErrorMessage(err)) }
     finally   { setGenerating(false) }
   }
 
+  // Targets come from the API (BR-PRF-08); nothing here is hard-coded
+  const targets         = profile?.targets ?? null
+  const targetsError    = profile?.targetsError ?? null
   const cal             = plan?.totalCalories ?? 0
-  const calPct          = Math.min(cal / 2200, 1)
-  const profileComplete = !!(profile?.weightKg && profile?.heightCm)
+  const calPct          = targets ? Math.min(cal / targets.kcal, 1) : 0
+  const missingFields   = targetsError?.details.missingFields ?? []
 
   const planned = plan?.totalCalories ?? null
   const actual  = todayEntry?.caloriesConsumed ?? null
   const calDiff = planned && actual ? actual - planned : null
+  // Both bars share one scale so planned and logged are comparable
+  const barScale = Math.max(targets?.kcal ?? 0, planned ?? 0, actual ?? 0) || 1
+  const slotTarget = (meal: Meal) => targets?.slots.find(s => s.slot === meal.mealType)
 
   const sortedMeals = plan ? [...plan.meals].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : []
 
@@ -151,7 +183,7 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
 
       {/* Profile incomplete banner */}
-      {profile && !profileComplete && (
+      {profile && targetsError && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -159,8 +191,14 @@ export default function DashboardPage() {
         >
           <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-lg">👤</div>
           <div className="flex-1">
-            <p className="font-bold text-amber-800 text-sm">Complete your profile</p>
-            <p className="text-amber-700 text-xs mt-0.5">Add your weight and height so AI can build a plan tailored to you.</p>
+            <p className="font-bold text-amber-800 text-sm">
+              {targetsError.code === 'PROFILE_INELIGIBLE' ? 'Plans are for adults' : 'Complete your profile'}
+            </p>
+            <p className="text-amber-700 text-xs mt-0.5">
+              {targetsError.code === 'PROFILE_INCOMPLETE' && missingFields.length > 0
+                ? `Add your ${missingFields.map(f => FIELD_LABELS[f] ?? f).join(', ')} so we can calculate your targets.`
+                : targetsError.message}
+            </p>
           </div>
           <Link to="/profile" className="btn-primary text-xs px-4 py-2 shrink-0"
                 style={{ background: 'linear-gradient(135deg,#d97706,#b45309)' }}>
@@ -202,11 +240,11 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {plan && (
+        {plan && targets && (
           <div className="relative z-10 px-7 pb-4">
             <div className="flex justify-between text-xs text-emerald-300 mb-1.5">
               <span>Daily calories</span>
-              <span className="text-white font-semibold">{cal.toLocaleString()} / 2,200 kcal</span>
+              <span className="text-white font-semibold">{cal.toLocaleString()} / {targets.kcal.toLocaleString()} kcal</span>
             </div>
             <div className="h-2 bg-white/15 rounded-full overflow-hidden">
               <motion.div
@@ -238,6 +276,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <MedicalDisclaimer disclaimer={plan?.disclaimer ?? profile?.disclaimer} />
+      <PlanWarnings warnings={plan?.warnings} />
+
       {error && (
         <div className="banner-error">
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -267,7 +308,7 @@ export default function DashboardPage() {
           <div className="card !p-0 overflow-hidden">
             <div className="px-6 py-4 border-b" style={{ background: 'rgba(0,0,0,0.25)', borderColor: 'rgba(255,255,255,0.08)' }}>
               <p className="section-label">Today at a glance</p>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>Planned vs. what you've logged in Progress</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>Planned vs. what you've eaten{todayEntry && todayEntry.mealsCompleted > 0 ? ` · ${todayEntry.mealsCompleted} of ${plan.meals.length} meals` : ''}</p>
             </div>
 
             <div className="p-6 space-y-4">
@@ -282,7 +323,7 @@ export default function DashboardPage() {
                       <span
                         className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
                         style={
-                          Math.abs(calDiff) < 150
+                          Math.abs(calDiff) <= (planned ?? 0) * 0.1
                             ? { background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }
                             : calDiff > 0
                             ? { background: 'rgba(239,68,68,0.15)',  color: '#fca5a5' }
@@ -297,11 +338,11 @@ export default function DashboardPage() {
 
                 <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                   <div className="absolute inset-0 rounded-full bg-emerald-200"
-                       style={{ width: `${Math.min((planned ?? 0) / 2500, 1) * 100}%` }} />
+                       style={{ width: `${Math.min((planned ?? 0) / barScale, 1) * 100}%` }} />
                   {actual && (
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(actual / 2500, 1) * 100}%` }}
+                      animate={{ width: `${Math.min(actual / barScale, 1) * 100}%` }}
                       transition={{ duration: 1, ease: [.4,0,.2,1] }}
                       className="absolute inset-y-0 left-0 rounded-full"
                       style={{ background: actual > (planned ?? 0) * 1.1 ? '#ef4444' : '#16a34a' }}
@@ -310,7 +351,7 @@ export default function DashboardPage() {
                 </div>
                 {!actual && (
                   <p className="text-xs text-slate-400 mt-1">
-                    Log today's calories in{' '}
+                    Mark meals as eaten below, or log calories in{' '}
                     <Link to="/progress" className="text-brand-600 font-semibold hover:underline">Progress</Link>
                     {' '}to compare.
                   </p>
@@ -334,15 +375,20 @@ export default function DashboardPage() {
           </div>
 
           {/* Daily macro rings */}
+          {targets && (
           <div className="card">
-            <p className="section-label mb-5">Daily macros</p>
+            <p className="section-label mb-5">Daily macros vs. your targets</p>
             <div className="flex justify-around items-center">
-              <MacroRing label="Protein" value={Math.round(plan.totalProteinG)} max={180} color="#3b82f6" />
-              <MacroRing label="Carbs"   value={Math.round(plan.totalCarbsG)}   max={320} color="#f59e0b" />
-              <MacroRing label="Fat"     value={Math.round(plan.totalFatG)}     max={90}  color="#ef4444" />
-              <MacroRing label="Sugar"   value={Math.round(plan.totalSugarG)}   max={50}  color="#a855f7" />
+              <MacroRing label="Protein" value={Math.round(plan.totalProteinG)} max={targets.proteinG} color="#3b82f6" />
+              <MacroRing label="Carbs"   value={Math.round(plan.totalCarbsG)}   max={targets.carbsG}   color="#f59e0b" />
+              <MacroRing label="Fat"     value={Math.round(plan.totalFatG)}     max={targets.fatG}     color="#ef4444" />
             </div>
+            {/* Total sugars include natural sugars, so no generic limit is shown (BR-MAC-07) */}
+            <p className="text-xs text-center mt-4" style={{ color: 'rgba(255,255,255,0.62)' }}>
+              Total sugars (incl. natural): <span className="font-semibold">{Math.round(plan.totalSugarG)} g</span>
+            </p>
           </div>
+          )}
 
           {/* Meals — expandable */}
           <div className="space-y-3">
@@ -352,6 +398,10 @@ export default function DashboardPage() {
                 key={meal.id}
                 meal={meal}
                 index={i}
+                target={slotTarget(meal)}
+                planId={plan.id}
+                onSwapped={setPlan}
+                onCompleted={(p, progress) => { setPlan(p); setTodayEntry(progress) }}
                 onReplace={() =>
                   setChatTrigger(
                     `Replace my ${meal.mealType.replace(/_/g, ' ').toLowerCase()} "${meal.name}" with something different`

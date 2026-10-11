@@ -11,10 +11,17 @@ import AchievementsPage from './pages/AchievementsPage'
 import RestaurantsPage from './pages/RestaurantsPage'
 import FeaturesPage from './pages/FeaturesPage'
 import HowItWorksPage from './pages/HowItWorksPage'
+import FoodsPage from './pages/admin/FoodsPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />
+}
+
+/** The server enforces the role too (BR-CAT-05); this only keeps users off a page they can't use. */
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { role } = useAuth()
+  return role === 'ADMIN' ? <>{children}</> : <Navigate to="/dashboard" replace />
 }
 
 export default function App() {
@@ -44,6 +51,7 @@ export default function App() {
         <Route path="progress"     element={<ProgressPage />} />
         <Route path="achievements" element={<AchievementsPage />} />
         <Route path="restaurants"  element={<RestaurantsPage />} />
+        <Route path="admin/foods"  element={<RequireAdmin><FoodsPage /></RequireAdmin>} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

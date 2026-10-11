@@ -1,19 +1,9 @@
+# Integration-test settings. The datasource comes from Testcontainers (@ServiceConnection).
 spring:
-  datasource:
-    url: jdbc:h2:mem:nutricook_test;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  h2:
-    console:
-      enabled: false
   jpa:
-    hibernate:
-      ddl-auto: create-drop
     properties:
-      hibernate:
-        dialect: org.hibernate.dialect.H2Dialect
-    show-sql: false
+      # statement counts for BR-ACH-07
+      hibernate.generate_statistics: true
   ai:
     openai:
       api-key: test-dummy-groq-key
@@ -23,6 +13,10 @@ spring:
           model: llama-3.3-70b-versatile
 
 app:
+  limits:
+    generations-per-day: 10
+    chat-per-hour: 30
+    ai-timeout: 2s
   jwt:
     # 32-byte base64 key used only in tests
     secret: 4JBzn+VDduZQFSMTvQYPUj0O78ZjVjIPdf2kRGvppxY=
@@ -34,3 +28,8 @@ app:
     search-radius-meters: 2000
   cache:
     location-ttl-minutes: 60
+
+logging:
+  level:
+    # statistics are read in tests, not logged per session
+    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: WARN

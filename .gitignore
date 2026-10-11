@@ -1,6 +1,6 @@
 # ── Claude Code / AI tooling ─────────────────────────────────────────────────
+# .specify/ (Spec Kit constitution, templates) is versioned on purpose.
 .claude/
-.specify/
 
 # ── Local run scripts (contain machine paths & secrets) ──────────────────────
 backend/run.bat
@@ -27,6 +27,15 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# ── LaTeX report build artifacts ────────────────────────────────────────────
+docs/*.aux
+docs/*.lof
+docs/*.lot
+docs/*.out
+docs/*.toc
+docs/*.synctex.gz
+docs/compile_*.txt
+
 # ── Spring Boot ──────────────────────────────────────────────────────────────
 backend/src/main/resources/application-local.yml
 backend/data/
@@ -39,29 +48,18 @@ yarn-error.log*
 frontend/dist/
 frontend/build/
 
-# ── Python (legacy reference code) ──────────────────────────────────────────
-venv/
-env/
+# ── Python (legacy reference code, root-anchored so frontend/src/lib etc. are not ignored) ──
+/venv/
+/env/
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
+/build/
+/dist/
+/lib/
+/lib64/
+/var/
 *.egg-info/
-.installed.cfg
-*.egg
 
 # ── IDE ───────────────────────────────────────────────────────────────────────
 .idea/

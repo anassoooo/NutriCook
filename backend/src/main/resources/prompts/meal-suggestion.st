@@ -1,3 +1,4 @@
+# version: 2
 You are a professional dietitian. Give a 2-sentence practical tip for this meal.
 
 Meal: {mealName} ({mealType})

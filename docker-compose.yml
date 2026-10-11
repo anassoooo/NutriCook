@@ -1,0 +1,48 @@
+# NutriCook: full stack in one command
+#   cp .env.example .env   (fill GROQ_API_KEY for AI features)
+#   docker compose up --build
+#   → http://localhost:8081
+name: nutricook
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nutricook}
+      POSTGRES_USER: ${POSTGRES_USER:-nutricook}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nutricook}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Host port 5433 avoids clashing with a locally installed PostgreSQL (override with DB_HOST_PORT)
+      - "${DB_HOST_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"   # Swagger UI at http://localhost:8080/swagger-ui.html
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8081:80"
+
+volumes:
+  pgdata:

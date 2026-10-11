@@ -1,7 +1,9 @@
 package com.nutricook.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.nutricook.entity.enums.PlanStatus;
+import com.nutricook.domain.model.PlanStatus;
+import com.nutricook.domain.model.Warning;
+import com.nutricook.entity.enums.AiStatus;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -9,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "diet_plans")
@@ -37,6 +41,13 @@ public class DietPlan {
   private Double totalCarbsG;
   private Double totalFatG;
   private Double totalSugarG;
+  private Double totalFiberG;
+
+  @Column(name = "total_sodium_mg")
+  private Double totalSodiumMg;
+
+  /** The calorie target this plan was built for (BR-PRG-06). */
+  private Integer targetCalories;
 
   @Column(name = "valid_for_date", nullable = false)
   private LocalDate validForDate;
@@ -52,6 +63,26 @@ public class DietPlan {
 
   @Column(columnDefinition = "TEXT")
   private String aiExplanation;
+
+  /** Whether the optional AI text is still being written (BR-LIF-07). */
+  @Enumerated(EnumType.STRING)
+  @Column(name = "ai_status", nullable = false, length = 16)
+  @Builder.Default
+  private AiStatus aiStatus = AiStatus.PENDING;
+
+  /** 1 for the first plan of a user-day, 2 for the first regeneration, ... (BR-CMP-07). */
+  @Column(name = "generation_seq", nullable = false)
+  @Builder.Default
+  private Integer generationSeq = 1;
+
+  /** Composer seed, so any plan can be reproduced exactly (BR-CMP-07). */
+  private Long seed;
+
+  /** Non-blocking issues, e.g. TARGET_DEVIATION (BR-CMP-05). */
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(columnDefinition = "jsonb", nullable = false)
+  @Builder.Default
+  private List<Warning> warnings = new ArrayList<>();
 
   @OneToMany(mappedBy = "dietPlan", cascade = CascadeType.ALL, orphanRemoval = true)
   @Builder.Default

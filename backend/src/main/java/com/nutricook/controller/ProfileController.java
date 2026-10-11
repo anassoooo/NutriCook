@@ -1,7 +1,12 @@
 package com.nutricook.controller;
 
+import com.nutricook.domain.DomainException;
+import com.nutricook.domain.model.Targets;
 import com.nutricook.dto.request.ProfileRequest;
+import com.nutricook.dto.response.ProfileResponse;
+import com.nutricook.dto.response.TargetsResponse;
 import com.nutricook.entity.UserProfile;
+import com.nutricook.service.TargetService;
 import com.nutricook.service.UserProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,16 +21,32 @@ import org.springframework.web.bind.annotation.*;
 public class ProfileController {
 
   private final UserProfileService profileService;
+  private final TargetService targetService;
 
-  @GetMapping
-  public ResponseEntity<UserProfile> get(@PathVariable Long userId) {
-    return ResponseEntity.ok(profileService.getByUserId(userId));
+  /** Embeds targets, or the reason they cannot be computed yet (BR-PRF-08). */
+  private ProfileResponse view(UserProfile profile) {
+    try {
+      Targets targets = targetService.forProfile(profile);
+      return ProfileResponse.of(
+          profile, TargetsResponse.of(targets, targetService.perSlot(targets)), null);
+    } catch (DomainException e) {
+      return ProfileResponse.of(
+          profile,
+          null,
+          new ProfileResponse.TargetsError(e.code().name(), e.getMessage(), e.details()));
+    }
   }
 
+  @GetMapping
+  public ResponseEntity<ProfileResponse> get(@PathVariable Long userId) {
+    return ResponseEntity.ok(view(profileService.getByUserId(userId)));
+  }
+
+  /** Partial update: omitted (null) fields keep their value (BR-PRF-05). */
   @PutMapping
-  public ResponseEntity<UserProfile> update(
+  public ResponseEntity<ProfileResponse> update(
       @PathVariable Long userId, @Valid @RequestBody ProfileRequest request) {
-    return ResponseEntity.ok(profileService.update(userId, request));
+    return ResponseEntity.ok(view(profileService.update(userId, request)));
   }
 
   @PostMapping("/health-conditions/{conditionId}")

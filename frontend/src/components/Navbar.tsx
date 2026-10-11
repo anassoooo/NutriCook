@@ -10,8 +10,11 @@ const NAV = [
   { to: '/restaurants',  label: 'Near Me'      },
 ]
 
+const ADMIN_NAV = [{ to: '/admin/foods', label: 'Catalog' }]
+
 export default function Navbar() {
-  const { email, logout } = useAuth()
+  const { email, role, logout } = useAuth()
+  const links = role === 'ADMIN' ? [...NAV, ...ADMIN_NAV] : NAV
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const initial = email?.charAt(0).toUpperCase() ?? 'U'
@@ -41,7 +44,7 @@ export default function Navbar() {
 
         {/* Desktop nav links */}
         <div className="hidden md:flex items-center gap-0.5">
-          {NAV.map(({ to, label }) => (
+          {links.map(({ to, label }) => (
             <NavLink
               key={to}
               to={to}
@@ -101,7 +104,7 @@ export default function Navbar() {
       {open && (
         <div className="md:hidden mt-2 max-w-6xl mx-auto liquid-glass rounded-2xl overflow-hidden animate-fade-in">
           <nav className="px-4 py-3 space-y-0.5">
-            {NAV.map(({ to, label }) => (
+            {links.map(({ to, label }) => (
               <NavLink
                 key={to}
                 to={to}

@@ -5,8 +5,6 @@ import com.nutricook.entity.enums.ActivityLevel;
 import com.nutricook.entity.enums.Gender;
 import com.nutricook.entity.enums.HealthGoal;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -40,12 +38,8 @@ public class UserProfile {
   @Enumerated(EnumType.STRING)
   private Gender gender;
 
-  @DecimalMin("20.0")
-  @DecimalMax("500.0")
   private Double weightKg;
 
-  @DecimalMin("50.0")
-  @DecimalMax("300.0")
   private Double heightCm;
 
   @Enumerated(EnumType.STRING)
@@ -53,6 +47,11 @@ public class UserProfile {
 
   @Enumerated(EnumType.STRING)
   private HealthGoal healthGoal;
+
+  /** IANA zone id; defines the user's "today" (BR-TIM-01). Ranges are validated at the API. */
+  @Column(nullable = false, length = 64)
+  @Builder.Default
+  private String timezone = "UTC";
 
   @UpdateTimestamp private LocalDateTime updatedAt;
 

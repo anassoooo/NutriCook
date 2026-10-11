@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { AuthResponse } from '../types'
 
@@ -42,9 +43,12 @@ export default function AuthPage() {
       )
       login(res.data)
       navigate(isLogin ? '/dashboard' : '/onboarding')
-    } catch (err: any) {
-      const msg = err.response?.data?.message ?? err.response?.data ?? 'Something went wrong.'
-      setServerError(typeof msg === 'string' ? msg : 'Request failed.')
+    } catch (err) {
+      const e = toApiError(err)
+      if (isLogin && e.code === 'UNAUTHENTICATED') setServerError('Invalid email or password.')
+      else if (e.code === 'VALIDATION_FAILED' && e.fieldErrors.length > 0)
+        setServerError(e.fieldErrors.map(f => f.message).join(' '))
+      else setServerError(e.message)
     } finally { setLoading(false) }
   }
 

@@ -1,0 +1,39 @@
+# Render Blueprint for the NutriCook backend (docs/deploy.md).
+# Render → New → Blueprint → this repository. Secrets marked sync: false are entered in the
+# dashboard and never stored in git.
+services:
+  - type: web
+    name: nutricook-api
+    runtime: docker
+    plan: free
+    # both relative to the repository root
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      # the container listens on 8080; tell Render to route there
+      - key: PORT
+        value: "8080"
+      # Neon: jdbc:postgresql://<host>/<db>?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      # random 256-bit base64 value; the prod profile refuses weak or published secrets
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+      # the Vercel frontend URL, e.g. https://nutricook.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: OSM_USER_AGENT
+        sync: false
+      # the free instance has 512 MB
+      - key: JAVA_TOOL_OPTIONS
+        value: "-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -XX:TieredStopAtLevel=1"

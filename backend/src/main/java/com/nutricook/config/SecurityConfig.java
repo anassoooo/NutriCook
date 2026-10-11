@@ -1,8 +1,10 @@
 package com.nutricook.config;
 
 import com.nutricook.security.JwtAuthFilter;
+import com.nutricook.security.ProblemDetailSecurityHandlers;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -26,14 +28,14 @@ public class SecurityConfig {
 
   private final JwtAuthFilter jwtAuthFilter;
   private final AuthenticationProvider authenticationProvider;
+  private final ProblemDetailSecurityHandlers problemHandlers;
+
+  /** Browser origins allowed to call the API, from {@code CORS_ALLOWED_ORIGINS}. */
+  @Value("${app.cors.allowed-origins}")
+  private List<String> allowedOrigins;
 
   private static final String[] PUBLIC_ENDPOINTS = {
-    "/api/auth/**",
-    "/h2-console/**",
-    "/swagger-ui/**",
-    "/swagger-ui.html",
-    "/api-docs/**",
-    "/actuator/health"
+    "/api/auth/**", "/swagger-ui/**", "/swagger-ui.html", "/api-docs/**", "/actuator/health"
   };
 
   @Bean
@@ -46,23 +48,27 @@ public class SecurityConfig {
                     .permitAll()
                     .requestMatchers(PUBLIC_ENDPOINTS)
                     .permitAll()
+                    // defense in depth: controllers also check the role (BR-CAT-05)
+                    .requestMatchers("/api/admin/**", "/actuator/**")
+                    .hasRole("ADMIN")
                     .anyRequest()
                     .authenticated())
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authenticationProvider(authenticationProvider)
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-        .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+        .exceptionHandling(
+            ex -> ex.authenticationEntryPoint(problemHandlers).accessDeniedHandler(problemHandlers))
         .build();
   }
 
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration config = new CorsConfiguration();
-    config.setAllowedOriginPatterns(List.of("*"));
+    config.setAllowedOrigins(allowedOrigins.stream().map(String::trim).toList());
     config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    config.setAllowedHeaders(List.of("*"));
-    config.setExposedHeaders(List.of("Authorization"));
+    config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-Id"));
+    config.setExposedHeaders(List.of("X-Request-Id"));
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
     source.registerCorsConfiguration("/**", config);
     return source;

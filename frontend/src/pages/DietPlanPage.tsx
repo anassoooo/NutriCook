@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
+import { planErrorMessage } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
-import type { DietPlan, Meal } from '../types'
+import type { DietPlan, Meal, SlotTarget } from '../types'
+import { useTargets } from '../hooks/useTargets'
 import MacroRing from '../components/MacroRing'
 import ChatPanel from '../components/ChatPanel'
+import MedicalDisclaimer from '../components/MedicalDisclaimer'
+import PlanWarnings from '../components/PlanWarnings'
+import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
+import SwapMenu from '../components/SwapMenu'
+import { useAiRefresh } from '../hooks/useAiRefresh'
 
 const MEAL_META: Record<string, { icon: string; gradient: string; badge: string }> = {
   BREAKFAST:       { icon: '🌅', gradient: 'from-amber-400 to-orange-500',    badge: 'badge-amber'  },
@@ -14,7 +21,7 @@ const MEAL_META: Record<string, { icon: string; gradient: string; badge: string 
   DINNER:          { icon: '🌙', gradient: 'from-slate-500 to-indigo-700',    badge: 'badge-gray'   },
 }
 
-function MealCard({ meal, index }: { meal: Meal; index: number }) {
+function MealCard({ meal, index, target, planId, onSwapped }: { meal: Meal; index: number; target?: SlotTarget; planId: number; onSwapped: (plan: DietPlan) => void }) {
   const [open, setOpen] = useState(false)
   const meta = MEAL_META[meal.mealType] ?? { icon: '🍴', gradient: 'from-slate-400 to-slate-600', badge: 'badge-gray' }
 
@@ -37,6 +44,7 @@ function MealCard({ meal, index }: { meal: Meal; index: number }) {
             <p className="text-white/70 text-xs mt-0.5">
               {meal.mealType.replace('_', ' ')} · {meal.calories} kcal
             </p>
+            <MealComponentsSummary components={meal.components} />
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -64,12 +72,17 @@ function MealCard({ meal, index }: { meal: Meal; index: number }) {
             className="overflow-hidden"
           >
             <div className="px-5 py-5 space-y-5">
+              <MealComponents components={meal.components} />
+              <SwapMenu planId={planId} mealId={meal.id} onSwapped={onSwapped} />
               {/* Macro rings */}
               <div className="flex justify-around">
-                <MacroRing label="Protein" value={Math.round(meal.proteinG ?? 0)} max={60}  color="#3b82f6" size={76} strokeWidth={8} />
-                <MacroRing label="Carbs"   value={Math.round(meal.carbsG   ?? 0)} max={120} color="#f59e0b" size={76} strokeWidth={8} />
-                <MacroRing label="Fat"     value={Math.round(meal.fatG     ?? 0)} max={40}  color="#ef4444" size={76} strokeWidth={8} />
-                <MacroRing label="Fiber"   value={Math.round(meal.fiberG   ?? 0)} max={15}  color="#10b981" size={76} strokeWidth={8} />
+                {/* Ring maxima are this slot's share of the user's targets (from the API) */}
+                {target && <>
+                  <MacroRing label="Protein" value={Math.round(meal.proteinG ?? 0)} max={target.proteinG} color="#3b82f6" size={76} strokeWidth={8} />
+                  <MacroRing label="Carbs"   value={Math.round(meal.carbsG   ?? 0)} max={target.carbsG}   color="#f59e0b" size={76} strokeWidth={8} />
+                  <MacroRing label="Fat"     value={Math.round(meal.fatG     ?? 0)} max={target.fatG}     color="#ef4444" size={76} strokeWidth={8} />
+                  <MacroRing label="Fiber"   value={Math.round(meal.fiberG   ?? 0)} max={target.fiberG}   color="#10b981" size={76} strokeWidth={8} />
+                </>}
               </div>
 
               {/* AI tip */}
@@ -89,9 +102,11 @@ function MealCard({ meal, index }: { meal: Meal; index: number }) {
 
 export default function DietPlanPage() {
   const { userId } = useAuth()
+  const { targets } = useTargets(userId)
   const [plan,       setPlan]       = useState<DietPlan | null>(null)
   const [generating, setGenerating] = useState(false)
   const [error,      setError]      = useState('')
+  useAiRefresh(userId, plan, setPlan)
 
   useEffect(() => {
     if (!userId) return
@@ -105,9 +120,9 @@ export default function DietPlanPage() {
     if (!userId) return
     setGenerating(true); setError('')
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate?date=${today}`)).data)
-    } catch { setError('Generation failed. Make sure your profile is complete.') }
+      // No date: the server plans for the user's own today (BR-TIM-01, BR-LIF-03)
+      setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate`)).data)
+    } catch (err) { setError(planErrorMessage(err)) }
     finally   { setGenerating(false) }
   }
 
@@ -143,23 +158,34 @@ export default function DietPlanPage() {
 
       {plan ? (
         <>
+          <MedicalDisclaimer disclaimer={plan.disclaimer} />
+          <PlanWarnings warnings={plan.warnings} />
           {/* Daily macro overview */}
+          {targets && (
           <div className="card">
-            <p className="section-label mb-5">Daily macros</p>
+            <p className="section-label mb-5">Daily macros vs. your targets</p>
             <div className="flex justify-around items-center">
-              <MacroRing label="Protein"  value={Math.round(plan.totalProteinG)} max={180} color="#3b82f6" />
-              <MacroRing label="Carbs"    value={Math.round(plan.totalCarbsG)}   max={320} color="#f59e0b" />
-              <MacroRing label="Fat"      value={Math.round(plan.totalFatG)}     max={90}  color="#ef4444" />
-              <MacroRing label="Sugar"    value={Math.round(plan.totalSugarG)}   max={50}  color="#a855f7" />
+              <MacroRing label="Protein"  value={Math.round(plan.totalProteinG)} max={targets.proteinG} color="#3b82f6" />
+              <MacroRing label="Carbs"    value={Math.round(plan.totalCarbsG)}   max={targets.carbsG}   color="#f59e0b" />
+              <MacroRing label="Fat"      value={Math.round(plan.totalFatG)}     max={targets.fatG}     color="#ef4444" />
             </div>
+            {/* Total sugars include natural sugars, so no generic limit is shown (BR-MAC-07) */}
+            <p className="text-xs text-center mt-4" style={{ color: 'rgba(255,255,255,0.62)' }}>
+              Total sugars (incl. natural): <span className="font-semibold">{Math.round(plan.totalSugarG)} g</span>
+            </p>
           </div>
+          )}
 
           {/* Meals */}
           <div className="space-y-3">
             <p className="section-label">Your meals</p>
             {[...plan.meals]
               .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-              .map((meal, i) => <MealCard key={meal.id} meal={meal} index={i} />)}
+              .map((meal, i) => (
+                <MealCard key={meal.id} meal={meal} index={i}
+                          target={targets?.slots.find(t => t.slot === meal.mealType)}
+                          planId={plan.id} onSwapped={setPlan} />
+              ))}
           </div>
 
           {/* AI explanation */}
