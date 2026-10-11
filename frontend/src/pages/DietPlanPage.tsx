@@ -10,6 +10,7 @@ import ChatPanel from '../components/ChatPanel'
 import MedicalDisclaimer from '../components/MedicalDisclaimer'
 import PlanWarnings from '../components/PlanWarnings'
 import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
+import SwapMenu from '../components/SwapMenu'
 import { useAiRefresh } from '../hooks/useAiRefresh'
 
 const MEAL_META: Record<string, { icon: string; gradient: string; badge: string }> = {
@@ -20,7 +21,7 @@ const MEAL_META: Record<string, { icon: string; gradient: string; badge: string 
   DINNER:          { icon: '🌙', gradient: 'from-slate-500 to-indigo-700',    badge: 'badge-gray'   },
 }
 
-function MealCard({ meal, index, target }: { meal: Meal; index: number; target?: SlotTarget }) {
+function MealCard({ meal, index, target, planId, onSwapped }: { meal: Meal; index: number; target?: SlotTarget; planId: number; onSwapped: (plan: DietPlan) => void }) {
   const [open, setOpen] = useState(false)
   const meta = MEAL_META[meal.mealType] ?? { icon: '🍴', gradient: 'from-slate-400 to-slate-600', badge: 'badge-gray' }
 
@@ -72,6 +73,7 @@ function MealCard({ meal, index, target }: { meal: Meal; index: number; target?:
           >
             <div className="px-5 py-5 space-y-5">
               <MealComponents components={meal.components} />
+              <SwapMenu planId={planId} mealId={meal.id} onSwapped={onSwapped} />
               {/* Macro rings */}
               <div className="flex justify-around">
                 {/* Ring maxima are this slot's share of the user's targets (from the API) */}
@@ -181,7 +183,8 @@ export default function DietPlanPage() {
               .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
               .map((meal, i) => (
                 <MealCard key={meal.id} meal={meal} index={i}
-                          target={targets?.slots.find(t => t.slot === meal.mealType)} />
+                          target={targets?.slots.find(t => t.slot === meal.mealType)}
+                          planId={plan.id} onSwapped={setPlan} />
               ))}
           </div>
 

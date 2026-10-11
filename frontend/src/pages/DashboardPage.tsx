@@ -10,6 +10,7 @@ import ChatPanel from '../components/ChatPanel'
 import MedicalDisclaimer from '../components/MedicalDisclaimer'
 import PlanWarnings from '../components/PlanWarnings'
 import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
+import SwapMenu from '../components/SwapMenu'
 import { useAiRefresh } from '../hooks/useAiRefresh'
 
 const NutritionOrb = lazy(() => import('../components/3d/NutritionOrb'))
@@ -38,7 +39,7 @@ const MEAL_META: Record<string, { icon: string; gradient: string }> = {
   DINNER:          { icon: '🌙', gradient: 'from-slate-500 to-indigo-700'   },
 }
 
-function MealCard({ meal, index, target, onReplace }: { meal: Meal; index: number; target?: SlotTarget; onReplace: () => void }) {
+function MealCard({ meal, index, target, onReplace, planId, onSwapped }: { meal: Meal; index: number; target?: SlotTarget; onReplace: () => void; planId: number; onSwapped: (plan: DietPlan) => void }) {
   const [open, setOpen] = useState(false)
   const meta = MEAL_META[meal.mealType] ?? { icon: '🍴', gradient: 'from-slate-400 to-slate-600' }
 
@@ -98,6 +99,7 @@ function MealCard({ meal, index, target, onReplace }: { meal: Meal; index: numbe
           >
             <div className="px-5 py-5 space-y-5">
               <MealComponents components={meal.components} />
+              <SwapMenu planId={planId} mealId={meal.id} onSwapped={onSwapped} />
               <div className="flex justify-around">
                 {/* Ring maxima are this slot's share of the user's targets (from the API) */}
                 {target && <>
@@ -393,6 +395,8 @@ export default function DashboardPage() {
                 meal={meal}
                 index={i}
                 target={slotTarget(meal)}
+                planId={plan.id}
+                onSwapped={setPlan}
                 onReplace={() =>
                   setChatTrigger(
                     `Replace my ${meal.mealType.replace(/_/g, ' ').toLowerCase()} "${meal.name}" with something different`

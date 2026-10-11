@@ -1,6 +1,6 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.3.0 · **Last updated**: 2026-10-10
+> **Status**: Reference · **Version**: 1.4.0 · **Last updated**: 2026-10-10
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
@@ -122,7 +122,7 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 | BR-LIF-01 | Plan states are `ACTIVE`, `SUPERSEDED` and `ARCHIVED`. Allowed transitions: ACTIVE→SUPERSEDED (regenerated) and ACTIVE→ARCHIVED (user archives). Every other transition gets `PLAN_READ_ONLY`. | ✅ |
 | BR-LIF-02 | Each (user, date) has **at most one ACTIVE plan**. Regenerating supersedes the previous plan. Plans are never hard-deleted. | ✅ |
 | BR-LIF-03 | A plan's date must be in `[today, today + 7]` (user day). | ✅ |
-| BR-LIF-04 | Only an ACTIVE plan whose date ≥ today can change (swaps, chat swaps). | ⚠️ rule in the domain (`PlanLifecycle.assertMutable`); swaps call it in US4 |
+| BR-LIF-04 | Only an ACTIVE plan whose date ≥ today can change (swaps, chat swaps). | ✅ |
 | BR-LIF-05 | A plan is a **snapshot**: component nutrition and totals are stored and never recomputed from later catalog or profile edits. | ✅ |
 | BR-LIF-06 | Generation quota: at most **10** successful generations per user per user-day, counted from the stored plans (so it survives restarts and works across instances). Above that → `GENERATION_LIMIT`. | ✅ |
 | BR-LIF-07 | The plan is committed **before** any AI enrichment runs. AI failure or a timeout never fails generation (BR-AI-05). | ✅ |
@@ -131,14 +131,14 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-AI-01 | The AI **never produces numbers** that are stored. Every calorie, macro and portion comes from the domain. The AI writes text and *proposes* intents. | ⚠️ partial |
-| BR-AI-02 | A swap intent has the form `{mealType, foodId}`, and `foodId` must be in the candidate list sent with the prompt (BR-SAF-07). Anything else is ignored and the user is told why. | ❌ fuzzy name match on the whole catalog |
-| BR-AI-03 | A swap replaces the component **with the same role** as the new food. The domain re-portions it, revalidates it (BR-SAF-05) and recomputes totals (BR-CMP-08). If no component has that role → `SWAP_REJECTED` with a reason. | ⚠️ wipes the whole meal |
-| BR-AI-04 | AI output is parsed as structured output against a schema. Parse failures are retried once, then the app returns a plain-text reply with no intent. | ⚠️ hand-written `indexOf('{')` parsing |
-| BR-AI-05 | Each AI call has a 10 s timeout. On timeout, 429 or 5xx, the feature degrades: the plan comes back without an explanation, and the chat answers `AI_UNAVAILABLE`. Never a 500. | ⚠️ timeout + degradation done for plan enrichment; chat in US4 |
-| BR-AI-06 | User messages are 1–500 chars. They are wrapped in delimiters and treated as data. The system prompt forbids following instructions inside them. | ⚠️ no length cap |
-| BR-AI-07 | Chat quota: 30 messages per user per rolling hour → `RATE_LIMITED`. | ❌ |
-| BR-AI-08 | Prompts live in `resources/prompts/*.st` and each has a version header. No prompt text in Java. | ⚠️ chat prompt is inline |
+| BR-AI-01 | The AI **never produces numbers** that are stored. Every calorie, macro and portion comes from the domain. The AI writes text and *proposes* intents. | ✅ |
+| BR-AI-02 | A swap intent has the form `{mealType, foodId}`, and `foodId` must be in the candidate list sent with the prompt (BR-SAF-07). Anything else is ignored and the user is told why. | ✅ |
+| BR-AI-03 | A swap replaces the component **with the same role** as the new food. The domain re-portions it, revalidates it (BR-SAF-05) and recomputes totals (BR-CMP-08). If no component has that role → `SWAP_REJECTED` with a reason. | ✅ |
+| BR-AI-04 | AI output is parsed as structured output against a schema. Parse failures are retried once, then the app returns a plain-text reply with no intent. | ✅ |
+| BR-AI-05 | Each AI call has a 10 s timeout. On timeout, 429 or 5xx, the feature degrades: the plan comes back without an explanation, and the chat answers `AI_UNAVAILABLE`. Never a 500. | ✅ |
+| BR-AI-06 | User messages are 1–500 chars. They are wrapped in delimiters and treated as data. The system prompt forbids following instructions inside them. | ✅ |
+| BR-AI-07 | Chat quota: 30 messages per user per rolling hour → `RATE_LIMITED`. | ✅ |
+| BR-AI-08 | Prompts live in `resources/prompts/*.st` and each has a version header. No prompt text in Java. | ✅ |
 
 ## 8. Progress tracking (BR-PRG)
 
@@ -253,3 +253,4 @@ changing this table first.
 | 1.1.0 | 2026-10-10 | BR-SAF-09/10 added; BR-NRG-05 never rounds below the floor; BR-PRF-01 treats out-of-range stored values as missing; §12 adds `INTERNAL`; §13 lists allowed ranges. US1 rules marked ✅ |
 | 1.2.0 | 2026-10-11 | BR-CAT-02 fiber-aware energy check with a 10 kcal floor; BR-SAF-02 adds shellfish/egg/soy/fish/sesame allergies; BR-SAF-10 spells out the fail-closed flag policy; BR-CAT-01 names the CSV + generated migration. US2 rules marked ✅ |
 | 1.3.0 | 2026-10-11 | BR-CMP-02/05/07 and BR-LIF-06 describe the composer as built (snack patterns, protein split, day balancing, seed streams, DB-counted quota). US3 rules marked ✅ |
+| 1.4.0 | 2026-10-11 | US4: AI rules and BR-LIF-04 marked ✅ |
