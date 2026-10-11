@@ -1,22 +1,22 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import api from '../lib/api'
+import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
-import type { Achievement } from '../types'
+import type { Achievement, AchievementType } from '../types'
 
-const TYPE_META: Record<string, { icon: string; color: string }> = {
-  LOGIN_STREAK:    { icon: '🔥', color: '#f97316' },
-  PLANS_GENERATED: { icon: '🥗', color: '#16a34a' },
-  CALORIE_GOAL:    { icon: '🎯', color: '#3b82f6' },
-  HYDRATION:       { icon: '💧', color: '#06b6d4' },
+const TYPE_META: Record<AchievementType, { icon: string; color: string; unit: string }> = {
+  LOGGING_STREAK: { icon: '🔥', color: '#f97316', unit: 'days in a row' },
+  PLANS_GENERATED: { icon: '🥗', color: '#16a34a', unit: 'days planned' },
+  CALORIE_GOAL: { icon: '🎯', color: '#3b82f6', unit: 'days on target' },
+  HYDRATION: { icon: '💧', color: '#06b6d4', unit: 'hydrated days' },
+  WEIGHT_MILESTONE: { icon: '⚖️', color: '#a855f7', unit: 'kg' },
 }
 
-interface AllAchievement {
-  id: number; name: string; description: string; type: string; threshold: number
-}
+const metaOf = (type: AchievementType) => TYPE_META[type] ?? { icon: '⭐', color: '#f59e0b', unit: '' }
 
-function EarnedCard({ a, earned, i }: { a: AllAchievement; earned: Achievement; i: number }) {
-  const meta = TYPE_META[a.type] ?? { icon: '⭐', color: '#f59e0b' }
+function EarnedCard({ a, i }: { a: Achievement; i: number }) {
+  const meta = metaOf(a.type)
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -24,7 +24,6 @@ function EarnedCard({ a, earned, i }: { a: AllAchievement; earned: Achievement; 
       transition={{ delay: i * 0.04 }}
       className="achievement-earned"
     >
-      {/* Top row */}
       <div className="flex items-start justify-between mb-4">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
              style={{ background: `${meta.color}20` }}>
@@ -41,29 +40,26 @@ function EarnedCard({ a, earned, i }: { a: AllAchievement; earned: Achievement; 
       <p className="font-bold text-slate-900 text-base leading-tight">{a.name}</p>
       <p className="text-sm text-slate-600 mt-1 leading-relaxed">{a.description}</p>
 
-      {earned.earnedAt && (
+      {a.earnedAt && (
         <p className="text-xs font-semibold mt-3 flex items-center gap-1" style={{ color: meta.color }}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
           </svg>
-          {new Date(earned.earnedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+          {new Date(a.earnedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
         </p>
       )}
 
-      {/* Subtle gold shimmer accent */}
       <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-2xl"
            style={{ background: `linear-gradient(90deg, transparent, ${meta.color}60, transparent)` }} />
     </motion.div>
   )
 }
 
-function LockedCard({ a, i }: { a: AllAchievement; i: number }) {
-  const meta = TYPE_META[a.type] ?? { icon: '⭐', color: '#94a3b8' }
-  const reqLabel =
-    a.type === 'PLANS_GENERATED' ? `Generate ${a.threshold} meal plans` :
-    a.type === 'HYDRATION'       ? `Hit hydration goal ${a.threshold} days` :
-    a.type === 'CALORIE_GOAL'    ? `Hit calorie goal ${a.threshold} days` :
-                                   `Log progress ${a.threshold} days in a row`
+/** Progress comes from the server (`currentValue / threshold`); nothing is computed here. */
+function LockedCard({ a, i }: { a: Achievement; i: number }) {
+  const meta = metaOf(a.type)
+  const current = a.currentValue ?? 0
+  const pct = a.threshold > 0 ? Math.min(current / a.threshold, 1) * 100 : 0
 
   return (
     <motion.div
@@ -85,7 +81,21 @@ function LockedCard({ a, i }: { a: AllAchievement; i: number }) {
       <p className="text-sm text-slate-400 mt-1 leading-relaxed">{a.description}</p>
 
       <div className="mt-4 pt-3 border-t border-slate-100">
-        <p className="text-xs text-slate-400 font-medium">{reqLabel}</p>
+        <div className="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
+          <span>Progress</span>
+          <span className="tabular-nums">{current} / {a.threshold} {meta.unit}</span>
+        </div>
+        <div
+          className="h-1.5 rounded-full overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.08)' }}
+          role="progressbar"
+          aria-label={`${a.name} progress`}
+          aria-valuemin={0}
+          aria-valuemax={a.threshold}
+          aria-valuenow={current}
+        >
+          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: meta.color }} />
+        </div>
       </div>
     </motion.div>
   )
@@ -93,18 +103,19 @@ function LockedCard({ a, i }: { a: AllAchievement; i: number }) {
 
 export default function AchievementsPage() {
   const { userId } = useAuth()
-  const [all,    setAll]    = useState<AllAchievement[]>([])
-  const [earned, setEarned] = useState<Achievement[]>([])
+  const [all,   setAll]   = useState<Achievement[]>([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get<AllAchievement[]>('/achievements').then(r => setAll(r.data)).catch(() => {})
-    if (userId) {
-      api.get<Achievement[]>(`/users/${userId}/achievements`).then(r => setEarned(r.data)).catch(() => {})
-    }
+    if (!userId) return
+    api.get<Achievement[]>(`/users/${userId}/achievements`)
+      .then(r => setAll(r.data))
+      .catch(err => setError(toApiError(err).message))
   }, [userId])
 
-  const earnedIds   = new Set(earned.map(a => a.id))
-  const earnedCount = earnedIds.size
+  const earned      = all.filter(a => a.earned)
+  const locked      = all.filter(a => !a.earned)
+  const earnedCount = earned.length
   const pct         = all.length > 0 ? Math.round((earnedCount / all.length) * 100) : 0
 
   return (
@@ -132,7 +143,6 @@ export default function AchievementsPage() {
           <div className="text-6xl filter drop-shadow-lg select-none">🏆</div>
         </div>
 
-        {/* Progress bar */}
         {all.length > 0 && (
           <div className="relative z-10 mt-5">
             <div className="flex justify-between text-xs text-amber-300 mb-1.5">
@@ -151,34 +161,29 @@ export default function AchievementsPage() {
         )}
       </div>
 
+      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+
       {/* ── Earned section ─────────────────────── */}
       {earnedCount > 0 && (
         <div>
           <p className="section-label mb-3">Earned — {earnedCount}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {all
-              .filter(a => earnedIds.has(a.id))
-              .map((a, i) => {
-                const earnedEntry = earned.find(e => e.id === a.id)!
-                return <EarnedCard key={a.id} a={a} earned={earnedEntry} i={i} />
-              })}
+            {earned.map((a, i) => <EarnedCard key={a.id} a={a} i={i} />)}
           </div>
         </div>
       )}
 
       {/* ── Locked section ─────────────────────── */}
-      {all.filter(a => !earnedIds.has(a.id)).length > 0 && (
+      {locked.length > 0 && (
         <div>
-          <p className="section-label mb-3">Locked — {all.length - earnedCount}</p>
+          <p className="section-label mb-3">Locked — {locked.length}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {all
-              .filter(a => !earnedIds.has(a.id))
-              .map((a, i) => <LockedCard key={a.id} a={a} i={i} />)}
+            {locked.map((a, i) => <LockedCard key={a.id} a={a} i={i} />)}
           </div>
         </div>
       )}
 
-      {all.length === 0 && (
+      {all.length === 0 && !error && (
         <div className="card text-center py-16">
           <div className="text-5xl mb-3">🏆</div>
           <p className="font-bold text-slate-700">No achievements configured yet</p>

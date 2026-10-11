@@ -174,13 +174,26 @@ export interface ProgressEntry {
   notes: string | null
 }
 
+export type AchievementType =
+  | 'LOGGING_STREAK'
+  | 'PLANS_GENERATED'
+  | 'CALORIE_GOAL'
+  | 'HYDRATION'
+  | 'WEIGHT_MILESTONE'
+
+/** An achievement and the user's standing on it (BR-ACH). The server computes every number. */
 export interface Achievement {
   id: number
   name: string
+  /** States the exact rule */
   description: string
-  type: string
-  iconUrl: string | null
-  earnedAt: string
+  iconName: string | null
+  type: AchievementType
+  threshold: number
+  /** In the threshold's unit: days, plan days or kg. Absent for newly awarded ones */
+  currentValue: number | null
+  earned: boolean
+  earnedAt: string | null
 }
 
 export interface LocationDTO {

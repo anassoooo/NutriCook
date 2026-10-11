@@ -371,8 +371,9 @@ description: "Executable task list for 001-reliable-core"
 
 ## Phase 8: US6, Fair achievements (P2) M4
 
-- [ ] **T068** [US6] `BR/db/migration/V7__achievement_types.sql`: rename `LOGIN_STREAK` → `LOGGING_STREAK`, delete `PROTEIN_GOAL` rows, rewrite descriptions to state the exact rule (e.g. "Hit within ±10% of your calorie target on 10 days in the last 30"), and add WEIGHT_MILESTONE achievements (2 kg, 5 kg). Update the `AchievementType` enum.
-- [ ] **T069** [P] [US6] `BT/domain/achievement/EvaluatorsTest.java`, table-driven with synthetic histories:
+- [x] **T068** [US6] `BR/db/migration/V7__achievement_types.sql`: rename `LOGIN_STREAK` → `LOGGING_STREAK`, delete `PROTEIN_GOAL` rows, rewrite descriptions to state the exact rule (e.g. "Hit within ±10% of your calorie target on 10 days in the last 30"), and add WEIGHT_MILESTONE achievements (2 kg, 5 kg). Update the `AchievementType` enum.
+  *As built: the enum moved to `domain.model`, since the domain evaluates it. The milestones are "On the Move" (2 kg) and "Transformation" (5 kg). A partial index serves the first weigh-in lookup. Checked by upgrading the Docker database that held a legacy streak award and a PROTEIN_GOAL award: the first was kept, the second removed.*
+- [x] **T069** [P] [US6] `BT/domain/achievement/EvaluatorsTest.java`, table-driven with synthetic histories:
   - `BR_ACH_01_streakGraceUntilEndOfDay`
   - `BR_ACH_01_gapBreaksStreak`
   - `BR_ACH_02_supersededNotCounted`
@@ -380,12 +381,17 @@ description: "Executable task list for 001-reliable-core"
   - `BR_ACH_04_hydrationRolling30`
   - `BR_ACH_05_weightMilestoneDirectionAware`
   - `BR_ACH_05_everyTypeHasEvaluator` (iterates `AchievementType.values()`)
-- [ ] **T070** [US6] `B/domain/achievement/`: the `AchievementEvaluator` interface, one class per type, `EvaluationContext` (entries for the last 365 days, distinct plan-date count, first and latest weight, goal), and `EvaluatorRegistry` (an `EnumMap` that fails at construction if a type is missing).
+  *As built: 34 cases. `BR_ACH_02_supersededNotCounted` only checks the pass-through here; the distinct count is a query, covered end to end by `AchievementIT.BR_ACH_02_regenerationsCountOnce`.*
+- [x] **T070** [US6] `B/domain/achievement/`: the `AchievementEvaluator` interface, one class per type, `EvaluationContext` (entries for the last 365 days, distinct plan-date count, first and latest weight, goal), and `EvaluatorRegistry` (an `EnumMap` that fails at construction if a type is missing).
   **Rules:** BR-ACH-01..05.
-- [ ] **T071** [US6] Rewrite `B/service/AchievementService.java`: build the context with **one** progress range query plus one count query, then evaluate. Insert with `INSERT … ON CONFLICT (user_id, achievement_id) DO NOTHING` (native `@Modifying` query). The response includes `currentValue`, `threshold` and `earned` for every achievement (the frontend shows progress without computing it).
+  *As built: the context carries the history (365 days), the planned-day count, the first weight ever and the goal; the latest weight is read from the history. The registry is a bean, so a missing evaluator fails startup.*
+- [x] **T071** [US6] Rewrite `B/service/AchievementService.java`: build the context with **one** progress range query plus one count query, then evaluate. Insert with `INSERT … ON CONFLICT (user_id, achievement_id) DO NOTHING` (native `@Modifying` query). The response includes `currentValue`, `threshold` and `earned` for every achievement (the frontend shows progress without computing it).
   **Rules:** BR-ACH-06/07, Principle VIII.
-- [ ] **T072** [US6] `BT/service/AchievementIT.java`: `BR_ACH_06_concurrentAwardSingleRow` (2 threads), `BR_ACH_06_awardNeverRevoked`, and `BR_ACH_07_atMostThreeQueries` (Hibernate `Statistics`, or the datasource-proxy query counter).
-- [ ] **T073** [P] [US6] Frontend `F/pages/AchievementsPage.tsx`: progress bars from `currentValue/threshold` (no client computation).
+  *As built: the history needs three reads (range, distinct plan days, first weigh-in) because the first weight can be older than the 365-day range. `GET /users/{id}/achievements` now returns every achievement with its standing, instead of only the earned ones.*
+- [x] **T072** [US6] `BT/service/AchievementIT.java`: `BR_ACH_06_concurrentAwardSingleRow` (2 threads), `BR_ACH_06_awardNeverRevoked`, and `BR_ACH_07_atMostThreeQueries` (Hibernate `Statistics`, or the datasource-proxy query counter).
+  *As built: the query test is `BR_ACH_07_queryCountDoesNotGrowWithHistory`: it compares a 1-day and a 100-day history (same count) and bounds the total at 8 statements, which are the profile with its 2 eager collections, the 3 history reads, the existing awards and the catalog. 7 scenarios in all, including calorie days judged against their own target and a goal-aware weight milestone.*
+- [x] **T073** [P] [US6] Frontend `F/pages/AchievementsPage.tsx`: progress bars from `currentValue/threshold` (no client computation).
+  *As built: one request instead of two; the client-side requirement labels (which used the old type names) were removed, since descriptions now state the rules. Accessible progress bars. `__tests__/Achievements.test.tsx`.*
 
 **Checkpoint M4**: the plan → eat → log → reward loop is consistent end to end.
 
