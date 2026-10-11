@@ -5,6 +5,7 @@ import com.nutricook.domain.model.DietFlag;
 import com.nutricook.domain.model.FoodRole;
 import com.nutricook.domain.model.FoodState;
 import com.nutricook.domain.model.Slot;
+import com.nutricook.entity.enums.FoodOrigin;
 import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
@@ -75,6 +76,12 @@ public class FoodItem {
 
   /** Dataset the values come from, e.g. "USDA SR Legacy". */
   private String source;
+
+  /** SEED foods are maintained in foods.csv; ADMIN foods through the admin API (BR-CAT-05). */
+  @Enumerated(EnumType.STRING)
+  @Column(nullable = false, length = 8)
+  @Builder.Default
+  private FoodOrigin origin = FoodOrigin.ADMIN;
 
   /** Inactive foods are never offered for new plans but stay in history (BR-CAT-04). */
   @Column(nullable = false)

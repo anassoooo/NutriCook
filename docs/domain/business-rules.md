@@ -1,6 +1,6 @@
 # NutriCook — Business Rules Catalogue
 
-> **Status**: Reference · **Version**: 1.6.0 · **Last updated**: 2026-10-11
+> **Status**: Reference · **Version**: 1.7.0 · **Last updated**: 2026-10-11
 > **Authority**: Constitution Principle I (Business Rules Are the Product). When code and this
 > document disagree, the code is wrong until this document is amended.
 
@@ -167,11 +167,11 @@ Areas: [Profile](#1-profile--eligibility-br-prf) · [Energy](#2-energy-target-br
 
 | ID | Rule | Today |
 |---|---|---|
-| BR-CAT-01 | Each food has: name (unique), `role`, `state` (RAW / COOKED / DRY), per-100 g kcal, protein, carbs, fat, sugar, fiber, sodium, allergens, diet flags, portion bounds, suitable slots and `source` (the dataset, e.g. `USDA SR Legacy`). The seeded catalog is maintained in `backend/src/main/resources/db/catalog/foods.csv` and applied by the repeatable migration `R__food_catalog.sql`, which `scripts/gen-food-seed.py` generates from the CSV. | ✅ |
-| BR-CAT-02 | Data-quality gate: every value ≥ 0; fiber ≤ carbs; sugar ≤ carbs; protein + carbs + fat ≤ 100; energy matches the macros: `|kcal − (4P + 4(C − fiber) + 2·fiber + 9F)| ≤ max(15% × kcal, 10 kcal)`. Fiber counts 2 kcal/g (EU Regulation 1169/2011), otherwise correct vegetable data fails; the 10 kcal floor keeps very low-energy foods testable. A failing food is rejected on admin save and fails the catalog test. | ⚠️ gate + catalog test done; admin save arrives with US7 |
+| BR-CAT-01 | Each food has: name (unique), `role`, `state` (RAW / COOKED / DRY), per-100 g kcal, protein, carbs, fat, sugar, fiber, sodium, allergens, diet flags, portion bounds, suitable slots and `source` (the dataset, e.g. `USDA SR Legacy`). The seeded catalog is maintained in `backend/src/main/resources/db/catalog/foods.csv` and applied by the repeatable migration `R__food_catalog.sql`, which `scripts/gen-food-seed.py` generates from the CSV. Names are unique regardless of case. Each food has an `origin`: `SEED` (from the CSV) or `ADMIN` (created through the admin API). The seed migration only touches `SEED` rows and never changes `active`, so admin foods and deactivations survive a CSV change. | ✅ |
+| BR-CAT-02 | Data-quality gate: every value ≥ 0; fiber ≤ carbs; sugar ≤ carbs; protein + carbs + fat ≤ 100; energy matches the macros: `|kcal − (4P + 4(C − fiber) + 2·fiber + 9F)| ≤ max(15% × kcal, 10 kcal)`. Fiber counts 2 kcal/g (EU Regulation 1169/2011), otherwise correct vegetable data fails; the 10 kcal floor keeps very low-energy foods testable. Diet labels must not contradict the food: VEGAN implies VEGETARIAN; neither may be meat; VEGETARIAN excludes fish and shellfish allergens; VEGAN also excludes milk and eggs. A failing food is rejected on admin save (every problem listed), cannot be reactivated, fails the catalog test and the seed generator, and an active failing food stops the application at startup, naming it. | ✅ |
 | BR-CAT-03 | Values match their declared `state`. Mixing dry and cooked values with no label is a defect. | ✅ |
-| BR-CAT-04 | Foods are **soft-deleted** (`active = false`). Inactive foods are excluded from new plans but still show in historical ones (BR-LIF-05). | ✅ |
-| BR-CAT-05 | Only `ADMIN` can create, update or deactivate foods. | ❌ no admin API |
+| BR-CAT-04 | Foods are **soft-deleted** (`active = false`). Inactive foods are excluded from new plans and swap alternatives but still show in historical ones (BR-LIF-05). Reactivation requires the food to pass BR-CAT-02 as it is now. | ✅ |
+| BR-CAT-05 | Only `ADMIN` can create, update or deactivate foods (`/api/admin/foods`, checked on the URL and on the controller). `ADMIN` foods are fully editable; `SEED` foods can only be deactivated or reactivated (`FOOD_READ_ONLY`). | ✅ |
 
 ## 11. Time & calendar (BR-TIM)
 
@@ -195,6 +195,7 @@ Exception messages are never returned to clients.
 | `NOT_FOUND` | 404 | Unknown resource |
 | `EMAIL_TAKEN` | 409 | Registration |
 | `PLAN_READ_ONLY` | 409 | BR-LIF-01, BR-LIF-04 |
+| `FOOD_READ_ONLY` | 409 | BR-CAT-05: a seeded food's values change through `foods.csv`, not the admin API |
 | `PROFILE_INCOMPLETE` | 422 | BR-PRF-01 (`missingFields[]`) |
 | `PROFILE_INELIGIBLE` | 422 | BR-PRF-02 |
 | `PLAN_INFEASIBLE` | 422 | BR-SAF-04, BR-CMP-05 (`constraint`) |
@@ -243,3 +244,4 @@ changing this table first.
 | 1.4.0 | 2026-10-11 | US4: AI rules and BR-LIF-04 marked ✅ |
 | 1.5.0 | 2026-10-11 | US5: BR-PRG-01..06 describe progress as built (notes clearing, check-off window, every invalid field reported, latest weigh-in, unknown vs. zero calories, `resetCalories`, no swap of an eaten meal, snapshot kept without a plan). Removed a stale duplicate of the §13 table. Progress rules marked ✅ |
 | 1.6.0 | 2026-10-11 | US6: BR-ACH-01..07 as built (365-day history, day without target not judged, weight direction per goal, rounding down, `LOGGING_STREAK`, constant statement count, `currentValue` in responses). Achievement rules marked ✅ |
+| 1.7.0 | 2026-10-11 | US7: food `origin` (SEED/ADMIN) so the seed never overwrites admin work; case-insensitive names; diet-label consistency in BR-CAT-02; startup gate; reactivation gate; §12 adds `FOOD_READ_ONLY`. Catalog rules marked ✅ |

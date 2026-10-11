@@ -26,6 +26,7 @@ class ProblemDetailHandlerTest {
     CATALOGUE.put(ErrorCode.NOT_FOUND, 404);
     CATALOGUE.put(ErrorCode.EMAIL_TAKEN, 409);
     CATALOGUE.put(ErrorCode.PLAN_READ_ONLY, 409);
+    CATALOGUE.put(ErrorCode.FOOD_READ_ONLY, 409);
     CATALOGUE.put(ErrorCode.PROFILE_INCOMPLETE, 422);
     CATALOGUE.put(ErrorCode.PROFILE_INELIGIBLE, 422);
     CATALOGUE.put(ErrorCode.PLAN_INFEASIBLE, 422);

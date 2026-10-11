@@ -44,7 +44,7 @@ public class ProblemDetailHandler {
       case UNAUTHENTICATED -> HttpStatus.UNAUTHORIZED;
       case FORBIDDEN -> HttpStatus.FORBIDDEN;
       case NOT_FOUND -> HttpStatus.NOT_FOUND;
-      case EMAIL_TAKEN, PLAN_READ_ONLY -> HttpStatus.CONFLICT;
+      case EMAIL_TAKEN, PLAN_READ_ONLY, FOOD_READ_ONLY -> HttpStatus.CONFLICT;
       case PROFILE_INCOMPLETE, PROFILE_INELIGIBLE, PLAN_INFEASIBLE, SWAP_REJECTED -> HttpStatus
           .UNPROCESSABLE_ENTITY;
       case GENERATION_LIMIT, RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
@@ -221,6 +221,7 @@ public class ProblemDetailHandler {
       case NOT_FOUND -> "Not found";
       case EMAIL_TAKEN -> "Email already registered";
       case PLAN_READ_ONLY -> "Plan is read-only";
+      case FOOD_READ_ONLY -> "Food is read-only";
       case PROFILE_INCOMPLETE -> "Profile incomplete";
       case PROFILE_INELIGIBLE -> "Profile not eligible";
       case PLAN_INFEASIBLE -> "No safe plan possible";

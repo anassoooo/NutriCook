@@ -2,7 +2,11 @@ package com.nutricook.domain.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.nutricook.domain.fixtures.TestFoods;
+import com.nutricook.domain.model.Allergen;
+import com.nutricook.domain.model.DietFlag;
 import com.nutricook.domain.model.Nutrients;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class FoodQualityGateTest {
@@ -36,5 +40,36 @@ class FoodQualityGateTest {
             "sugar exceeds carbohydrates", "protein + carbohydrates + fat exceed 100 g per 100 g");
     assertThat(FoodQualityGate.problems(new Nutrients(20, 1, 2, 0, 0, 5, 0)))
         .contains("fiber exceeds carbohydrates");
+  }
+
+  @Test
+  void BR_CAT_02_dietLabelsMustNotContradictTheFood() {
+    assertThat(FoodQualityGate.labelProblems(Set.of(), Set.of(DietFlag.VEGAN), false))
+        .containsExactly("VEGAN foods must also be VEGETARIAN");
+    assertThat(FoodQualityGate.labelProblems(Set.of(), Set.of(DietFlag.VEGETARIAN), true))
+        .containsExactly("meat cannot be VEGETARIAN or VEGAN");
+    assertThat(
+            FoodQualityGate.labelProblems(
+                Set.of(Allergen.FISH), Set.of(DietFlag.VEGETARIAN), false))
+        .containsExactly("a food with fish or shellfish cannot be VEGETARIAN");
+    assertThat(
+            FoodQualityGate.labelProblems(
+                Set.of(Allergen.MILK), Set.of(DietFlag.VEGAN, DietFlag.VEGETARIAN), false))
+        .containsExactly("a food with an animal-derived allergen cannot be VEGAN");
+    // dairy is vegetarian; halal meat is fine
+    assertThat(
+            FoodQualityGate.labelProblems(
+                Set.of(Allergen.MILK), Set.of(DietFlag.VEGETARIAN), false))
+        .isEmpty();
+    assertThat(FoodQualityGate.labelProblems(Set.of(), Set.of(DietFlag.HALAL), true)).isEmpty();
+  }
+
+  @Test
+  void BR_CAT_02_wholeFoodGatePassesCuratedFixtures() {
+    for (var food :
+        java.util.List.of(
+            TestFoods.chickenBreast(), TestFoods.salmon(), TestFoods.tofu(), TestFoods.lentils())) {
+      assertThat(FoodQualityGate.problems(food)).as(food.name()).isEmpty();
+    }
   }
 }

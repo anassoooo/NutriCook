@@ -59,6 +59,16 @@ class CatalogQualityIT extends AbstractIntegrationTest {
   }
 
   @Test
+  void BR_CAT_02_everyActiveFoodPassesTheWholeGate() {
+    Map<String, List<String>> failures = new LinkedHashMap<>();
+    for (FoodItem f : active) {
+      List<String> problems = com.nutricook.service.CatalogAdminService.problemsOf(f);
+      if (!problems.isEmpty()) failures.put(f.getName(), problems);
+    }
+    assertThat(failures).as("foods failing values, labels, slots or source").isEmpty();
+  }
+
+  @Test
   void BR_SAF_03_everyActiveFoodHasVerifiedAllergens() {
     assertThat(active)
         .filteredOn(f -> !f.isAllergensKnown())
