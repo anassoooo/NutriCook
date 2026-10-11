@@ -9,9 +9,10 @@ the plan and proposes changes, and the domain validates every proposal before an
 Every business rule has an ID, a written definition and at least one test named after it, and CI
 fails if a rule loses its test.
 
-> **Live demo:** _add your Vercel URL here after following [docs/deploy.md](docs/deploy.md)._
->
-> **Demo GIF:** _record register → plan → swap → check-off (e.g. with ScreenToGif) and add it here._
+**Live demo:** [nutricook-pied.vercel.app](https://nutricook-pied.vercel.app). The backend runs on a
+free plan that sleeps when idle, so the first request can take about a minute.
+
+![Signing in, checking off lunch, swapping a food, then progress and achievements](.github/readme/demo.gif)
 
 ---
 
@@ -28,6 +29,15 @@ fails if a rule loses its test.
 | **Achievements** | Streaks with an end-of-day grace period, days within 10% of the day's own target, hydration, and weight change in your goal's direction. Awarded once, never revoked |
 | **Catalog admin** | Admins add and edit foods behind a quality gate (energy must match the macros, labels must match the food); foods are deactivated, never deleted |
 | **Nearby food** | Restaurants and stores from OpenStreetMap |
+
+---
+
+## Screenshots
+
+<p>
+  <img src=".github/readme/today-desktop.png" alt="Today on desktop: the day as a plate, macro targets and the meal timeline" width="76%">
+  <img src=".github/readme/today-mobile.png" alt="Today's plan on a phone" width="22%">
+</p>
 
 ---
 
