@@ -3,6 +3,7 @@ import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan, Meal, ProgressEntry } from '../types'
+import { CheckIcon } from './Icons'
 
 interface CompletionResponse {
   plan: DietPlan
@@ -44,7 +45,7 @@ export default function MealCheck({
   }
 
   return (
-    <div className="flex items-center gap-3 px-5 py-2.5" style={{ background: 'rgba(0,0,0,0.18)' }}>
+    <div className="flex flex-col items-end gap-1">
       <button
         type="button"
         role="checkbox"
@@ -52,30 +53,21 @@ export default function MealCheck({
         aria-label={`I ate ${meal.name.toLowerCase()}`}
         disabled={busy}
         onClick={toggle}
-        className="flex items-center gap-2 text-xs font-semibold disabled:opacity-50"
-        style={{ color: meal.completed ? '#6ee7b7' : 'rgba(255,255,255,0.7)' }}
+        className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors disabled:opacity-50 ${
+          meal.completed
+            ? 'border-ink bg-ink text-chalk'
+            : 'border-line bg-paper text-ink hover:border-ink'
+        }`}
       >
         <span
           aria-hidden
-          className="w-4 h-4 rounded border flex items-center justify-center"
-          style={{
-            borderColor: meal.completed ? '#10b981' : 'rgba(255,255,255,0.35)',
-            background: meal.completed ? '#10b981' : 'transparent',
-          }}
+          className={`grid h-4 w-4 place-items-center rounded-full border ${meal.completed ? 'border-chalk' : 'border-ink-faint'}`}
         >
-          {meal.completed && (
-            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-            </svg>
-          )}
+          {meal.completed && <CheckIcon size={11} strokeWidth={3} />}
         </span>
         {meal.completed ? 'Eaten' : 'Mark as eaten'}
       </button>
-      {error && (
-        <p role="alert" className="text-xs text-red-300">
-          {error}
-        </p>
-      )}
+      {error && <p role="alert" className="max-w-[16rem] text-right text-xs text-alert">{error}</p>}
     </div>
   )
 }

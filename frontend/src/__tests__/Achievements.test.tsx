@@ -53,7 +53,7 @@ describe('AchievementsPage', () => {
     render(<AchievementsPage />)
 
     expect(await screen.findByText('Earned')).toBeInTheDocument()
-    expect(screen.getByText('Earned — 1')).toBeInTheDocument()
+    expect(screen.getByText('Earned (1)')).toBeInTheDocument()
     expect(screen.queryByRole('progressbar', { name: 'Hydration Hero progress' })).not.toBeInTheDocument()
   })
 })

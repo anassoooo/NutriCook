@@ -1,17 +1,18 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import LandingPage from './pages/LandingPage'
 import AuthPage from './pages/AuthPage'
-import OnboardingPage from './pages/OnboardingPage'
-import DashboardPage from './pages/DashboardPage'
-import ProfilePage from './pages/ProfilePage'
-import ProgressPage from './pages/ProgressPage'
-import AchievementsPage from './pages/AchievementsPage'
-import RestaurantsPage from './pages/RestaurantsPage'
-import FeaturesPage from './pages/FeaturesPage'
-import HowItWorksPage from './pages/HowItWorksPage'
-import FoodsPage from './pages/admin/FoodsPage'
+
+// Each signed-in page loads with its own code (the charts library only with Progress)
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const ProgressPage = lazy(() => import('./pages/ProgressPage'))
+const AchievementsPage = lazy(() => import('./pages/AchievementsPage'))
+const RestaurantsPage = lazy(() => import('./pages/RestaurantsPage'))
+const FoodsPage = lazy(() => import('./pages/admin/FoodsPage'))
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth()
@@ -26,35 +27,56 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <Routes>
-      {/* Public */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/auth" element={<AuthPage />} />
-      <Route path="/features" element={<FeaturesPage />} />
-      <Route path="/how-it-works" element={<HowItWorksPage />} />
+    <Suspense
+      fallback={
+        <p className="sr-only" role="status">
+          Loading…
+        </p>
+      }
+    >
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        {/* the old marketing pages are now sections of the landing page */}
+        <Route path="/features" element={<Navigate to="/#safe" replace />} />
+        <Route path="/how-it-works" element={<Navigate to="/#how" replace />} />
 
-      {/* Onboarding — auth required, no navbar */}
-      <Route path="/onboarding" element={
-        <RequireAuth>
-          <OnboardingPage />
-        </RequireAuth>
-      } />
+        {/* Onboarding — auth required, no navbar */}
+        <Route
+          path="/onboarding"
+          element={
+            <RequireAuth>
+              <OnboardingPage />
+            </RequireAuth>
+          }
+        />
 
-      {/* Main app — auth required, with navbar */}
-      <Route element={
-        <RequireAuth>
-          <Layout />
-        </RequireAuth>
-      }>
-        <Route path="dashboard"    element={<DashboardPage />} />
-        <Route path="profile"      element={<ProfilePage />} />
-        <Route path="progress"     element={<ProgressPage />} />
-        <Route path="achievements" element={<AchievementsPage />} />
-        <Route path="restaurants"  element={<RestaurantsPage />} />
-        <Route path="admin/foods"  element={<RequireAdmin><FoodsPage /></RequireAdmin>} />
-      </Route>
+        {/* Main app — auth required, with navbar */}
+        <Route
+          element={
+            <RequireAuth>
+              <Layout />
+            </RequireAuth>
+          }
+        >
+          <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="profile" element={<ProfilePage />} />
+          <Route path="progress" element={<ProgressPage />} />
+          <Route path="achievements" element={<AchievementsPage />} />
+          <Route path="restaurants" element={<RestaurantsPage />} />
+          <Route
+            path="admin/foods"
+            element={
+              <RequireAdmin>
+                <FoodsPage />
+              </RequireAdmin>
+            }
+          />
+        </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </Suspense>
   )
 }

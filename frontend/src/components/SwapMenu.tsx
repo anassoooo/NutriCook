@@ -3,6 +3,8 @@ import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan, FoodRole } from '../types'
+import { ROLE_COLORS } from '../lib/roles'
+import { SwapIcon } from './Icons'
 
 interface Option {
   foodId: number
@@ -78,18 +80,19 @@ export default function SwapMenu({
   if (!groups) {
     return (
       <div>
-        <button type="button" onClick={open} disabled={busy} className="text-xs font-semibold underline underline-offset-2 disabled:opacity-50" style={{ color: 'rgba(134,239,172,0.9)' }}>
+        <button type="button" onClick={open} disabled={busy} className="btn-ghost -ml-3">
+          <SwapIcon size={17} />
           {busy ? 'Loading…' : 'Swap a food'}
         </button>
-        {error && <p role="alert" className="text-xs mt-1 text-red-300">{error}</p>}
+        {error && <p role="alert" className="mt-1 text-sm text-alert">{error}</p>}
       </div>
     )
   }
 
   const current = groups.find((g) => g.role === role)
   return (
-    <div className="rounded-xl p-3 space-y-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
-      <div className="flex gap-1.5 flex-wrap" role="tablist" aria-label="Food to replace">
+    <div className="rounded-ctl border border-line bg-chalk p-3">
+      <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Food to replace">
         {groups.map((g) => (
           <button
             key={g.role}
@@ -97,37 +100,39 @@ export default function SwapMenu({
             role="tab"
             aria-selected={g.role === role}
             onClick={() => setRole(g.role)}
-            className="text-xs px-2 py-1 rounded-lg"
-            style={g.role === role ? { background: 'rgba(16,185,129,0.25)', color: '#6ee7b7' } : { color: 'rgba(255,255,255,0.6)' }}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold transition-colors ${
+              g.role === role ? 'bg-ink text-chalk' : 'text-ink-soft hover:bg-wash'
+            }`}
           >
-            {ROLE_LABEL[g.role]}
+            <span className="h-2 w-2 rounded-full" style={{ background: ROLE_COLORS[g.role] }} aria-hidden />
+            {g.role === 'FAT' ? 'Fat' : ROLE_LABEL[g.role]}
           </button>
         ))}
-        <button type="button" onClick={() => setGroups(null)} className="text-xs ml-auto" style={{ color: 'rgba(255,255,255,0.5)' }}>
+        <button type="button" onClick={() => setGroups(null)} className="ml-auto text-sm font-semibold text-ink-soft hover:text-ink">
           Close
         </button>
       </div>
       {current && current.options.length === 0 && (
-        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>No safe alternative for this food.</p>
+        <p className="mt-3 text-sm text-ink-soft">No safe alternative for this food.</p>
       )}
-      <ul className="space-y-1" aria-label="Alternatives">
+      <ul className="mt-2 divide-y divide-line" aria-label="Alternatives">
         {current?.options.map((o) => (
           <li key={o.foodId}>
             <button
               type="button"
               disabled={busy}
               onClick={() => swap(o.foodId)}
-              className="w-full flex justify-between text-sm px-2 py-1 rounded-lg hover:bg-white/10 disabled:opacity-50"
+              className="flex w-full items-baseline justify-between gap-4 rounded-md px-2 py-2 text-left text-sm hover:bg-wash disabled:opacity-50"
             >
-              <span style={{ color: 'rgba(255,255,255,0.85)' }}>{o.foodName}</span>
-              <span className="tabular-nums" style={{ color: 'rgba(255,255,255,0.55)' }}>
+              <span className="text-ink">{o.foodName}</span>
+              <span className="shrink-0 text-ink-soft num">
                 {Math.round(o.grams)} g · {Math.round(o.kcal)} kcal
               </span>
             </button>
           </li>
         ))}
       </ul>
-      {error && <p role="alert" className="text-xs text-red-300">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-alert">{error}</p>}
     </div>
   )
 }

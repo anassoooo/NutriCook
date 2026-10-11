@@ -9,8 +9,8 @@ export type Gender = 'MALE' | 'FEMALE' | 'OTHER' | 'PREFER_NOT_TO_SAY'
 
 /** Options offered in forms. OTHER uses the midpoint BMR equation (BR-NRG-01). */
 export const GENDER_OPTIONS: { value: Gender; label: string }[] = [
-  { value: 'MALE', label: '♂ Male' },
-  { value: 'FEMALE', label: '♀ Female' },
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
   { value: 'OTHER', label: 'Other' },
 ]
 

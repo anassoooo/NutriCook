@@ -1,524 +1,344 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import Tooltip from '@mui/material/Tooltip'
 import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { UserProfile, ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, Gender } from '../types'
 import { GENDER_OPTIONS } from '../types'
+import { ACTIVITY_OPTIONS, GOAL_OPTIONS, PROFILE_BOUNDS, RESTRICTION_GROUPS } from '../lib/profileOptions'
+import { ROLE_COLORS } from '../lib/roles'
+import { CheckIcon } from '../components/Icons'
 
 interface FormData {
-  firstName:     string
-  lastName:      string
-  weightKg:      number
-  heightCm:      number
-  dateOfBirth:   string
-  gender:        Gender
+  firstName: string
+  lastName: string
+  weightKg: number
+  heightCm: number
+  dateOfBirth: string
+  gender: Gender
   activityLevel: ActivityLevel
-  healthGoal:    HealthGoal
+  healthGoal: HealthGoal
 }
 
-const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; sub: string; icon: string }[] = [
-  { value: 'SEDENTARY',         label: 'Sedentary',         sub: 'Desk job, little exercise',  icon: '🪑' },
-  { value: 'LIGHTLY_ACTIVE',    label: 'Lightly active',    sub: '1–3 workouts / week',        icon: '🚶' },
-  { value: 'MODERATELY_ACTIVE', label: 'Moderately active', sub: '3–5 workouts / week',        icon: '🏃' },
-  { value: 'VERY_ACTIVE',       label: 'Very active',       sub: '6–7 workouts / week',        icon: '⚡' },
-  { value: 'EXTRA_ACTIVE',      label: 'Extra active',      sub: 'Athlete / physical job',     icon: '🏋️' },
-]
-
-const GOAL_OPTIONS: { value: HealthGoal; label: string; icon: string; color: string }[] = [
-  { value: 'LOSE_WEIGHT',     label: 'Lose weight',    icon: '⬇️', color: '#3b82f6' },
-  { value: 'MAINTAIN_WEIGHT', label: 'Maintain',       icon: '⚖️', color: '#16a34a' },
-  { value: 'GAIN_MUSCLE',     label: 'Gain muscle',    icon: '💪', color: '#f97316' },
-  { value: 'IMPROVE_HEALTH',  label: 'Improve health', icon: '❤️', color: '#ef4444' },
-]
-
-/* Fields the user must actively fill — radio defaults don't count */
-const RESTRICTION_STYLE: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  PREFERENCE:  { bg: '#f0fdf4', text: '#16a34a', border: '#86efac', label: 'Diet'      },
-  INTOLERANCE: { bg: '#fffbeb', text: '#d97706', border: '#fcd34d', label: 'Intolerance' },
-  ALLERGY:     { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5', label: 'Allergy'   },
-  RELIGIOUS:   { bg: '#eff6ff', text: '#2563eb', border: '#93c5fd', label: 'Religious' },
+const MISSING_LABEL: Record<string, string> = {
+  dateOfBirth: 'date of birth', gender: 'gender', weightKg: 'weight', heightCm: 'height',
+  activityLevel: 'activity level', healthGoal: 'goal',
 }
 
-const COMPLETION_STEPS = [
-  { key: 'firstName',   label: 'Name'     },
-  { key: 'weightKg',    label: 'Weight'   },
-  { key: 'heightCm',    label: 'Height'   },
-  { key: 'dateOfBirth', label: 'Birthday' },
-] as const
-
-function isDone(v: unknown): boolean {
-  if (v === undefined || v === null || v === '') return false
-  if (typeof v === 'number') return !isNaN(v) && v > 0
-  return true
-}
-
-function bmiInfo(weight: number, height: number) {
-  const bmi   = weight / Math.pow(height / 100, 2)
-  const value = bmi.toFixed(1)
-  if (bmi < 18.5) return { value, label: 'Underweight', color: '#3b82f6', bg: '#eff6ff', bar: 20 }
-  if (bmi < 25)   return { value, label: 'Normal',      color: '#16a34a', bg: '#f0fdf4', bar: 45 }
-  if (bmi < 30)   return { value, label: 'Overweight',  color: '#f59e0b', bg: '#fffbeb', bar: 68 }
-                  return { value, label: 'Obese',        color: '#ef4444', bg: '#fef2f2', bar: 88 }
-}
-
-function RequiredDot() {
+/** A segmented choice made of real radio inputs. */
+function Choice<T extends string>({
+  name, value, options, register, columns = 1,
+}: {
+  name: keyof FormData
+  value: T
+  options: { value: T; label: string; sub?: string }[]
+  register: ReturnType<typeof useForm<FormData>>['register']
+  columns?: number
+}) {
   return (
-    <Tooltip title="Required field" placement="top" arrow>
-      <span className="text-red-400 ml-0.5 cursor-default">*</span>
-    </Tooltip>
+    <div className={`grid gap-2 ${columns === 2 ? 'sm:grid-cols-2' : columns === 3 ? 'grid-cols-3' : ''}`}>
+      {options.map(o => {
+        const on = value === o.value
+        return (
+          <label
+            key={o.value}
+            className={`flex cursor-pointer items-start gap-3 rounded-ctl border px-4 py-3 transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ink ${
+              on ? 'border-ink bg-paper' : 'border-line hover:border-ink-faint'
+            }`}
+          >
+            <input type="radio" value={o.value} {...register(name)} className="sr-only" />
+            <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 ${on ? 'border-ink' : 'border-ink-faint'}`} aria-hidden>
+              {on && <span className="h-1.5 w-1.5 rounded-full bg-ink" />}
+            </span>
+            <span>
+              <span className="block text-sm font-semibold">{o.label}</span>
+              {o.sub && <span className="block text-xs text-ink-soft">{o.sub}</span>}
+            </span>
+          </label>
+        )
+      })}
+    </div>
+  )
+}
+
+/** A selectable item that saves at once (restrictions and conditions are separate API calls). */
+function Toggle({ on, onClick, name, description }: { on: boolean; onClick: () => void; name: string; description: string | null }) {
+  return (
+    <li>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={on}
+        onClick={onClick}
+        className={`flex w-full items-start gap-3 rounded-ctl border px-4 py-3 text-left transition-colors ${
+          on ? 'border-ink bg-paper' : 'border-line hover:border-ink-faint'
+        }`}
+      >
+        <span className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded border ${on ? 'border-ink bg-ink text-chalk' : 'border-ink-faint'}`} aria-hidden>
+          {on && <CheckIcon size={11} strokeWidth={3} />}
+        </span>
+        <span>
+          <span className="block text-sm font-semibold">{name}</span>
+          {description && <span className="block text-xs text-ink-soft">{description}</span>}
+        </span>
+      </button>
+    </li>
+  )
+}
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="border-t border-line py-8 first:border-t-0 first:pt-0">
+      <h2 className="section-title">{title}</h2>
+      {hint && <p className="mt-1 max-w-[60ch] text-sm text-ink-soft">{hint}</p>}
+      <div className="mt-5">{children}</div>
+    </section>
+  )
+}
+
+/** The daily target exactly as the server computed it from the saved profile (BR-NRG, BR-MAC). */
+function TargetPanel({ profile }: { profile: UserProfile | null }) {
+  if (!profile) return null
+  const t = profile.targets
+  if (!t) {
+    const missing = profile.targetsError?.details.missingFields ?? []
+    return (
+      <div className="rounded-panel border border-dashed border-line p-6">
+        <p className="font-heading text-lg font-semibold">Your daily target</p>
+        <p className="mt-2 text-sm text-ink-soft">
+          {missing.length > 0
+            ? `Add your ${missing.map(f => MISSING_LABEL[f] ?? f).join(', ')} and save to see it.`
+            : profile.targetsError?.message ?? 'Save your profile to see it.'}
+        </p>
+      </div>
+    )
+  }
+  const macros: [string, number, string][] = [
+    ['Protein', t.proteinG, ROLE_COLORS.PROTEIN],
+    ['Carbs', t.carbsG, ROLE_COLORS.CARB],
+    ['Fat', t.fatG, ROLE_COLORS.FAT],
+    ['Fiber', t.fiberG, ROLE_COLORS.PRODUCE],
+  ]
+  return (
+    <div className="rounded-panel bg-ink p-6 text-chalk">
+      <p className="text-sm text-chalk/70">Your daily target</p>
+      <p className="mt-1 font-heading text-5xl font-bold leading-none num">
+        {t.kcal.toLocaleString()}<span className="ml-1.5 text-lg font-medium text-chalk/70">kcal</span>
+      </p>
+      <dl className="mt-5 space-y-1.5 border-t border-chalk/15 pt-4 text-sm num">
+        <div className="flex justify-between"><dt className="text-chalk/70">Energy at rest (BMR)</dt><dd>{Math.round(t.bmr).toLocaleString()}</dd></div>
+        <div className="flex justify-between"><dt className="text-chalk/70">With your activity (TDEE)</dt><dd>{Math.round(t.tdee).toLocaleString()}</dd></div>
+        <div className="flex justify-between"><dt className="text-chalk/70">Adjusted for your goal</dt><dd>{t.kcal.toLocaleString()}</dd></div>
+      </dl>
+      {t.floorApplied && (
+        <p className="mt-3 text-xs text-chalk/70">Raised to the safe minimum for you.</p>
+      )}
+      <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-chalk/15 pt-4 text-sm num">
+        {macros.map(([label, grams, color]) => (
+          <li key={label} className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ background: color }} aria-hidden />
+            <span className="text-chalk/70">{label}</span>
+            <span className="ml-auto font-semibold">{grams} g</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 text-xs text-chalk/60">Based on your saved profile. It updates when you save.</p>
+    </div>
   )
 }
 
 export default function ProfilePage() {
   const { userId, email } = useAuth()
-  const navigate = useNavigate()
-  const [saved,   setSaved]   = useState(false)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
+  const [error, setError] = useState('')
 
-  const [allRestrictions,        setAllRestrictions]        = useState<DietaryRestriction[]>([])
-  const [allConditions,          setAllConditions]          = useState<HealthCondition[]>([])
-  const [selectedRestrictions,   setSelectedRestrictions]   = useState<Set<number>>(new Set())
-  const [selectedConditions,     setSelectedConditions]     = useState<Set<number>>(new Set())
-  const [restrictionsStatus,     setRestrictionsStatus]     = useState<'loading' | 'ok' | 'error'>('loading')
-  const [conditionsStatus,       setConditionsStatus]       = useState<'loading' | 'ok' | 'error'>('loading')
+  const [allRestrictions, setAllRestrictions] = useState<DietaryRestriction[]>([])
+  const [allConditions, setAllConditions] = useState<HealthCondition[]>([])
+  const [selectedRestrictions, setSelectedRestrictions] = useState<Set<number>>(new Set())
+  const [selectedConditions, setSelectedConditions] = useState<Set<number>>(new Set())
+  const [optionsError, setOptionsError] = useState(false)
 
   const { control, register, handleSubmit, reset, formState: { errors } } =
     useForm<FormData>({ defaultValues: { gender: 'MALE', activityLevel: 'SEDENTARY', healthGoal: 'IMPROVE_HEALTH' } })
-
-  /* useWatch with control — reliably re-renders after reset() from API */
   const all = useWatch({ control })
-  const watchFirst       = (all.firstName      ?? '') as string
-  const watchLast        = (all.lastName       ?? '') as string
-  const watchGender      = (all.gender         ?? 'MALE') as Gender
-  const selectedActivity = (all.activityLevel  ?? 'SEDENTARY') as ActivityLevel
-  const selectedGoal     = (all.healthGoal     ?? 'IMPROVE_HEALTH') as HealthGoal
-  const watchWeight      = all.weightKg  as number | undefined
-  const watchHeight      = all.heightCm  as number | undefined
 
-  const bmi = watchWeight && watchHeight && !isNaN(Number(watchWeight)) && !isNaN(Number(watchHeight))
-    ? bmiInfo(Number(watchWeight), Number(watchHeight))
-    : null
-
-  const displayName = [watchFirst, watchLast].filter(Boolean).join(' ') || 'Your'
-  const initial     = (watchFirst || email || 'U').charAt(0).toUpperCase()
-
-  const completedCount = COMPLETION_STEPS.filter(s => isDone(all[s.key])).length
-  const completionPct  = Math.round((completedCount / COMPLETION_STEPS.length) * 100)
-
-  useEffect(() => {
-    api.get<DietaryRestriction[]>('/dietary-restrictions')
-      .then(r => { setAllRestrictions(r.data); setRestrictionsStatus('ok') })
-      .catch(() => setRestrictionsStatus('error'))
-    api.get<HealthCondition[]>('/health-conditions')
-      .then(r => { setAllConditions(r.data); setConditionsStatus('ok') })
-      .catch(() => setConditionsStatus('error'))
-  }, [])
-
-  const toggleRestriction = async (id: number) => {
-    const isSelected = selectedRestrictions.has(id)
-    setSelectedRestrictions(prev => { const s = new Set(prev); if (isSelected) s.delete(id); else s.add(id); return s })
-    try {
-      if (isSelected) await api.delete(`/users/${userId}/profile/dietary-restrictions/${id}`)
-      else await api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)
-    } catch {
-      setSelectedRestrictions(prev => { const s = new Set(prev); if (isSelected) s.add(id); else s.delete(id); return s })
-    }
-  }
-
-  const toggleCondition = async (id: number) => {
-    const isSelected = selectedConditions.has(id)
-    setSelectedConditions(prev => { const s = new Set(prev); if (isSelected) s.delete(id); else s.add(id); return s })
-    try {
-      if (isSelected) await api.delete(`/users/${userId}/profile/health-conditions/${id}`)
-      else await api.post(`/users/${userId}/profile/health-conditions/${id}`)
-    } catch {
-      setSelectedConditions(prev => { const s = new Set(prev); if (isSelected) s.add(id); else s.delete(id); return s })
-    }
-  }
-
-  useEffect(() => {
+  const loadProfile = useCallback(() => {
     if (!userId) return
     api.get<UserProfile>(`/users/${userId}/profile`).then(r => {
       const p = r.data
-      setSelectedRestrictions(new Set((p.dietaryRestrictions ?? []).map(r => r.id)))
+      setProfile(p)
+      setSelectedRestrictions(new Set((p.dietaryRestrictions ?? []).map(x => x.id)))
       setSelectedConditions(new Set((p.healthConditions ?? []).map(c => c.id)))
       reset({
-        firstName:     p.firstName     ?? '',
-        lastName:      p.lastName      ?? '',
-        weightKg:      p.weightKg      ?? undefined,
-        heightCm:      p.heightCm      ?? undefined,
-        dateOfBirth:   p.dateOfBirth   ?? '',
-        gender:        p.gender        ?? 'MALE',
+        firstName: p.firstName ?? '',
+        lastName: p.lastName ?? '',
+        weightKg: p.weightKg ?? undefined,
+        heightCm: p.heightCm ?? undefined,
+        dateOfBirth: p.dateOfBirth ?? '',
+        gender: p.gender ?? 'MALE',
         activityLevel: p.activityLevel ?? 'SEDENTARY',
-        healthGoal:    p.healthGoal    ?? 'IMPROVE_HEALTH',
+        healthGoal: p.healthGoal ?? 'IMPROVE_HEALTH',
       })
     }).catch(() => {})
   }, [userId, reset])
 
+  useEffect(() => {
+    Promise.all([
+      api.get<DietaryRestriction[]>('/dietary-restrictions'),
+      api.get<HealthCondition[]>('/health-conditions'),
+    ])
+      .then(([r, c]) => { setAllRestrictions(r.data); setAllConditions(c.data) })
+      .catch(() => setOptionsError(true))
+  }, [])
+
+  useEffect(loadProfile, [loadProfile])
+
+  /** Optimistic toggle; rolled back if the server refuses. Restrictions change targets, so reload. */
+  const toggle = async (kind: 'dietary-restrictions' | 'health-conditions', id: number) => {
+    const set = kind === 'dietary-restrictions' ? setSelectedRestrictions : setSelectedConditions
+    const current = kind === 'dietary-restrictions' ? selectedRestrictions : selectedConditions
+    const on = current.has(id)
+    const flip = (s: Set<number>) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n }
+    set(flip)
+    try {
+      if (on) await api.delete(`/users/${userId}/profile/${kind}/${id}`)
+      else await api.post(`/users/${userId}/profile/${kind}/${id}`)
+    } catch (err) {
+      set(flip)
+      setError(toApiError(err).message)
+    }
+  }
+
   const onSubmit = async (data: FormData) => {
     if (!userId) return
-    setLoading(true); setError('')
+    setLoading(true); setError(''); setSaved(false)
     try {
       await api.put(`/users/${userId}/profile`, {
         ...data,
-        firstName:   data.firstName   || null,
-        lastName:    data.lastName    || null,
+        firstName: data.firstName || null,
+        lastName: data.lastName || null,
         dateOfBirth: data.dateOfBirth || null,
-        weightKg:    isNaN(data.weightKg) ? null : data.weightKg,
-        heightCm:    isNaN(data.heightCm) ? null : data.heightCm,
+        weightKg: isNaN(data.weightKg) ? null : data.weightKg,
+        heightCm: isNaN(data.heightCm) ? null : data.heightCm,
       })
       setSaved(true)
-      setTimeout(() => navigate(-1), 1500)
+      loadProfile()
     } catch (err) {
-      setError(toApiError(err).message)
+      const e = toApiError(err)
+      setError(e.detail ?? e.message)
     } finally { setLoading(false) }
   }
 
+  const name = [all.firstName, all.lastName].filter(Boolean).join(' ')
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
+    <div>
+      <header>
+        <h1 className="page-title">{name || 'Your profile'}</h1>
+        <p className="page-subtitle">{email}</p>
+      </header>
 
-      {/* ── Profile header ──────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl p-7 text-white"
-           style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#1e40af 50%,#1d4ed8 100%)' }}>
-        <div className="absolute inset-0 opacity-10"
-             style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-
-        <div className="relative z-10 flex items-center gap-5 flex-wrap">
-          {/* Avatar */}
-          <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-3xl font-black shrink-0 shadow-lg select-none"
-               style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}>
-            {initial}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            {/* Shows name once firstName is typed, otherwise generic title */}
-            <h1 className="text-2xl font-black tracking-tight">
-              {watchFirst ? displayName : 'Your Profile'}
-            </h1>
-            <p className="text-blue-200 text-sm mt-0.5 truncate">{email}</p>
-
-            {/* Completion pills — only track explicitly-filled fields */}
-            <div className="flex items-center gap-1.5 mt-3 flex-wrap">
-              {COMPLETION_STEPS.map(s => {
-                const done = isDone(all[s.key])
-                return (
-                  <span key={s.key}
-                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full transition-all"
-                        style={{
-                          background: done ? 'rgba(255,255,255,.28)' : 'rgba(255,255,255,.08)',
-                          color:      done ? 'white'                  : 'rgba(255,255,255,.38)',
-                        }}>
-                    {done ? '✓ ' : ''}{s.label}
-                  </span>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Completion % */}
-          <Tooltip title={`${completedCount} of ${COMPLETION_STEPS.length} key fields filled`} placement="left" arrow>
-            <div className="text-center shrink-0 cursor-default">
-              <p className="text-3xl font-black">{completionPct}%</p>
-              <p className="text-blue-200 text-xs mt-0.5">complete</p>
-            </div>
-          </Tooltip>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-
-        {/* Personal info */}
-        <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <span className="text-lg">👤</span>
-            <div>
-              <h2 className="section-title">Personal information</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Fields marked <span className="text-red-400">*</span> are required</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">
-                First name
-                <span className="text-xs font-normal text-slate-400 ml-1">(optional)</span>
+      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Section title="About you" hint="Age and sex change how much energy your body uses at rest.">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label>
+                <span className="label">First name <span className="font-normal text-ink-faint">(optional)</span></span>
+                <input className="input" type="text" autoComplete="given-name" {...register('firstName')} />
               </label>
-              <input className="input" type="text" placeholder="Anas" {...register('firstName')} />
-            </div>
-            <div>
-              <label className="label">
-                Last name
-                <span className="text-xs font-normal text-slate-400 ml-1">(optional)</span>
+              <label>
+                <span className="label">Last name <span className="font-normal text-ink-faint">(optional)</span></span>
+                <input className="input" type="text" autoComplete="family-name" {...register('lastName')} />
               </label>
-              <input className="input" type="text" placeholder="Bougrine" {...register('lastName')} />
+              <label>
+                <span className="label">Date of birth</span>
+                <input className="input" type="date" max={new Date().toISOString().slice(0, 10)} {...register('dateOfBirth')} />
+              </label>
+              <fieldset>
+                <legend className="label">Sex</legend>
+                <Choice name="gender" value={all.gender as Gender} options={GENDER_OPTIONS} register={register} columns={3} />
+              </fieldset>
             </div>
+          </Section>
+
+          <Section title="Body" hint="Used for your energy and protein targets. Logging a new weight on Progress updates it too.">
+            <div className="grid max-w-md grid-cols-2 gap-4">
+              <label>
+                <span className="label">Weight (kg)</span>
+                <input className="input num" type="number" step="0.1" {...PROFILE_BOUNDS.weightKg}
+                  aria-invalid={!!errors.weightKg}
+                  {...register('weightKg', { required: true, ...PROFILE_BOUNDS.weightKg, valueAsNumber: true })} />
+                {errors.weightKg && <span className="mt-1 block text-xs text-alert">Between {PROFILE_BOUNDS.weightKg.min} and {PROFILE_BOUNDS.weightKg.max} kg</span>}
+              </label>
+              <label>
+                <span className="label">Height (cm)</span>
+                <input className="input num" type="number" {...PROFILE_BOUNDS.heightCm}
+                  aria-invalid={!!errors.heightCm}
+                  {...register('heightCm', { required: true, ...PROFILE_BOUNDS.heightCm, valueAsNumber: true })} />
+                {errors.heightCm && <span className="mt-1 block text-xs text-alert">Between {PROFILE_BOUNDS.heightCm.min} and {PROFILE_BOUNDS.heightCm.max} cm</span>}
+              </label>
+            </div>
+          </Section>
+
+          <Section title="Activity" hint="An average week, including work.">
+            <Choice name="activityLevel" value={all.activityLevel as ActivityLevel} options={ACTIVITY_OPTIONS} register={register} columns={2} />
+          </Section>
+
+          <Section title="Goal">
+            <Choice name="healthGoal" value={all.healthGoal as HealthGoal} options={GOAL_OPTIONS} register={register} columns={2} />
+          </Section>
+
+          {error && <div role="alert" className="banner-error mb-4">{error}</div>}
+          <div className="flex items-center gap-4 border-t border-line pt-6">
+            <button type="submit" disabled={loading} className="btn-primary">
+              {loading ? 'Saving…' : 'Save profile'}
+            </button>
+            {saved && <p role="status" className="text-sm font-semibold text-cucumber">Saved. Your target is up to date.</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">
-                Date of birth
-                <span className="text-xs font-normal text-slate-400 ml-1">(optional)</span>
-              </label>
-              <input className="input" type="date" {...register('dateOfBirth')} />
-            </div>
-            <div>
-              <label className="label">Gender</label>
-              <div className="flex gap-2">
-                {GENDER_OPTIONS.map(({ value: g, label }) => (
-                  <label key={g}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-semibold cursor-pointer transition-all"
-                    style={watchGender === g
-                      ? { borderColor: 'rgba(16,185,129,0.5)', background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }
-                      : { borderColor: 'rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.65)' }}
-                  >
-                    <input type="radio" value={g} {...register('gender')} className="sr-only" />
-                    {label}
-                  </label>
+          <Section title="Allergies and diets" hint="These apply as soon as you tick them. Every plan and swap respects them.">
+            {optionsError ? (
+              <p className="text-sm text-alert">The options could not be loaded. Refresh the page to try again.</p>
+            ) : (
+              <div className="space-y-6">
+                {RESTRICTION_GROUPS.map(group => {
+                  const items = allRestrictions.filter(r => r.type === group.type)
+                  if (!items.length) return null
+                  return (
+                    <div key={group.type}>
+                      <h3 className="text-sm font-semibold">{group.label}</h3>
+                      <p className="text-xs text-ink-soft">{group.hint}</p>
+                      <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {items.map(r => (
+                          <Toggle key={r.id} on={selectedRestrictions.has(r.id)} name={r.name} description={r.description}
+                                  onClick={() => toggle('dietary-restrictions', r.id)} />
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Section>
+
+          <Section title="Health conditions" hint="Plans then stay within the sugar, fat and salt limits for each condition. This is not medical advice.">
+            {!optionsError && (
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {allConditions.map(c => (
+                  <Toggle key={c.id} on={selectedConditions.has(c.id)} name={c.name} description={c.description}
+                          onClick={() => toggle('health-conditions', c.id)} />
                 ))}
-              </div>
-            </div>
-          </div>
-        </div>
+              </ul>
+            )}
+          </Section>
+        </form>
 
-        {/* Body metrics */}
-        <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <span className="text-lg">📏</span>
-            <div>
-              <h2 className="section-title">Body metrics</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Used to calculate your daily calorie target (TDEE)</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="label">Weight (kg) <RequiredDot /></label>
-              <input className="input" type="number" step="0.1" placeholder="70"
-                {...register('weightKg', { required: true, min: 20, max: 500, valueAsNumber: true })} />
-              {errors.weightKg && <p className="text-red-500 text-xs mt-1">Enter a valid weight (20–500 kg)</p>}
-            </div>
-            <div>
-              <label className="label">Height (cm) <RequiredDot /></label>
-              <input className="input" type="number" placeholder="175"
-                {...register('heightCm', { required: true, min: 50, max: 300, valueAsNumber: true })} />
-              {errors.heightCm && <p className="text-red-500 text-xs mt-1">Enter a valid height (50–300 cm)</p>}
-            </div>
-          </div>
-
-          {/* Live BMI */}
-          {bmi && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="rounded-xl p-4"
-              style={{ background: `${bmi.color}14`, border: `1px solid ${bmi.color}40` }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <p className="section-label">Body Mass Index (BMI)</p>
-                  <p className="text-2xl font-black mt-1" style={{ color: bmi.color }}>{bmi.value}</p>
-                </div>
-                <span className="text-sm font-bold px-3 py-1 rounded-full"
-                      style={{ background: `${bmi.color}20`, color: bmi.color }}>
-                  {bmi.label}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                <div className="h-full rounded-full transition-all duration-500"
-                     style={{ width: `${bmi.bar}%`, background: bmi.color }} />
-              </div>
-              <div className="flex justify-between text-[10px] text-slate-400 mt-1.5 font-medium">
-                <span>Underweight</span><span>Normal</span><span>Overweight</span><span>Obese</span>
-              </div>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Activity level */}
-        <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <span className="text-lg">⚡</span>
-            <div>
-              <h2 className="section-title">Activity level</h2>
-              <p className="text-xs text-slate-400 mt-0.5">How active are you on an average week?</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {ACTIVITY_OPTIONS.map(({ value, label, sub, icon }) => (
-              <label key={value}
-                className="flex items-center gap-4 p-3.5 rounded-xl border cursor-pointer transition-all"
-                style={selectedActivity === value
-                  ? { borderColor: 'rgba(16,185,129,0.45)', background: 'rgba(16,185,129,0.12)' }
-                  : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
-                <span className="text-xl shrink-0">{icon}</span>
-                <div className="flex-1">
-                  <p className="text-sm font-semibold" style={{ color: selectedActivity === value ? '#6ee7b7' : 'rgba(255,255,255,0.85)' }}>
-                    {label}
-                  </p>
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.58)' }}>{sub}</p>
-                </div>
-                <input type="radio" value={value} {...register('activityLevel')} className="accent-brand-600" />
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Health goal */}
-        <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <span className="text-lg">🎯</span>
-            <div>
-              <h2 className="section-title">Health goal</h2>
-              <p className="text-xs text-slate-400 mt-0.5">What are you working towards?</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {GOAL_OPTIONS.map(({ value, label, icon, color }) => (
-              <label key={value}
-                className="relative flex flex-col items-center gap-2 p-5 rounded-xl border cursor-pointer transition-all text-center"
-                style={selectedGoal === value
-                  ? { borderColor: 'rgba(16,185,129,0.45)', background: 'rgba(16,185,129,0.12)' }
-                  : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.04)' }}>
-                <input type="radio" value={value} {...register('healthGoal')} className="sr-only" />
-                <span className="text-3xl">{icon}</span>
-                <span className="text-sm font-semibold leading-tight" style={{ color: selectedGoal === value ? '#6ee7b7' : 'rgba(255,255,255,0.75)' }}>
-                  {label}
-                </span>
-                {selectedGoal === value && (
-                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                       style={{ background: color }}>
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
-                    </svg>
-                  </div>
-                )}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Dietary restrictions */}
-        <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <span className="text-lg">🥗</span>
-            <div>
-              <h2 className="section-title">Dietary preferences</h2>
-              <p className="text-xs text-slate-400 mt-0.5">The AI will use these to personalise your meal plan</p>
-            </div>
-          </div>
-
-          {restrictionsStatus === 'loading' ? (
-            <p className="text-sm text-slate-400">Loading options…</p>
-          ) : restrictionsStatus === 'error' ? (
-            <p className="text-sm text-amber-600">
-              Could not load options — make sure the backend is running, then refresh this page.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {allRestrictions.map(r => {
-                const selected = selectedRestrictions.has(r.id)
-                const style    = RESTRICTION_STYLE[r.type] ?? RESTRICTION_STYLE.PREFERENCE
-                return (
-                  <Tooltip key={r.id} title={r.description ?? ''} placement="top" arrow>
-                    <button
-                      type="button"
-                      onClick={() => toggleRestriction(r.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-150"
-                      style={selected
-                        ? { background: `${style.border}30`, color: style.text, borderColor: style.border }
-                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.62)', borderColor: 'rgba(255,255,255,0.12)' }}
-                    >
-                      {selected && (
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-                        </svg>
-                      )}
-                      {r.name}
-                    </button>
-                  </Tooltip>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Health conditions */}
-        <div className="card space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-white/10">
-            <span className="text-lg">🩺</span>
-            <div>
-              <h2 className="section-title">Health conditions</h2>
-              <p className="text-xs text-slate-400 mt-0.5">AI will limit sugar and fat per meal based on your conditions</p>
-            </div>
-          </div>
-
-          {conditionsStatus === 'loading' ? (
-            <p className="text-sm text-slate-400">Loading options…</p>
-          ) : conditionsStatus === 'error' ? (
-            <p className="text-sm text-amber-600">
-              Could not load options — make sure the backend is running, then refresh this page.
-            </p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {allConditions.map(c => {
-                const selected = selectedConditions.has(c.id)
-                return (
-                  <Tooltip key={c.id} title={c.description ?? ''} placement="top" arrow>
-                    <button
-                      type="button"
-                      onClick={() => toggleCondition(c.id)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all duration-150"
-                      style={selected
-                        ? { background: 'rgba(168,85,247,0.15)', color: '#d8b4fe', borderColor: '#c4b5fd' }
-                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.62)', borderColor: 'rgba(255,255,255,0.12)' }}
-                    >
-                      {selected && (
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-                        </svg>
-                      )}
-                      {c.name}
-                    </button>
-                  </Tooltip>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="banner-error">
-            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            {error}
-          </div>
-        )}
-
-        <div className="flex items-center gap-4 pb-4">
-          <button type="submit" disabled={loading} className="btn-primary px-8">
-            {loading ? 'Saving…' : 'Save profile'}
-          </button>
-          {saved && (
-            <motion.div
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="flex items-center gap-1.5 text-brand-600 text-sm font-semibold"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-              </svg>
-              Profile saved!
-            </motion.div>
-          )}
-        </div>
-      </form>
+        <aside className="lg:sticky lg:top-10 lg:self-start">
+          <TargetPanel profile={profile} />
+        </aside>
+      </div>
     </div>
   )
 }

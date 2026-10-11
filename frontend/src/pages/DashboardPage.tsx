@@ -1,21 +1,21 @@
-import { useEffect, useState, Suspense, lazy } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
 import { planErrorMessage } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
-import type { DietPlan, Meal, UserProfile, ProgressEntry, SlotTarget } from '../types'
-import MacroRing from '../components/MacroRing'
+import type { DietPlan, Meal, UserProfile, ProgressEntry, SlotTarget, Targets } from '../types'
 import ChatPanel from '../components/ChatPanel'
 import MedicalDisclaimer from '../components/MedicalDisclaimer'
 import PlanWarnings from '../components/PlanWarnings'
 import MealComponents, { MealComponentsSummary } from '../components/MealComponents'
 import SwapMenu from '../components/SwapMenu'
 import MealCheck from '../components/MealCheck'
+import DayPlate, { RoleKey } from '../components/DayPlate'
+import { ROLE_COLORS } from '../lib/roles'
+import { ChevronIcon, RefreshIcon, SparkIcon } from '../components/Icons'
 import { localIsoDate } from '../lib/progressRules'
 import { useAiRefresh } from '../hooks/useAiRefresh'
-
-const NutritionOrb = lazy(() => import('../components/3d/NutritionOrb'))
 
 const FIELD_LABELS: Record<string, string> = {
   dateOfBirth: 'date of birth',
@@ -29,113 +29,179 @@ const FIELD_LABELS: Record<string, string> = {
 function greeting() {
   const h = new Date().getHours()
   if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
+  if (h < 18) return 'Good afternoon'
   return 'Good evening'
 }
 
-const MEAL_META: Record<string, { icon: string; gradient: string }> = {
-  BREAKFAST:       { icon: '🌅', gradient: 'from-amber-400 to-orange-500'   },
-  MORNING_SNACK:   { icon: '🍎', gradient: 'from-emerald-400 to-teal-500'  },
-  LUNCH:           { icon: '🍽️', gradient: 'from-blue-400 to-cyan-500'      },
-  AFTERNOON_SNACK: { icon: '🥜', gradient: 'from-violet-400 to-purple-500'  },
-  DINNER:          { icon: '🌙', gradient: 'from-slate-500 to-indigo-700'   },
+/** One macro of the day against its target. Numbers come from the API (BR-PRF-08). */
+function MacroLine({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.round((value / max) * 100) : 0
+  return (
+    <div data-tooltip={`${value} g / ${max} g (${pct}%)`}>
+      <div className="flex items-baseline justify-between text-sm">
+        <span className="font-semibold">{label}</span>
+        <span className="text-ink-soft num">
+          <span className="text-ink">{value}</span> / {max} g
+        </span>
+      </div>
+      <div className="mt-1.5 h-1.5 rounded-full bg-wash" aria-hidden>
+        <div className="h-full rounded-full" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
+      </div>
+    </div>
+  )
 }
 
-function MealCard({ meal, index, target, onReplace, planId, onSwapped, onCompleted }: { meal: Meal; index: number; target?: SlotTarget; onReplace: () => void; planId: number; onSwapped: (plan: DietPlan) => void; onCompleted: (plan: DietPlan, progress: ProgressEntry) => void }) {
-  const [open, setOpen] = useState(false)
-  const meta = MEAL_META[meal.mealType] ?? { icon: '🍴', gradient: 'from-slate-400 to-slate-600' }
-
+function DayLedger({ plan, targets, entry }: { plan: DietPlan; targets: Targets | null; entry: ProgressEntry | null }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.06 }}
-      className="card overflow-hidden !p-0"
-    >
-      <button
-        onClick={() => setOpen(o => !o)}
-        className={`w-full text-left bg-gradient-to-r ${meta.gradient} px-5 py-4 flex items-center justify-between`}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-2xl filter drop-shadow">{meta.icon}</span>
-          <div>
-            <p className="font-bold text-white text-base leading-tight">{meal.name}</p>
-            <p className="text-white/70 text-xs mt-0.5">
-              {meal.mealType.replace('_', ' ')} · {meal.calories} kcal
+    <div className="space-y-5">
+      <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-ctl border border-line bg-line text-sm">
+        <div className="bg-paper px-4 py-3">
+          <dt className="text-ink-soft">Planned</dt>
+          <dd className="mt-0.5 font-heading text-xl font-semibold num">
+            {plan.totalCalories.toLocaleString()}
+            {targets && <span className="text-sm font-normal text-ink-soft"> / {targets.kcal.toLocaleString()} kcal</span>}
+          </dd>
+        </div>
+        <div className="bg-paper px-4 py-3">
+          <dt className="text-ink-soft">Eaten</dt>
+          <dd className="mt-0.5 font-heading text-xl font-semibold num">
+            {entry?.caloriesConsumed != null ? entry.caloriesConsumed.toLocaleString() : '0'}
+            <span className="text-sm font-normal text-ink-soft">
+              {' '}kcal{entry?.caloriesOverridden ? ', typed by you' : ''}
+            </span>
+          </dd>
+        </div>
+      </dl>
+
+      {targets && (
+        <div className="space-y-3.5">
+          <MacroLine label="Protein" value={Math.round(plan.totalProteinG)} max={targets.proteinG} color={ROLE_COLORS.PROTEIN} />
+          <MacroLine label="Carbs" value={Math.round(plan.totalCarbsG)} max={targets.carbsG} color={ROLE_COLORS.CARB} />
+          <MacroLine label="Fat" value={Math.round(plan.totalFatG)} max={targets.fatG} color={ROLE_COLORS.FAT} />
+          {plan.totalFiberG != null && (
+            <MacroLine label="Fiber" value={Math.round(plan.totalFiberG)} max={targets.fiberG} color={ROLE_COLORS.PRODUCE} />
+          )}
+        </div>
+      )}
+      {/* Total sugars include natural sugars, so no generic limit is shown (BR-MAC-07) */}
+      <p className="text-sm text-ink-soft">
+        Total sugars (incl. natural): <span className="font-semibold text-ink num">{Math.round(plan.totalSugarG)} g</span>
+      </p>
+    </div>
+  )
+}
+
+function MealRow({
+  meal,
+  last,
+  target,
+  planId,
+  onSwapped,
+  onCompleted,
+  onAsk,
+}: {
+  meal: Meal
+  last: boolean
+  target?: SlotTarget
+  planId: number
+  onSwapped: (plan: DietPlan) => void
+  onCompleted: (plan: DietPlan, progress: ProgressEntry) => void
+  onAsk: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const detailsId = `meal-details-${meal.id}`
+  return (
+    <li id={`meal-${meal.id}`} className="relative grid scroll-mt-24 grid-cols-[28px_1fr] gap-x-4">
+      {/* timeline: the node is filled once the meal is eaten */}
+      <div className="relative flex justify-center" aria-hidden>
+        {!last && <span className="absolute top-7 bottom-0 w-px bg-line" />}
+        <span
+          className={`relative mt-1.5 h-[18px] w-[18px] rounded-full border-2 transition-colors ${
+            meal.completed ? 'border-ink bg-ink' : 'border-ink-faint bg-chalk'
+          }`}
+        />
+      </div>
+
+      <div className="min-w-0 pb-9">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
+          <div className="min-w-0">
+            <h3 className="font-heading text-xl font-semibold">{meal.name}</h3>
+            <p className="mt-0.5 flex flex-wrap gap-x-3 text-sm num">
+              <span className="font-semibold text-ink">{meal.calories} kcal</span>
+              <span className="text-ink-faint">
+                {Math.round(meal.proteinG ?? 0)} g protein, {Math.round(meal.carbsG ?? 0)} g carbs, {Math.round(meal.fatG ?? 0)} g fat
+              </span>
             </p>
-            <MealComponentsSummary components={meal.components} />
           </div>
+          <MealCheck planId={planId} meal={meal} onChanged={onCompleted} />
         </div>
-        <div className="flex items-center gap-2">
-          <div className="text-right hidden sm:block">
-            <p className="text-white/90 text-sm font-semibold">{Math.round(meal.proteinG ?? 0)}g protein</p>
-            <p className="text-white/60 text-xs">{Math.round(meal.carbsG ?? 0)}g carbs · {Math.round(meal.fatG ?? 0)}g fat</p>
-          </div>
-          <button
-            onClick={e => { e.stopPropagation(); onReplace() }}
-            title="Ask AI to replace this meal"
-            className="w-8 h-8 rounded-lg bg-white/20 hover:bg-white/35 flex items-center justify-center shrink-0 transition-colors"
-          >
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <svg
-            className={`w-5 h-5 text-white/80 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
-            fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
-          </svg>
-        </div>
-      </button>
 
-      <MealCheck planId={planId} meal={meal} onChanged={onCompleted} />
+        <MealComponentsSummary components={meal.components} />
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden"
-          >
-            <div className="px-5 py-5 space-y-5">
-              <MealComponents components={meal.components} />
-              <SwapMenu planId={planId} mealId={meal.id} onSwapped={onSwapped} />
-              <div className="flex justify-around">
-                {/* Ring maxima are this slot's share of the user's targets (from the API) */}
-                {target && <>
-                  <MacroRing label="Protein" value={Math.round(meal.proteinG ?? 0)} max={target.proteinG} color="#3b82f6" size={76} strokeWidth={8} />
-                  <MacroRing label="Carbs"   value={Math.round(meal.carbsG   ?? 0)} max={target.carbsG}   color="#f59e0b" size={76} strokeWidth={8} />
-                  <MacroRing label="Fat"     value={Math.round(meal.fatG     ?? 0)} max={target.fatG}     color="#ef4444" size={76} strokeWidth={8} />
-                  <MacroRing label="Fiber"   value={Math.round(meal.fiberG   ?? 0)} max={target.fiberG}   color="#10b981" size={76} strokeWidth={8} />
-                </>}
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          aria-controls={detailsId}
+          className="btn-ghost -ml-3 mt-1"
+        >
+          {open ? 'Hide details' : 'Details and swaps'}
+          <ChevronIcon size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        <AnimatePresence initial={false}>
+          {open && (
+            <motion.div
+              id={detailsId}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2 rounded-ctl border border-line bg-paper px-4 py-3">
+                <MealComponents components={meal.components} />
+                {target && (
+                  <p className="mt-2 border-t border-line pt-2 text-xs text-ink-soft num">
+                    This meal aims for about {target.kcal} kcal and {target.proteinG} g protein, its share of your day.
+                  </p>
+                )}
               </div>
-
               {meal.aiSuggestion && (
-                <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <p className="text-[11px] font-bold uppercase tracking-widest mb-1.5" style={{ color: 'rgba(134,239,172,0.85)' }}>AI Tip</p>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.75)' }}>{meal.aiSuggestion}</p>
-                </div>
+                <p className="mt-3 border-l-2 border-ink pl-3 text-sm leading-relaxed text-ink-soft">{meal.aiSuggestion}</p>
               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+              <div className="mt-2 flex flex-wrap items-start gap-x-1">
+                <SwapMenu planId={planId} mealId={meal.id} onSwapped={onSwapped} />
+                <button type="button" onClick={onAsk} className="btn-ghost">
+                  <SparkIcon size={17} />
+                  Ask for a different meal
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </li>
+  )
+}
+
+function EmptyPlate() {
+  return (
+    <svg viewBox="0 0 200 200" className="h-40 w-40" aria-hidden>
+      <circle cx="100" cy="100" r="92" fill="#FFFFFF" stroke="#D9DED3" />
+      <circle cx="100" cy="100" r="64" fill="none" stroke="#D9DED3" strokeDasharray="4 6" />
+    </svg>
   )
 }
 
 export default function DashboardPage() {
   const { userId } = useAuth()
-  const [plan,         setPlan]         = useState<DietPlan | null>(null)
-  const [profile,      setProfile]      = useState<UserProfile | null>(null)
-  const [todayEntry,   setTodayEntry]   = useState<ProgressEntry | null>(null)
-  const [generating,   setGenerating]   = useState(false)
-  const [error,        setError]        = useState('')
-  const [chatTrigger,  setChatTrigger]  = useState('')
+  const [plan, setPlan] = useState<DietPlan | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [todayEntry, setTodayEntry] = useState<ProgressEntry | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
+  const [chatTrigger, setChatTrigger] = useState('')
   useAiRefresh(userId, plan, setPlan)
 
   useEffect(() => {
@@ -148,8 +214,8 @@ export default function DashboardPage() {
 
     const today = localIsoDate()
     api.get<ProgressEntry[]>(`/users/${userId}/progress/weekly?start=${today}&end=${today}`)
-       .then(r => { if (r.data.length > 0) setTodayEntry(r.data[0]) })
-       .catch(() => {})
+      .then(r => { if (r.data.length > 0) setTodayEntry(r.data[0]) })
+      .catch(() => {})
   }, [userId])
 
   const generate = async () => {
@@ -159,285 +225,141 @@ export default function DashboardPage() {
       // No date: the server plans for the user's own today (BR-TIM-01, BR-LIF-03)
       setPlan((await api.post<DietPlan>(`/users/${userId}/diet-plans/generate`)).data)
     } catch (err) { setError(planErrorMessage(err)) }
-    finally   { setGenerating(false) }
+    finally { setGenerating(false) }
   }
 
   // Targets come from the API (BR-PRF-08); nothing here is hard-coded
-  const targets         = profile?.targets ?? null
-  const targetsError    = profile?.targetsError ?? null
-  const cal             = plan?.totalCalories ?? 0
-  const calPct          = targets ? Math.min(cal / targets.kcal, 1) : 0
-  const missingFields   = targetsError?.details.missingFields ?? []
-
-  const planned = plan?.totalCalories ?? null
-  const actual  = todayEntry?.caloriesConsumed ?? null
-  const calDiff = planned && actual ? actual - planned : null
-  // Both bars share one scale so planned and logged are comparable
-  const barScale = Math.max(targets?.kcal ?? 0, planned ?? 0, actual ?? 0) || 1
+  const targets = profile?.targets ?? null
+  const targetsError = profile?.targetsError ?? null
+  const missingFields = targetsError?.details.missingFields ?? []
   const slotTarget = (meal: Meal) => targets?.slots.find(s => s.slot === meal.mealType)
-
-  const sortedMeals = plan ? [...plan.meals].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : []
+  const meals = plan ? [...plan.meals].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)) : []
+  const eatenCount = meals.filter(m => m.completed).length
 
   return (
     <>
-    <div className="space-y-6 animate-fade-in">
-
-      {/* Profile incomplete banner */}
-      {profile && targetsError && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="banner-warning"
-        >
-          <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 text-lg">👤</div>
-          <div className="flex-1">
-            <p className="font-bold text-amber-800 text-sm">
-              {targetsError.code === 'PROFILE_INELIGIBLE' ? 'Plans are for adults' : 'Complete your profile'}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm text-ink-soft">
+            {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </p>
+          <h1 className="page-title mt-1">
+            {greeting()}{profile?.firstName ? `, ${profile.firstName}` : ''}
+          </h1>
+          {plan && (
+            <p className="mt-2 text-ink-soft">
+              {eatenCount === 0
+                ? 'Your plate for today is ready.'
+                : eatenCount === meals.length
+                ? 'Every meal of the day is checked off.'
+                : `${eatenCount} of ${meals.length} meals eaten so far.`}
             </p>
-            <p className="text-amber-700 text-xs mt-0.5">
-              {targetsError.code === 'PROFILE_INCOMPLETE' && missingFields.length > 0
-                ? `Add your ${missingFields.map(f => FIELD_LABELS[f] ?? f).join(', ')} so we can calculate your targets.`
-                : targetsError.message}
-            </p>
-          </div>
-          <Link to="/profile" className="btn-primary text-xs px-4 py-2 shrink-0"
-                style={{ background: 'linear-gradient(135deg,#d97706,#b45309)' }}>
-            Set up →
-          </Link>
-        </motion.div>
-      )}
-
-      {/* Hero banner */}
-      <div className="relative rounded-3xl overflow-hidden text-white"
-           style={{ background: 'linear-gradient(135deg,#064e3b 0%,#065f46 35%,#047857 65%,#0d9488 100%)' }}>
-        <div className="absolute inset-0"
-             style={{ backgroundImage: 'radial-gradient(circle at 15% 85%, rgba(255,255,255,.06) 0%, transparent 50%), radial-gradient(circle at 85% 15%, rgba(255,255,255,.06) 0%, transparent 50%)' }} />
-
-        <div className="relative z-10 p-7 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-emerald-300 text-sm font-medium mb-1 flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-pulse" />
-              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </p>
-            <h1 className="text-3xl font-black tracking-tight">
-              {greeting()}{profile?.firstName ? `, ${profile.firstName}` : ''} 👋
-            </h1>
-            {plan ? (
-              <p className="text-emerald-200 mt-1 text-sm">
-                Today's plan · <span className="text-white font-bold">{cal.toLocaleString()} kcal</span>
-                <span className="text-emerald-300"> · {plan.meals.length} meals</span>
-              </p>
-            ) : (
-              <p className="text-emerald-300 mt-1 text-sm">Generate your personalised plan to get started.</p>
-            )}
-          </div>
-
-          <div className="w-32 h-32 rounded-2xl overflow-hidden shrink-0 shadow-lg"
-               style={{ background: 'rgba(255,255,255,.08)' }}>
-            <Suspense fallback={null}>
-              <NutritionOrb pct={calPct} />
-            </Suspense>
-          </div>
-        </div>
-
-        {plan && targets && (
-          <div className="relative z-10 px-7 pb-4">
-            <div className="flex justify-between text-xs text-emerald-300 mb-1.5">
-              <span>Daily calories</span>
-              <span className="text-white font-semibold">{cal.toLocaleString()} / {targets.kcal.toLocaleString()} kcal</span>
-            </div>
-            <div className="h-2 bg-white/15 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${calPct * 100}%` }}
-                transition={{ duration: 1.3, ease: [.4,0,.2,1] }}
-                className="h-full rounded-full bg-white"
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="relative z-10 px-7 pb-6 flex gap-3">
-          {!plan ? (
-            <button onClick={generate} disabled={generating}
-                    className="btn-primary bg-white/20 hover:bg-white/30 border border-white/30 shadow-none">
-              {generating
-                ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Generating…</>
-                : '✨ Generate Today\'s Plan'}
-            </button>
-          ) : (
-            <button onClick={generate} disabled={generating}
-                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white transition-all disabled:opacity-50">
-              {generating
-                ? <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Regenerating…</>
-                : '↻ Regenerate Plan'}
-            </button>
           )}
         </div>
+        {plan && (
+          <button type="button" onClick={generate} disabled={generating} className="btn-secondary">
+            <RefreshIcon size={17} className={generating ? 'animate-spin' : ''} />
+            {generating ? 'Planning…' : 'Plan the day again'}
+          </button>
+        )}
+      </header>
+
+      <div className="mt-6 space-y-3">
+        {profile && targetsError && (
+          <div className="banner-warning items-center">
+            <div className="flex-1">
+              <p className="font-semibold">
+                {targetsError.code === 'PROFILE_INELIGIBLE' ? 'Plans are for adults' : 'Complete your profile'}
+              </p>
+              <p className="mt-0.5">
+                {targetsError.code === 'PROFILE_INCOMPLETE' && missingFields.length > 0
+                  ? `Add your ${missingFields.map(f => FIELD_LABELS[f] ?? f).join(', ')} so we can calculate your targets.`
+                  : targetsError.message}
+              </p>
+            </div>
+            <Link to="/profile" className="btn-primary shrink-0">Open profile</Link>
+          </div>
+        )}
+        <MedicalDisclaimer disclaimer={plan?.disclaimer ?? profile?.disclaimer} />
+        <PlanWarnings warnings={plan?.warnings} />
+        {error && <div className="banner-error" role="alert">{error}</div>}
       </div>
 
-      <MedicalDisclaimer disclaimer={plan?.disclaimer ?? profile?.disclaimer} />
-      <PlanWarnings warnings={plan?.warnings} />
-
-      {error && (
-        <div className="banner-error">
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          {error}
-        </div>
+      {!plan && (
+        <section className="mt-10 flex flex-col items-start gap-6 rounded-panel border border-line bg-paper p-8 sm:flex-row sm:items-center">
+          <EmptyPlate />
+          <div>
+            <h2 className="section-title text-2xl">Nothing on the plate yet</h2>
+            <p className="mt-2 max-w-[52ch] text-ink-soft">
+              Plan today's five meals from your targets, your allergies and your diet. It takes a few seconds,
+              and you can swap any food afterwards.
+            </p>
+            <button type="button" onClick={generate} disabled={generating || !!targetsError} className="btn-primary mt-5">
+              {generating ? 'Planning your day…' : "Plan today's meals"}
+            </button>
+          </div>
+        </section>
       )}
 
-      {/* Generating skeleton */}
-      {generating && !plan && (
-        <div className="card text-center py-16">
-          <div className="inline-flex items-center gap-3 text-brand-600 mb-3">
-            <svg className="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-            </svg>
+      {plan && (
+        <div className="mt-8 grid gap-x-14 gap-y-10 lg:grid-cols-[340px_minmax(0,1fr)] lg:grid-rows-[auto_1fr]">
+          {/* phones: plate, meals, then the ledger; wide screens: plate and ledger on the left */}
+          <div className="space-y-6 lg:col-start-1 lg:row-start-1">
+            <DayPlate
+              meals={meals}
+              eatenKcal={todayEntry?.caloriesConsumed ?? null}
+              plannedKcal={plan.totalCalories}
+              targetKcal={targets?.kcal ?? null}
+            />
+            <RoleKey />
           </div>
-          <p className="font-bold text-slate-900">AI is crafting your plan…</p>
-          <p className="text-slate-400 text-sm mt-1">Analysing your profile and generating personalised meals.</p>
+
+          <div className="lg:col-start-1 lg:row-start-2">
+            <DayLedger plan={plan} targets={targets} entry={todayEntry} />
+          </div>
+
+          <section aria-labelledby="meals-heading" className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
+            <h2 id="meals-heading" className="section-title mb-6">Today's meals</h2>
+            <ol>
+              {meals.map((meal, i) => (
+                <MealRow
+                  key={meal.id}
+                  meal={meal}
+                  last={i === meals.length - 1}
+                  target={slotTarget(meal)}
+                  planId={plan.id}
+                  onSwapped={setPlan}
+                  onCompleted={(p, progress) => { setPlan(p); setTodayEntry(progress) }}
+                  onAsk={() =>
+                    setChatTrigger(`Replace my ${meal.mealType.replace(/_/g, ' ').toLowerCase()} with something different`)
+                  }
+                />
+              ))}
+            </ol>
+
+            {(plan.aiExplanation || plan.aiStatus === 'PENDING') && (
+              <div className="card-brand mt-2">
+                <p className="flex items-center gap-2 font-heading text-lg font-semibold">
+                  <SparkIcon size={18} />
+                  Why this plan
+                </p>
+                <p className="mt-2 max-w-[65ch] text-sm leading-relaxed text-chalk/80">
+                  {plan.aiExplanation ?? 'The explanation is being written. It appears here in a few seconds.'}
+                </p>
+              </div>
+            )}
+          </section>
         </div>
       )}
 
       {plan && (
-        <>
-          {/* Planned vs Actual */}
-          <div className="card !p-0 overflow-hidden">
-            <div className="px-6 py-4 border-b" style={{ background: 'rgba(0,0,0,0.25)', borderColor: 'rgba(255,255,255,0.08)' }}>
-              <p className="section-label">Today at a glance</p>
-              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>Planned vs. what you've eaten{todayEntry && todayEntry.mealsCompleted > 0 ? ` · ${todayEntry.mealsCompleted} of ${plan.meals.length} meals` : ''}</p>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <span className="text-sm font-semibold text-slate-700">Calories</span>
-                  <div className="flex items-center gap-3 text-xs font-semibold">
-                    <span className="text-slate-500">Planned <span className="text-slate-800">{planned?.toLocaleString() ?? '—'} kcal</span></span>
-                    <span className="text-slate-300">|</span>
-                    <span className="text-slate-500">Logged <span className="text-slate-800">{actual?.toLocaleString() ?? '—'} kcal</span></span>
-                    {calDiff !== null && (
-                      <span
-                        className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                        style={
-                          Math.abs(calDiff) <= (planned ?? 0) * 0.1
-                            ? { background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }
-                            : calDiff > 0
-                            ? { background: 'rgba(239,68,68,0.15)',  color: '#fca5a5' }
-                            : { background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }
-                        }
-                      >
-                        {calDiff > 0 ? '+' : ''}{calDiff} kcal
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="relative h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-                  <div className="absolute inset-0 rounded-full bg-emerald-200"
-                       style={{ width: `${Math.min((planned ?? 0) / barScale, 1) * 100}%` }} />
-                  {actual && (
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(actual / barScale, 1) * 100}%` }}
-                      transition={{ duration: 1, ease: [.4,0,.2,1] }}
-                      className="absolute inset-y-0 left-0 rounded-full"
-                      style={{ background: actual > (planned ?? 0) * 1.1 ? '#ef4444' : '#16a34a' }}
-                    />
-                  )}
-                </div>
-                {!actual && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    Mark meals as eaten below, or log calories in{' '}
-                    <Link to="/progress" className="text-brand-600 font-semibold hover:underline">Progress</Link>
-                    {' '}to compare.
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                {[
-                  { label: 'Protein', value: `${Math.round(plan.totalProteinG)}g`, color: '#60a5fa' },
-                  { label: 'Carbs',   value: `${Math.round(plan.totalCarbsG)}g`,   color: '#fbbf24' },
-                  { label: 'Fat',     value: `${Math.round(plan.totalFatG)}g`,     color: '#f87171' },
-                ].map(({ label, value, color }) => (
-                  <div key={label} className="text-center py-3 rounded-xl"
-                       style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
-                    <p className="text-lg font-black" style={{ color }}>{value}</p>
-                    <p className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(255,255,255,0.62)' }}>{label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Daily macro rings */}
-          {targets && (
-          <div className="card">
-            <p className="section-label mb-5">Daily macros vs. your targets</p>
-            <div className="flex justify-around items-center">
-              <MacroRing label="Protein" value={Math.round(plan.totalProteinG)} max={targets.proteinG} color="#3b82f6" />
-              <MacroRing label="Carbs"   value={Math.round(plan.totalCarbsG)}   max={targets.carbsG}   color="#f59e0b" />
-              <MacroRing label="Fat"     value={Math.round(plan.totalFatG)}     max={targets.fatG}     color="#ef4444" />
-            </div>
-            {/* Total sugars include natural sugars, so no generic limit is shown (BR-MAC-07) */}
-            <p className="text-xs text-center mt-4" style={{ color: 'rgba(255,255,255,0.62)' }}>
-              Total sugars (incl. natural): <span className="font-semibold">{Math.round(plan.totalSugarG)} g</span>
-            </p>
-          </div>
-          )}
-
-          {/* Meals — expandable */}
-          <div className="space-y-3">
-            <p className="section-label">Today's meals</p>
-            {sortedMeals.map((meal, i) => (
-              <MealCard
-                key={meal.id}
-                meal={meal}
-                index={i}
-                target={slotTarget(meal)}
-                planId={plan.id}
-                onSwapped={setPlan}
-                onCompleted={(p, progress) => { setPlan(p); setTodayEntry(progress) }}
-                onReplace={() =>
-                  setChatTrigger(
-                    `Replace my ${meal.mealType.replace(/_/g, ' ').toLowerCase()} "${meal.name}" with something different`
-                  )
-                }
-              />
-            ))}
-          </div>
-
-          {/* AI explanation */}
-          {plan.aiExplanation && (
-            <div className="card-brand">
-              <div className="flex items-center gap-2.5 mb-3">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-                     style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}>
-                  <span className="text-white">✨</span>
-                </div>
-                <p className="section-label text-emerald-700">AI Dietitian Notes</p>
-              </div>
-              <p className="text-slate-700 text-sm leading-relaxed">{plan.aiExplanation}</p>
-            </div>
-          )}
-        </>
+        <ChatPanel
+          planId={plan.id}
+          onPlanUpdate={setPlan}
+          triggerMessage={chatTrigger}
+          onTriggerConsumed={() => setChatTrigger('')}
+        />
       )}
-
-    </div>
-
-    {/* Floating AI chat — only when a plan is active */}
-    {plan && (
-      <ChatPanel
-        planId={plan.id}
-        onPlanUpdate={setPlan}
-        triggerMessage={chatTrigger}
-        onTriggerConsumed={() => setChatTrigger('')}
-      />
-    )}
     </>
   )
 }

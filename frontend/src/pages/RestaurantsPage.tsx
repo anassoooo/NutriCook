@@ -1,21 +1,90 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import type { LocationDTO } from '../types'
+import { PinIcon } from '../components/Icons'
 
 type Tab = 'restaurants' | 'stores'
 
+const TABS: { value: Tab; label: string; singular: string }[] = [
+  { value: 'restaurants', label: 'Restaurants', singular: 'restaurant' },
+  { value: 'stores', label: 'Grocery stores', singular: 'store' },
+]
+
+/** The server searches this radius (app.osm.search-radius-meters). */
+const RADIUS_M = 2000
+
+interface Place extends LocationDTO {
+  distance: number
+  /** bearing in degrees, clockwise from north */
+  bearing: number
+}
+
+/** Distance and direction from the user, for sorting and drawing only. */
+function locate(from: { lat: number; lng: number }, to: LocationDTO): { distance: number; bearing: number } {
+  const rad = Math.PI / 180
+  const dLat = (to.latitude - from.lat) * rad
+  const dLng = (to.longitude - from.lng) * rad
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(from.lat * rad) * Math.cos(to.latitude * rad) * Math.sin(dLng / 2) ** 2
+  const distance = 2 * 6_371_000 * Math.asin(Math.sqrt(a))
+  const y = Math.sin(dLng) * Math.cos(to.latitude * rad)
+  const x = Math.cos(from.lat * rad) * Math.sin(to.latitude * rad) - Math.sin(from.lat * rad) * Math.cos(to.latitude * rad) * Math.cos(dLng)
+  const bearing = (Math.atan2(y, x) / rad + 360) % 360
+  return { distance, bearing }
+}
+
+const formatDistance = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1)} km`)
+
+/** You at the centre, every place where it really is (north up), within the search radius. */
+function Radar({ places, active, onPick }: { places: Place[]; active: number | null; onPick: (i: number) => void }) {
+  const R = 140
+  return (
+    <svg viewBox="-160 -160 320 320" className="h-auto w-full max-w-[320px]" role="img" aria-label={`Map of ${places.length} places within ${RADIUS_M / 1000} km`}>
+      <circle r={R} fill="#FFFFFF" stroke="#D9DED3" />
+      {[0.5, 1].map(f => (
+        <circle key={f} r={R * f} fill="none" stroke="#D9DED3" strokeDasharray={f === 1 ? undefined : '3 5'} />
+      ))}
+      <text x={4} y={-R * 0.5 - 4} fontSize={10} fill="#8E8795">1 km</text>
+      <text x={0} y={-R - 6} fontSize={11} fill="#8E8795" textAnchor="middle">N</text>
+      {places.map((p, i) => {
+        const r = Math.min(p.distance / RADIUS_M, 1) * R
+        const a = ((p.bearing - 90) * Math.PI) / 180
+        const on = active === i
+        return (
+          <circle
+            key={p.osmNodeId}
+            cx={r * Math.cos(a)}
+            cy={r * Math.sin(a)}
+            r={on ? 7 : 4.5}
+            fill={on ? '#2B1E33' : '#FFFFFF'}
+            stroke="#2B1E33"
+            strokeWidth={1.75}
+            onClick={() => onPick(i)}
+            className="cursor-pointer"
+          >
+            <title>{`${p.name || 'Unnamed'}, ${formatDistance(p.distance)}`}</title>
+          </circle>
+        )
+      })}
+      {/* you: a crosshair at the centre */}
+      <path d="M-9 0H9M0 -9V9" stroke="#2B1E33" strokeWidth={2} strokeLinecap="round" />
+      <circle r={13} fill="none" stroke="#2B1E33" strokeOpacity={0.25} />
+    </svg>
+  )
+}
+
 export default function RestaurantsPage() {
-  const [tab,       setTab]       = useState<Tab>('restaurants')
-  const [locations, setLocations] = useState<LocationDTO[]>([])
-  const [loading,   setLoading]   = useState(false)
-  const [error,     setError]     = useState('')
-  const [searched,  setSearched]  = useState(false)
+  const [tab, setTab] = useState<Tab>('restaurants')
+  const [places, setPlaces] = useState<Place[]>([])
+  const [active, setActive] = useState<number | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [searched, setSearched] = useState(false)
+  const current = TABS.find(t => t.value === tab)!
 
   const handleFind = () => {
-    if (!navigator.geolocation) { setError('Geolocation is not supported by your browser.'); return }
-    setLoading(true); setError('')
+    if (!navigator.geolocation) { setError('Your browser cannot share its location.'); return }
+    setLoading(true); setError(''); setActive(null)
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
@@ -23,138 +92,109 @@ export default function RestaurantsPage() {
             ? `/location/restaurants?lat=${coords.latitude}&lng=${coords.longitude}`
             : `/location/stores?lat=${coords.latitude}&lng=${coords.longitude}`
           const res = await api.get<LocationDTO[]>(endpoint)
-          setLocations(res.data)
+          const from = { lat: coords.latitude, lng: coords.longitude }
+          setPlaces(res.data.map(l => ({ ...l, ...locate(from, l) })).sort((a, b) => a.distance - b.distance))
           setSearched(true)
         } catch (err) {
           // MAP_UNAVAILABLE ("try again in a minute") is not the same as "nothing nearby"
-          setLocations([])
+          setPlaces([])
           setSearched(false)
           setError(toApiError(err).message)
         } finally { setLoading(false) }
       },
-      () => { setError('Location access denied. Please allow location access in your browser.'); setLoading(false) }
+      () => { setError('Location access is off. Allow it for this site in your browser, then try again.'); setLoading(false) },
     )
   }
 
-  const switchTab = (t: Tab) => { setTab(t); setLocations([]); setSearched(false); setError('') }
+  const switchTab = (t: Tab) => { setTab(t); setPlaces([]); setSearched(false); setError(''); setActive(null) }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div>
+      <header>
+        <h1 className="page-title">Nearby</h1>
+        <p className="page-subtitle">
+          Places to eat or shop within {RADIUS_M / 1000} km, from OpenStreetMap. Your exact position is never sent: it is
+          rounded to about 100 m first.
+        </p>
+      </header>
 
-      {/* Header */}
-      <div>
-        <h1 className="page-title">Find Nearby</h1>
-        <p className="page-subtitle">Healthy restaurants and grocery stores near you — powered by OpenStreetMap.</p>
-      </div>
-
-      {/* Controls */}
-      <div className="card flex items-center gap-4 flex-wrap">
-        <div className="flex rounded-xl p-1 gap-0.5" style={{ background: 'rgba(255,255,255,0.07)' }}>
-          {(['restaurants', 'stores'] as Tab[]).map(t => (
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <div className="flex gap-1.5" role="group" aria-label="Kind of place">
+          {TABS.map(t => (
             <button
-              key={t}
-              onClick={() => switchTab(t)}
-              className="px-4 py-2 rounded-lg text-sm font-semibold transition-all"
-              style={tab === t
-                ? { background: 'rgba(255,255,255,0.15)', color: 'white' }
-                : { color: 'rgba(255,255,255,0.62)' }}
+              key={t.value}
+              type="button"
+              aria-pressed={tab === t.value}
+              onClick={() => switchTab(t.value)}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                tab === t.value ? 'bg-ink text-chalk' : 'text-ink-soft hover:bg-wash hover:text-ink'
+              }`}
             >
-              {t === 'restaurants' ? '🍽️ Restaurants' : '🛒 Grocery Stores'}
+              {t.label}
             </button>
           ))}
         </div>
-
-        <button
-          onClick={handleFind}
-          disabled={loading}
-          className="btn-primary"
-        >
-          {loading ? (
-            <>
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-              Locating…
-            </>
-          ) : '📍 Find Near Me'}
+        <button type="button" onClick={handleFind} disabled={loading} className="btn-primary sm:ml-auto">
+          <PinIcon size={17} />
+          {loading ? 'Finding your location…' : 'Find near me'}
         </button>
-
-        {searched && locations.length > 0 && (
-          <span className="badge-gray ml-auto">{locations.length} results</span>
-        )}
       </div>
 
-      {/* Error */}
-      {error && (
-        <div role="alert" className="flex items-center gap-2 text-sm rounded-xl px-4 py-3" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5' }}>
-          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          {error}
-        </div>
-      )}
+      {error && <div role="alert" className="banner-error mt-6">{error}</div>}
 
-      {/* Results */}
-      <AnimatePresence mode="wait">
-        {locations.length > 0 && (
-          <motion.div
-            key="results"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="space-y-3"
-          >
-            {locations.map((loc, i) => (
-              <motion.div
-                key={loc.osmNodeId}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-                className="card-hover flex items-center gap-4"
-              >
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: 'rgba(16,185,129,0.15)' }}>
-                  {tab === 'restaurants' ? '🍽️' : '🛒'}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-slate-900 truncate">{loc.name || 'Unnamed location'}</p>
-                  {loc.address && (
-                    <p className="text-sm text-slate-400 truncate mt-0.5">{loc.address}</p>
-                  )}
-                  <a
-                    href={`https://www.openstreetmap.org/node/${loc.osmNodeId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-brand-600 hover:text-brand-700 font-medium mt-1 inline-block"
+      {places.length > 0 && (
+        <div className="mt-8 grid gap-8 md:grid-cols-[320px_minmax(0,1fr)] md:items-start">
+          <div className="md:sticky md:top-10">
+            <Radar places={places} active={active} onPick={setActive} />
+            <p className="mt-2 text-xs text-ink-faint">You are at the cross. North is up. Pick a dot or a name to see it in OpenStreetMap.</p>
+          </div>
+          <div>
+            <p className="text-sm text-ink-soft num">
+              {places.length} {places.length === 1 ? current.singular : current.label.toLowerCase()}, nearest first
+            </p>
+            <ol className="mt-2 divide-y divide-line border-y border-line">
+              {places.map((p, i) => (
+                <li key={p.osmNodeId}>
+                  <button
+                    type="button"
+                    onClick={() => setActive(i)}
+                    aria-current={active === i}
+                    className={`flex w-full items-baseline gap-4 px-2 py-3 text-left transition-colors ${active === i ? 'bg-paper' : 'hover:bg-wash'}`}
                   >
-                    View on OpenStreetMap →
-                  </a>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-slate-400">{loc.latitude.toFixed(4)}</p>
-                  <p className="text-xs text-slate-400">{loc.longitude.toFixed(4)}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {searched && locations.length === 0 && !loading && (
-        <div className="card text-center py-16">
-          <div className="text-5xl mb-3">🗺️</div>
-          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>No {tab} found</p>
-          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.58)' }}>Nothing within 2 km of your location.</p>
+                    <span className="w-14 shrink-0 text-sm font-semibold num">{formatDistance(p.distance)}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">{p.name || 'Unnamed place'}</span>
+                      {p.address && <span className="block truncate text-sm text-ink-soft">{p.address}</span>}
+                    </span>
+                  </button>
+                  {active === i && (
+                    <a
+                      href={`https://www.openstreetmap.org/?mlat=${p.latitude}&mlon=${p.longitude}#map=18/${p.latitude}/${p.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mb-3 ml-[4.5rem] inline-block text-sm font-semibold underline underline-offset-2"
+                    >
+                      Open in OpenStreetMap
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       )}
 
-      {!searched && !loading && (
-        <div className="card text-center py-16 border-dashed">
-          <div className="text-5xl mb-3">📍</div>
-          <p className="font-semibold" style={{ color: 'rgba(255,255,255,0.6)' }}>Ready to search</p>
-          <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.58)' }}>Click "Find Near Me" and allow location access.</p>
+      {searched && places.length === 0 && !loading && (
+        <div className="mt-8 rounded-panel border border-dashed border-line px-6 py-12 text-center">
+          <p className="font-heading text-xl font-semibold">No {tab} found</p>
+          <p className="mt-1 text-sm text-ink-soft">Nothing is mapped within {RADIUS_M / 1000} km of you.</p>
+        </div>
+      )}
+
+      {!searched && !loading && !error && (
+        <div className="mt-8 rounded-panel border border-dashed border-line px-6 py-12 text-center">
+          <p className="font-heading text-xl font-semibold">Where are you?</p>
+          <p className="mt-1 text-sm text-ink-soft">Choose “Find near me” and allow location access when your browser asks.</p>
         </div>
       )}
     </div>

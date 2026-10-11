@@ -4,6 +4,7 @@ import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { DietPlan } from '../types'
+import { ChatIcon, CloseIcon, SendIcon } from './Icons'
 
 /** Server limit (BR-AI-06). */
 export const MAX_MESSAGE_LENGTH = 500
@@ -20,15 +21,13 @@ interface Props {
   onTriggerConsumed?: () => void
 }
 
+const WELCOME =
+  'Ask about today\'s plan, or say what to change, for example "something lighter for dinner" or "no salmon, please". Any swap I suggest is checked against your allergies and limits before it is saved.'
+
 export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTriggerConsumed }: Props) {
   const { userId } = useAuth()
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: "Hi! I'm your AI dietitian 🥗 Ask me anything about today's plan, or tell me what you'd like to change — e.g. \"Replace dinner with something lighter\" or \"I don't like salmon\".",
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: WELCOME }])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -61,10 +60,7 @@ export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTrig
     } catch (err) {
       // RATE_LIMITED, AI_UNAVAILABLE, ... each have their own message (Constitution VIII)
       const message = toApiError(err).message
-      setMessages(prev => [
-        ...prev,
-        { role: 'assistant', content: message },
-      ])
+      setMessages(prev => [...prev, { role: 'assistant', content: message }])
     } finally {
       setLoading(false)
     }
@@ -72,107 +68,84 @@ export default function ChatPanel({ planId, onPlanUpdate, triggerMessage, onTrig
 
   return (
     <>
-      {/* Floating button */}
       <button
+        type="button"
         onClick={() => setOpen(v => !v)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-2xl transition-transform hover:scale-110 active:scale-95"
-        style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}
-        title="AI Dietitian"
+        aria-expanded={open}
+        aria-label={open ? 'Close the assistant' : 'Ask the assistant'}
+        className="fixed bottom-24 right-4 z-40 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-3 text-sm font-semibold text-chalk shadow-lift transition-colors hover:bg-brand-600 lg:bottom-8 lg:right-8"
       >
-        {open ? '✕' : '✨'}
+        {open ? <CloseIcon size={18} /> : <ChatIcon size={18} />}
+        <span className="hidden sm:inline">{open ? 'Close' : 'Ask the assistant'}</span>
       </button>
 
-      {/* Chat panel */}
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.96 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
-            className="fixed bottom-24 right-6 z-50 w-[360px] max-w-[calc(100vw-3rem)] rounded-2xl overflow-hidden flex flex-col"
-            style={{
-              background: 'white',
-              boxShadow: '0 24px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.06)',
-              height: 480,
-            }}
+          <motion.section
+            aria-label="Assistant"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 12 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="fixed bottom-40 right-4 z-40 flex h-[min(520px,calc(100vh-13rem))] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-panel border border-line bg-paper shadow-lift lg:bottom-24 lg:right-8"
           >
-            {/* Header */}
-            <div
-              className="px-5 py-4 flex items-center gap-3 shrink-0"
-              style={{ background: 'linear-gradient(135deg,#064e3b,#0d9488)' }}
-            >
-              <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg">✨</div>
-              <div>
-                <p className="font-bold text-white text-sm leading-tight">AI Dietitian</p>
-                <p className="text-emerald-300 text-xs">Powered by Groq · Llama 3.3</p>
-              </div>
-            </div>
+            <header className="border-b border-line px-5 py-4">
+              <p className="font-heading text-lg font-semibold">Assistant</p>
+              <p className="text-xs text-ink-faint">Proposes changes; the planner checks them</p>
+            </header>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'text-white rounded-br-sm'
-                        : 'bg-slate-100 text-slate-800 rounded-bl-sm'
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <p
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                      msg.role === 'user' ? 'rounded-br-md bg-ink text-chalk' : 'rounded-bl-md bg-wash text-ink'
                     }`}
-                    style={
-                      msg.role === 'user'
-                        ? { background: 'linear-gradient(135deg,#16a34a,#0d9488)' }
-                        : undefined
-                    }
                   >
                     {msg.content}
-                  </div>
+                  </p>
                 </div>
               ))}
 
               {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-100 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center">
-                    <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="flex justify-start" aria-label="The assistant is writing">
+                  <div className="flex gap-1.5 rounded-2xl rounded-bl-md bg-wash px-4 py-3">
+                    {[0, 150, 300].map(d => (
+                      <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-ink-faint" style={{ animationDelay: `${d}ms` }} />
+                    ))}
                   </div>
                 </div>
               )}
               <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
-            <div className="px-4 py-3 border-t border-slate-100 shrink-0 flex gap-2">
-              <input
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
-                placeholder="Ask me anything…"
-                maxLength={MAX_MESSAGE_LENGTH}
-                aria-describedby="chat-counter"
-                disabled={loading}
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/25 focus:border-brand-500 transition-all disabled:opacity-50"
-              />
-              <button
-                onClick={send}
-                aria-label="Send message"
-                disabled={!input.trim() || loading}
-                className="w-9 h-9 rounded-xl flex items-center justify-center text-white shrink-0 disabled:opacity-40 transition-opacity"
-                style={{ background: 'linear-gradient(135deg,#16a34a,#0d9488)' }}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              </button>
+            <div className="border-t border-line px-3 pb-2 pt-3">
+              <div className="flex gap-2">
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()}
+                  placeholder="Ask me anything…"
+                  maxLength={MAX_MESSAGE_LENGTH}
+                  aria-describedby="chat-counter"
+                  disabled={loading}
+                  className="input flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={send}
+                  aria-label="Send message"
+                  disabled={!input.trim() || loading}
+                  className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-ctl bg-ink text-chalk transition-opacity disabled:opacity-30"
+                >
+                  <SendIcon size={18} />
+                </button>
+              </div>
+              <p id="chat-counter" className="mt-1 text-right text-[11px] text-ink-faint num">
+                {input.length}/{MAX_MESSAGE_LENGTH}
+              </p>
             </div>
-            <p id="chat-counter" className="text-[10px] text-right px-4 pb-2 text-slate-400 tabular-nums">
-              {input.length}/{MAX_MESSAGE_LENGTH}
-            </p>
-          </motion.div>
+          </motion.section>
         )}
       </AnimatePresence>
     </>

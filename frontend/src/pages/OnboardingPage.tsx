@@ -1,568 +1,294 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import Tooltip from '@mui/material/Tooltip'
+import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { ActivityLevel, HealthGoal, DietaryRestriction, HealthCondition, UserProfile, Gender } from '../types'
 import { GENDER_OPTIONS } from '../types'
-
-const VIDEO_SRC =
-  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4'
-
-const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; sub: string; icon: string }[] = [
-  { value: 'SEDENTARY',         label: 'Sedentary',         sub: 'Desk job, little exercise', icon: '🪑' },
-  { value: 'LIGHTLY_ACTIVE',    label: 'Lightly active',    sub: '1–3 workouts / week',       icon: '🚶' },
-  { value: 'MODERATELY_ACTIVE', label: 'Moderately active', sub: '3–5 workouts / week',       icon: '🏃' },
-  { value: 'VERY_ACTIVE',       label: 'Very active',       sub: '6–7 workouts / week',       icon: '⚡' },
-  { value: 'EXTRA_ACTIVE',      label: 'Extra active',      sub: 'Athlete / physical job',    icon: '🏋️' },
-]
-
-const GOAL_OPTIONS: { value: HealthGoal; label: string; icon: string; color: string }[] = [
-  { value: 'LOSE_WEIGHT',     label: 'Lose weight',    icon: '⬇️', color: '#3b82f6' },
-  { value: 'MAINTAIN_WEIGHT', label: 'Maintain',       icon: '⚖️', color: '#16a34a' },
-  { value: 'GAIN_MUSCLE',     label: 'Gain muscle',    icon: '💪', color: '#f97316' },
-  { value: 'IMPROVE_HEALTH',  label: 'Improve health', icon: '❤️', color: '#ef4444' },
-]
-
-const RESTRICTION_STYLE: Record<string, { bg: string; text: string; border: string }> = {
-  PREFERENCE:  { bg: '#f0fdf4', text: '#16a34a', border: '#86efac' },
-  INTOLERANCE: { bg: '#fffbeb', text: '#d97706', border: '#fcd34d' },
-  ALLERGY:     { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5' },
-  RELIGIOUS:   { bg: '#eff6ff', text: '#2563eb', border: '#93c5fd' },
-}
+import { ACTIVITY_OPTIONS, GOAL_OPTIONS, PROFILE_BOUNDS, RESTRICTION_GROUPS } from '../lib/profileOptions'
+import { Wordmark } from '../components/Brand'
+import { CheckIcon } from '../components/Icons'
 
 const STEPS = [
-  { n: 1, label: 'Body metrics' },
-  { n: 2, label: 'Your goal'    },
-  { n: 3, label: 'Preferences'  },
+  { n: 1, label: 'Your body', hint: 'For your energy needs' },
+  { n: 2, label: 'Your goal', hint: 'Activity and aim' },
+  { n: 3, label: 'Allergies and diets', hint: 'What never goes on your plate' },
 ]
+
+function Option({ on, onClick, label, sub, kind = 'radio' }: { on: boolean; onClick: () => void; label: string; sub?: string | null; kind?: 'radio' | 'checkbox' }) {
+  return (
+    <button
+      type="button"
+      role={kind}
+      aria-checked={on}
+      onClick={onClick}
+      className={`flex w-full items-start gap-3 rounded-ctl border px-4 py-3 text-left transition-colors ${
+        on ? 'border-ink bg-paper' : 'border-line hover:border-ink-faint'
+      }`}
+    >
+      <span
+        className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center border-2 ${kind === 'radio' ? 'rounded-full' : 'rounded'} ${
+          on ? 'border-ink' + (kind === 'checkbox' ? ' bg-ink text-chalk' : '') : 'border-ink-faint'
+        }`}
+        aria-hidden
+      >
+        {on && (kind === 'radio' ? <span className="h-1.5 w-1.5 rounded-full bg-ink" /> : <CheckIcon size={10} strokeWidth={3} />)}
+      </span>
+      <span>
+        <span className="block text-sm font-semibold">{label}</span>
+        {sub && <span className="block text-xs text-ink-soft">{sub}</span>}
+      </span>
+    </button>
+  )
+}
 
 export default function OnboardingPage() {
   const { userId } = useAuth()
-  const navigate   = useNavigate()
+  const navigate = useNavigate()
 
-  // Redirect if profile is already complete (returning user hitting this URL directly)
+  // A returning user with a complete body profile goes straight to Today
   useEffect(() => {
     if (!userId) return
     api.get<UserProfile>(`/users/${userId}/profile`)
-      .then(r => { if (r.data.weightKg && r.data.heightCm) navigate('/dashboard', { replace: true }) })
+      .then(r => { if (r.data.weightKg && r.data.heightCm && r.data.dateOfBirth) navigate('/dashboard', { replace: true }) })
       .catch(() => {})
   }, [userId, navigate])
 
-  const [step,      setStep]      = useState(1)
-  const [saving,    setSaving]    = useState(false)
+  const [step, setStep] = useState(1)
+  const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
-  /* ── Step 1 fields ─────────────────────────────────── */
-  const [firstName,   setFirstName]   = useState('')
-  const [weightKg,    setWeightKg]    = useState('')
-  const [heightCm,    setHeightCm]    = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [weightKg, setWeightKg] = useState('')
+  const [heightCm, setHeightCm] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
-  const [gender,      setGender]      = useState<Gender>('MALE')
-  const [step1Error,  setStep1Error]  = useState('')
+  // no default: sex changes the energy formula, so the user chooses (BR-PRF-01)
+  const [gender, setGender] = useState<Gender | null>(null)
+  const [step1Error, setStep1Error] = useState('')
 
-  /* ── Step 2 fields ─────────────────────────────────── */
   const [activityLevel, setActivityLevel] = useState<ActivityLevel>('MODERATELY_ACTIVE')
-  const [healthGoal,    setHealthGoal]    = useState<HealthGoal>('IMPROVE_HEALTH')
+  const [healthGoal, setHealthGoal] = useState<HealthGoal>('IMPROVE_HEALTH')
 
-  /* ── Step 3 fields ─────────────────────────────────── */
-  const [allRestrictions,      setAllRestrictions]      = useState<DietaryRestriction[]>([])
-  const [allConditions,        setAllConditions]        = useState<HealthCondition[]>([])
+  const [allRestrictions, setAllRestrictions] = useState<DietaryRestriction[]>([])
+  const [allConditions, setAllConditions] = useState<HealthCondition[]>([])
   const [selectedRestrictions, setSelectedRestrictions] = useState<Set<number>>(new Set())
-  const [selectedConditions,   setSelectedConditions]   = useState<Set<number>>(new Set())
-  const [restrictionsStatus,   setRestrictionsStatus]   = useState<'loading' | 'ok' | 'error'>('loading')
-  const [conditionsStatus,     setConditionsStatus]     = useState<'loading' | 'ok' | 'error'>('loading')
+  const [selectedConditions, setSelectedConditions] = useState<Set<number>>(new Set())
+  const [optionsError, setOptionsError] = useState(false)
 
-  // Prefetch chips data immediately so step 3 is instant when the user arrives
+  // Fetched now so step 3 is instant
   useEffect(() => {
-    api.get<DietaryRestriction[]>('/dietary-restrictions')
-      .then(r => { setAllRestrictions(r.data); setRestrictionsStatus('ok') })
-      .catch(() => setRestrictionsStatus('error'))
-    api.get<HealthCondition[]>('/health-conditions')
-      .then(r => { setAllConditions(r.data); setConditionsStatus('ok') })
-      .catch(() => setConditionsStatus('error'))
+    Promise.all([api.get<DietaryRestriction[]>('/dietary-restrictions'), api.get<HealthCondition[]>('/health-conditions')])
+      .then(([r, c]) => { setAllRestrictions(r.data); setAllConditions(c.data) })
+      .catch(() => setOptionsError(true))
   }, [])
 
-  /* ── Navigation ────────────────────────────────────── */
   const goNext = () => {
     if (step === 1) {
       const w = parseFloat(weightKg)
       const h = parseFloat(heightCm)
-      if (!weightKg || !heightCm || isNaN(w) || isNaN(h)) {
-        setStep1Error('Weight and height are required — they\'re used to calculate your daily calorie target.')
+      // BR-PRF-01: targets need all of these; BR-PRF-03 ranges. The server checks again.
+      if (!dateOfBirth || !gender || !weightKg || !heightCm || isNaN(w) || isNaN(h)) {
+        setStep1Error('Date of birth, sex, weight and height are all needed to work out your daily target.')
         return
       }
-      // Mirrors BR-PRF-03; the server re-validates
-      if (w < 30 || w > 300) { setStep1Error('Enter a valid weight (30–300 kg).'); return }
-      if (h < 120 || h > 230) { setStep1Error('Enter a valid height (120–230 cm).'); return }
+      if (w < PROFILE_BOUNDS.weightKg.min || w > PROFILE_BOUNDS.weightKg.max) {
+        setStep1Error(`Weight must be between ${PROFILE_BOUNDS.weightKg.min} and ${PROFILE_BOUNDS.weightKg.max} kg.`); return
+      }
+      if (h < PROFILE_BOUNDS.heightCm.min || h > PROFILE_BOUNDS.heightCm.max) {
+        setStep1Error(`Height must be between ${PROFILE_BOUNDS.heightCm.min} and ${PROFILE_BOUNDS.heightCm.max} cm.`); return
+      }
       setStep1Error('')
     }
     setStep(s => s + 1)
   }
 
-  const goBack = () => setStep(s => s - 1)
+  const toggle = (set: typeof setSelectedRestrictions, id: number) =>
+    set(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
 
+  /** Saves everything, then plans the first day so Today opens on a full plate. */
   const handleFinish = async () => {
     if (!userId) return
     setSaving(true); setSaveError('')
     try {
       await api.put(`/users/${userId}/profile`, {
-        firstName:     firstName || null,
-        weightKg:      parseFloat(weightKg),
-        heightCm:      parseFloat(heightCm),
-        dateOfBirth:   dateOfBirth || null,
+        firstName: firstName || null,
+        weightKg: parseFloat(weightKg),
+        heightCm: parseFloat(heightCm),
+        dateOfBirth,
         gender,
         activityLevel,
         healthGoal,
         // "Today" is the user's own calendar day (BR-TIM-01)
-        timezone:      Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       })
-      // Save chip selections in parallel
       await Promise.all([
-        ...[...selectedRestrictions].map(id =>
-          api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)
-        ),
-        ...[...selectedConditions].map(id =>
-          api.post(`/users/${userId}/profile/health-conditions/${id}`)
-        ),
+        ...[...selectedRestrictions].map(id => api.post(`/users/${userId}/profile/dietary-restrictions/${id}`)),
+        ...[...selectedConditions].map(id => api.post(`/users/${userId}/profile/health-conditions/${id}`)),
       ])
+      // Best effort: if it cannot be planned (e.g. an ineligible profile), Today explains why
+      await api.post(`/users/${userId}/diet-plans/generate`).catch(() => {})
       navigate('/dashboard', { replace: true })
     } catch (err) {
-      setSaveError(toApiError(err).message)
+      const e = toApiError(err)
+      setSaveError(e.detail ?? e.message)
       setSaving(false)
     }
   }
 
-  const toggleRestriction = (id: number) =>
-    setSelectedRestrictions(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
-
-  const toggleCondition = (id: number) =>
-    setSelectedConditions(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
-
-  /* ── Shared chip button ────────────────────────────── */
-  function ChipBtn({ label, selected, style, onClick }: {
-    label: string; selected: boolean
-    style: { bg: string; text: string; border: string }
-    onClick: () => void
-  }) {
-    return (
-      <button type="button" onClick={onClick}
-        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-all duration-150"
-        style={selected
-          ? { background: style.bg, color: style.text, borderColor: style.border }
-          : { background: 'white', color: '#94a3b8', borderColor: '#e2e8f0' }}>
-        {selected && (
-          <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-          </svg>
-        )}
-        {label}
-      </button>
-    )
-  }
-
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden bg-black">
+    <div className="min-h-screen lg:grid lg:grid-cols-[360px_1fr]">
+      {/* Steps */}
+      <aside className="border-b border-line px-6 py-6 lg:border-b-0 lg:border-r lg:px-10 lg:py-10">
+        <Wordmark to="/" />
+        <p className="mt-8 hidden max-w-[28ch] text-ink-soft lg:block">
+          Three short steps, and NutriCook plans your first day of meals.
+        </p>
+        <ol className="mt-6 flex gap-6 lg:mt-10 lg:flex-col lg:gap-5" aria-label="Steps">
+          {STEPS.map(s => {
+            const done = step > s.n
+            const current = step === s.n
+            return (
+              <li key={s.n} className="flex items-center gap-3" aria-current={current ? 'step' : undefined}>
+                <span
+                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-semibold ${
+                    done ? 'bg-ink text-chalk' : current ? 'border-2 border-ink text-ink' : 'border border-line text-ink-faint'
+                  }`}
+                >
+                  {done ? <CheckIcon size={15} strokeWidth={2.5} /> : s.n}
+                </span>
+                <span className="hidden sm:block">
+                  <span className={`block text-sm font-semibold ${current || done ? 'text-ink' : 'text-ink-faint'}`}>{s.label}</span>
+                  <span className="hidden text-xs text-ink-faint lg:block">{s.hint}</span>
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      </aside>
 
-      {/* Video background */}
-      <video
-        autoPlay loop muted playsInline
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
-      >
-        <source src={VIDEO_SRC} type="video/mp4" />
-      </video>
-
-      {/* Dark veil */}
-      <div className="absolute inset-0 bg-black/55 z-[1]" />
-
-      {/* Subtle dot grid */}
-      <div className="fixed inset-0 pointer-events-none opacity-[0.04] z-[2]"
-           style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
-
-      {/* Logo */}
-      <motion.div
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8 text-center relative z-10"
-      >
-        <div className="inline-flex items-center gap-2.5">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
-               style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)' }}>
-            <span className="text-white font-black text-lg">N</span>
-          </div>
-          <span className="text-white font-black text-xl tracking-tight">NutriCook</span>
-        </div>
-        <p className="text-emerald-300 text-sm mt-2">Set up your profile in 3 quick steps</p>
-      </motion.div>
-
-      {/* Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 24, scale: 0.97 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ delay: 0.1, duration: 0.4, ease: [.4,0,.2,1] }}
-        className="relative z-10 w-full max-w-lg rounded-3xl overflow-hidden"
-        style={{
-          background: 'rgba(255,255,255,0.93)',
-          backdropFilter: 'blur(28px)',
-          WebkitBackdropFilter: 'blur(28px)',
-          border: '1px solid rgba(255,255,255,0.55)',
-          boxShadow: '0 32px 80px rgba(0,0,0,.55)',
-        }}
-      >
-
-        {/* Step indicator */}
-        <div className="px-8 pt-8 pb-5 border-b border-slate-100">
-          <div className="flex items-start">
-            {STEPS.map((s, i) => (
-              <div key={s.n} className="flex items-start flex-1">
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black transition-all duration-300 ${
-                    step > s.n
-                      ? 'bg-brand-600 text-white'
-                      : step === s.n
-                      ? 'bg-brand-600 text-white ring-4 ring-brand-100'
-                      : 'bg-slate-100 text-slate-400'
-                  }`}>
-                    {step > s.n
-                      ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-                        </svg>
-                      : s.n}
+      {/* Step content */}
+      <main className="px-6 py-10 lg:px-16 lg:py-16">
+        <div className="max-w-xl">
+          {step === 1 && (
+            <section aria-labelledby="s1">
+              <h1 id="s1" className="page-title">About your body</h1>
+              <p className="page-subtitle">Your daily energy target is worked out from these, with the Mifflin-St Jeor formula.</p>
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <label className="sm:col-span-2">
+                  <span className="label">First name <span className="font-normal text-ink-faint">(optional)</span></span>
+                  <input className="input" value={firstName} onChange={e => setFirstName(e.target.value)} autoComplete="given-name" />
+                </label>
+                <label>
+                  <span className="label">Date of birth</span>
+                  <input className="input" type="date" value={dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={e => setDateOfBirth(e.target.value)} />
+                </label>
+                <fieldset>
+                  <legend className="label">Sex</legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    {GENDER_OPTIONS.map(g => (
+                      <button
+                        key={g.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={gender === g.value}
+                        onClick={() => setGender(g.value)}
+                        className={`rounded-ctl border py-2.5 text-sm font-semibold transition-colors ${
+                          gender === g.value ? 'border-ink bg-ink text-chalk' : 'border-line hover:border-ink-faint'
+                        }`}
+                      >
+                        {g.label}
+                      </button>
+                    ))}
                   </div>
-                  <span className={`text-[10px] font-semibold mt-1.5 whitespace-nowrap transition-colors ${
-                    step === s.n ? 'text-brand-600' : step > s.n ? 'text-slate-400' : 'text-slate-300'
-                  }`}>
-                    {s.label}
-                  </span>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div className={`flex-1 h-0.5 mt-4 mx-3 rounded-full transition-all duration-500 ${
-                    step > s.n ? 'bg-brand-500' : 'bg-slate-200'
-                  }`} />
-                )}
+                </fieldset>
+                <label>
+                  <span className="label">Weight (kg)</span>
+                  <input className="input num" type="number" step="0.1" inputMode="decimal" {...PROFILE_BOUNDS.weightKg} value={weightKg} onChange={e => setWeightKg(e.target.value)} />
+                </label>
+                <label>
+                  <span className="label">Height (cm)</span>
+                  <input className="input num" type="number" inputMode="numeric" {...PROFILE_BOUNDS.heightCm} value={heightCm} onChange={e => setHeightCm(e.target.value)} />
+                </label>
               </div>
-            ))}
-          </div>
-        </div>
+              {step1Error && <p role="alert" className="banner-error mt-5">{step1Error}</p>}
+            </section>
+          )}
 
-        {/* Step content */}
-        <div className="px-8 pt-6 pb-8">
-          <AnimatePresence mode="wait">
+          {step === 2 && (
+            <section aria-labelledby="s2">
+              <h1 id="s2" className="page-title">What are you aiming for?</h1>
+              <p className="page-subtitle">You can change both later in your profile.</p>
+              <h2 className="mt-8 text-sm font-semibold">How active is an average week?</h2>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Activity">
+                {ACTIVITY_OPTIONS.map(o => (
+                  <Option key={o.value} on={activityLevel === o.value} onClick={() => setActivityLevel(o.value)} label={o.label} sub={o.sub} />
+                ))}
+              </div>
+              <h2 className="mt-8 text-sm font-semibold">Your goal</h2>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Goal">
+                {GOAL_OPTIONS.map(o => (
+                  <Option key={o.value} on={healthGoal === o.value} onClick={() => setHealthGoal(o.value)} label={o.label} sub={o.sub} />
+                ))}
+              </div>
+            </section>
+          )}
 
-            {/* ── STEP 1: Body metrics ─────────────────── */}
-            {step === 1 && (
-              <motion.div
-                key="step1"
-                initial={{ opacity: 0, x: 32 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -32 }}
-                transition={{ duration: 0.2 }}
-              >
-                <h2 className="text-xl font-black text-slate-900 mb-1">Body metrics</h2>
-                <p className="text-sm text-slate-400 mb-6">Used to compute your personal daily calorie target (TDEE).</p>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="label">
-                      First name
-                      <span className="text-xs font-normal text-slate-400 ml-1">(optional)</span>
-                    </label>
-                    <input
-                      className="input"
-                      type="text"
-                      placeholder="Anas"
-                      value={firstName}
-                      onChange={e => setFirstName(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="label">
-                        Weight (kg) <span className="text-red-400 ml-0.5">*</span>
-                      </label>
-                      <input
-                        className="input"
-                        type="number"
-                        step="0.1"
-                        placeholder="70"
-                        value={weightKg}
-                        onChange={e => setWeightKg(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="label">
-                        Height (cm) <span className="text-red-400 ml-0.5">*</span>
-                      </label>
-                      <input
-                        className="input"
-                        type="number"
-                        placeholder="175"
-                        value={heightCm}
-                        onChange={e => setHeightCm(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="label">
-                        Date of birth
-                        <span className="text-xs font-normal text-slate-400 ml-1">(optional)</span>
-                      </label>
-                      <input
-                        className="input"
-                        type="date"
-                        value={dateOfBirth}
-                        onChange={e => setDateOfBirth(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <label className="label">Gender</label>
-                      <div className="flex gap-2 h-[42px]">
-                        {GENDER_OPTIONS.map(({ value: g, label }) => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => setGender(g)}
-                            className={`flex-1 rounded-xl border text-sm font-semibold transition-all ${
-                              gender === g
-                                ? 'border-brand-500 bg-brand-50 text-brand-700'
-                                : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {step1Error && (
-                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
-                      <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                      {step1Error}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* ── STEP 2: Goal & Activity ──────────────── */}
-            {step === 2 && (
-              <motion.div
-                key="step2"
-                initial={{ opacity: 0, x: 32 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -32 }}
-                transition={{ duration: 0.2 }}
-              >
-                <h2 className="text-xl font-black text-slate-900 mb-1">Your goal</h2>
-                <p className="text-sm text-slate-400 mb-5">This shapes how your AI meal plan is structured.</p>
-
-                <div className="space-y-5">
-                  {/* Health goal */}
-                  <div>
-                    <p className="label mb-2">What are you working towards?</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {GOAL_OPTIONS.map(({ value, label, icon, color }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setHealthGoal(value)}
-                          className={`relative flex flex-col items-center gap-1.5 p-4 rounded-xl border transition-all text-center ${
-                            healthGoal === value
-                              ? 'border-brand-400 bg-brand-50/70 shadow-sm'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="text-2xl">{icon}</span>
-                          <span className={`text-xs font-semibold leading-tight ${healthGoal === value ? 'text-brand-700' : 'text-slate-700'}`}>
-                            {label}
-                          </span>
-                          {healthGoal === value && (
-                            <div className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center"
-                                 style={{ background: color }}>
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/>
-                              </svg>
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Activity level */}
-                  <div>
-                    <p className="label mb-2">How active are you?</p>
-                    <div className="space-y-1.5">
-                      {ACTIVITY_OPTIONS.map(({ value, label, sub, icon }) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setActivityLevel(value)}
-                          className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
-                            activityLevel === value
-                              ? 'border-brand-400 bg-brand-50/70'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span className="text-lg shrink-0">{icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-semibold ${activityLevel === value ? 'text-brand-700' : 'text-slate-800'}`}>
-                              {label}
-                            </p>
-                            <p className="text-xs text-slate-400">{sub}</p>
-                          </div>
-                          {activityLevel === value && (
-                            <svg className="w-4 h-4 text-brand-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-                            </svg>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ── STEP 3: Dietary preferences ─────────── */}
-            {step === 3 && (
-              <motion.div
-                key="step3"
-                initial={{ opacity: 0, x: 32 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -32 }}
-                transition={{ duration: 0.2 }}
-              >
-                <h2 className="text-xl font-black text-slate-900 mb-1">Dietary preferences</h2>
-                <p className="text-sm text-slate-400 mb-5">
-                  The AI uses these when building your meal plans.
-                  <span className="block mt-0.5">You can update them any time in your profile.</span>
-                </p>
-
-                <div className="space-y-5">
-                  {/* Dietary restrictions */}
-                  <div>
-                    <p className="label mb-2">Diet & intolerances</p>
-                    {restrictionsStatus === 'loading' && (
-                      <p className="text-sm text-slate-400">Loading options…</p>
-                    )}
-                    {restrictionsStatus === 'error' && (
-                      <p className="text-sm text-amber-600">
-                        Could not load options — the backend may not be running.
-                        You can set these later in your profile.
-                      </p>
-                    )}
-                    {restrictionsStatus === 'ok' && (
-                      <div className="flex flex-wrap gap-2">
-                        {allRestrictions.map(r => (
-                          <Tooltip key={r.id} title={r.description ?? ''} placement="top" arrow>
-                            <span>
-                              <ChipBtn
-                                label={r.name}
-                                selected={selectedRestrictions.has(r.id)}
-                                style={RESTRICTION_STYLE[r.type] ?? RESTRICTION_STYLE.PREFERENCE}
-                                onClick={() => toggleRestriction(r.id)}
-                              />
-                            </span>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Health conditions */}
-                  <div>
-                    <p className="label mb-2">Health conditions</p>
-                    {conditionsStatus === 'loading' && (
-                      <p className="text-sm text-slate-400">Loading options…</p>
-                    )}
-                    {conditionsStatus === 'error' && (
-                      <p className="text-sm text-amber-600">
-                        Could not load options — you can set these later in your profile.
-                      </p>
-                    )}
-                    {conditionsStatus === 'ok' && (
-                      <div className="flex flex-wrap gap-2">
-                        {allConditions.map(c => (
-                          <Tooltip key={c.id} title={c.description ?? ''} placement="top" arrow>
-                            <span>
-                              <ChipBtn
-                                label={c.name}
-                                selected={selectedConditions.has(c.id)}
-                                style={{ bg: '#faf5ff', text: '#7c3aed', border: '#c4b5fd' }}
-                                onClick={() => toggleCondition(c.id)}
-                              />
-                            </span>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {saveError && (
-                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-600">
-                      <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                      </svg>
-                      {saveError}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-          </AnimatePresence>
-
-          {/* Navigation */}
-          <div className="flex items-center justify-between mt-8 pt-5 border-t border-slate-100">
-            <div>
-              {step > 1 && (
-                <button type="button" onClick={goBack}
-                        className="text-sm font-semibold text-slate-400 hover:text-slate-600 transition-colors">
-                  ← Back
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Link to="/dashboard"
-                    className="text-sm text-slate-400 hover:text-slate-500 transition-colors">
-                Skip for now
-              </Link>
-
-              {step < 3 ? (
-                <button type="button" onClick={goNext} className="btn-primary">
-                  Continue →
-                </button>
+          {step === 3 && (
+            <section aria-labelledby="s3">
+              <h1 id="s3" className="page-title">What should never be on your plate?</h1>
+              <p className="page-subtitle">Every plan and every swap respects these. Skip this step if none apply.</p>
+              {optionsError ? (
+                <p className="banner-error mt-8">The options could not be loaded. You can add them later in your profile.</p>
               ) : (
-                <button type="button" onClick={handleFinish} disabled={saving} className="btn-primary">
-                  {saving ? (
-                    <>
-                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                      </svg>
-                      Saving…
-                    </>
-                  ) : '✓ Finish setup'}
-                </button>
+                <div className="mt-8 space-y-6">
+                  {RESTRICTION_GROUPS.map(group => {
+                    const items = allRestrictions.filter(r => r.type === group.type)
+                    if (!items.length) return null
+                    return (
+                      <div key={group.type}>
+                        <h2 className="text-sm font-semibold">{group.label}</h2>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                          {items.map(r => (
+                            <Option key={r.id} kind="checkbox" on={selectedRestrictions.has(r.id)} onClick={() => toggle(setSelectedRestrictions, r.id)} label={r.name} sub={r.description} />
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {allConditions.length > 0 && (
+                    <div>
+                      <h2 className="text-sm font-semibold">Health conditions</h2>
+                      <p className="text-xs text-ink-soft">Plans then stay within the limits for each condition. This is not medical advice.</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {allConditions.map(c => (
+                          <Option key={c.id} kind="checkbox" on={selectedConditions.has(c.id)} onClick={() => toggle(setSelectedConditions, c.id)} label={c.name} sub={c.description} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
+              {saveError && <p role="alert" className="banner-error mt-6">{saveError}</p>}
+            </section>
+          )}
+
+          <div className="mt-10 flex items-center gap-3 border-t border-line pt-6">
+            {step > 1 && (
+              <button type="button" onClick={() => setStep(s => s - 1)} className="btn-secondary" disabled={saving}>
+                Back
+              </button>
+            )}
+            {step < 3 ? (
+              <button type="button" onClick={goNext} className="btn-primary">Continue</button>
+            ) : (
+              <button type="button" onClick={handleFinish} disabled={saving} className="btn-primary">
+                {saving ? 'Planning your first day…' : 'Plan my first day'}
+              </button>
+            )}
+            <span className="ml-auto text-sm text-ink-faint num">Step {step} of 3</span>
           </div>
         </div>
-      </motion.div>
-
-      <p className="relative z-10 text-emerald-400/60 text-xs mt-6 text-center">
-        Your information is private and used only to personalise your meal plans.
-      </p>
+      </main>
     </div>
   )
 }

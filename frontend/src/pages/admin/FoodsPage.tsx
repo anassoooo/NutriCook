@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import api from '../../lib/api'
 import { toApiError, type FieldError } from '../../lib/errors'
 import type { CatalogFood, FoodRole, Page } from '../../types'
+import { ROLE_COLORS } from '../../lib/roles'
 
 /** The 14 allergens of EU Regulation 1169/2011 (BR-SAF-01). */
 const ALLERGENS = [
@@ -58,7 +59,7 @@ function Checkboxes({ legend, options, value, onChange }: {
       <legend className="label">{legend}</legend>
       <div className="flex flex-wrap gap-x-4 gap-y-1">
         {options.map(o => (
-          <label key={o} className="flex items-center gap-1.5 text-xs text-slate-300">
+          <label key={o} className="flex items-center gap-1.5 text-xs text-ink">
             <input
               type="checkbox"
               checked={value.includes(o)}
@@ -143,17 +144,17 @@ function FoodEditor({ food, onSaved, onCancel }: {
           </label>
         ))}
       </div>
-      <p className="text-xs text-slate-400">Values are per 100 g, in the state above. Ticking no allergen declares that the food contains none of the 14.</p>
+      <p className="text-xs text-ink-soft">Values are per 100 g, in the state above. Ticking no allergen declares that the food contains none of the 14.</p>
       <Checkboxes legend="Allergens" options={ALLERGENS} value={form.allergens} onChange={v => set('allergens', v)} />
       <Checkboxes legend="Diet flags" options={DIET_FLAGS} value={form.dietFlags} onChange={v => set('dietFlags', v)} />
       <Checkboxes legend="Meal slots" options={SLOTS} value={form.suitableSlots} onChange={v => set('suitableSlots', v)} />
-      <label className="flex items-center gap-1.5 text-xs text-slate-300">
+      <label className="flex items-center gap-1.5 text-xs text-ink">
         <input type="checkbox" checked={form.meat} onChange={e => set('meat', e.target.checked)} />
         Land-animal meat
       </label>
 
       {error && (
-        <div role="alert" className="text-sm text-red-300">
+        <div role="alert" className="text-sm text-alert">
           <p>{error}</p>
           {fieldErrors.length > 0 && (
             <ul className="list-disc pl-5 text-xs mt-1">
@@ -165,7 +166,7 @@ function FoodEditor({ food, onSaved, onCancel }: {
 
       <div className="flex gap-3">
         <button type="submit" className="btn-primary" disabled={busy}>{busy ? 'Saving…' : 'Save food'}</button>
-        <button type="button" className="text-sm text-slate-400" onClick={onCancel}>Cancel</button>
+        <button type="button" className="btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   )
@@ -240,12 +241,12 @@ export default function FoodsPage() {
         </select>
       </div>
 
-      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+      {error && <p role="alert" className="text-sm text-alert">{error}</p>}
 
       <div className="card !p-0 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-slate-400">
+            <tr className="text-left text-xs text-ink-soft">
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Role</th>
               <th className="px-4 py-3 text-right">kcal</th>
@@ -256,14 +257,19 @@ export default function FoodsPage() {
           </thead>
           <tbody>
             {result?.items.map(f => (
-              <tr key={f.id} className={f.active ? '' : 'opacity-50'} style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <td className="px-4 py-2.5 text-slate-200">{f.name}{!f.active && ' (inactive)'}</td>
-                <td className="px-4 py-2.5 text-slate-400">{label(f.role)}</td>
+              <tr key={f.id} className={f.active ? '' : 'opacity-50'} style={{ borderTop: "1px solid #D9DED3" }}>
+                <td className="px-4 py-2.5 text-ink">{f.name}{!f.active && ' (inactive)'}</td>
+                <td className="px-4 py-2.5 text-ink-soft">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full" style={{ background: ROLE_COLORS[f.role] }} aria-hidden />
+                    {label(f.role)}
+                  </span>
+                </td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{f.caloriesPer100g}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-slate-400">
+                <td className="px-4 py-2.5 text-right tabular-nums text-ink-soft">
                   {f.proteinPer100g} / {f.carbsPer100g} / {f.fatPer100g}
                 </td>
-                <td className="px-4 py-2.5 text-xs text-slate-400">{f.origin === 'SEED' ? 'Seed' : 'Admin'}</td>
+                <td className="px-4 py-2.5 text-xs text-ink-soft">{f.origin === 'SEED' ? 'Seed' : 'Admin'}</td>
                 <td className="px-4 py-2.5 text-right whitespace-nowrap space-x-3">
                   {f.origin === 'ADMIN' && (
                     <button type="button" className="text-xs underline" onClick={() => setEditing(f)}>Edit</button>
@@ -281,7 +287,7 @@ export default function FoodsPage() {
       {result && result.totalPages > 1 && (
         <div className="flex items-center gap-3 text-sm">
           <button type="button" disabled={page === 0} onClick={() => setPage(p => p - 1)} className="underline disabled:opacity-40">Previous</button>
-          <span className="text-slate-400">Page {page + 1} of {result.totalPages} · {result.totalItems} foods</span>
+          <span className="text-ink-soft">Page {page + 1} of {result.totalPages} · {result.totalItems} foods</span>
           <button type="button" disabled={page + 1 >= result.totalPages} onClick={() => setPage(p => p + 1)} className="underline disabled:opacity-40">Next</button>
         </div>
       )}

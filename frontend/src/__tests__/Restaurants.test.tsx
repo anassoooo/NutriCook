@@ -26,7 +26,7 @@ describe('RestaurantsPage', () => {
     apiGet.mockImplementation((url?: string) => (url ? Promise.reject(error) : Promise.resolve({ data: [] })))
     render(<RestaurantsPage />)
 
-    await userEvent.click(screen.getByRole('button', { name: /Find Near Me/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Find near me/ }))
 
     expect(apiGet).toHaveBeenCalledWith('/location/restaurants?lat=36.8065&lng=10.1815')
     expect(await screen.findByRole('alert')).toHaveTextContent(ERROR_MESSAGES.MAP_UNAVAILABLE)
@@ -37,7 +37,7 @@ describe('RestaurantsPage', () => {
     apiGet.mockResolvedValue({ data: [] })
     render(<RestaurantsPage />)
 
-    await userEvent.click(screen.getByRole('button', { name: /Find Near Me/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Find near me/ }))
 
     expect(await screen.findByText('No restaurants found')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()

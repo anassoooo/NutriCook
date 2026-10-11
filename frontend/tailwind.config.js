@@ -1,51 +1,52 @@
 /** @type {import('tailwindcss').Config} */
+// NutriCook design tokens: "the market plate". Colour is reserved for food data
+// (the four ingredient colours); everything else is aubergine ink on chalk.
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        brand: {
-          50:  '#ecfdf5',
-          100: '#d1fae5',
-          200: '#a7f3d0',
-          300: '#6ee7b7',
-          400: '#34d399',
-          500: '#10b981', // Emerald 500
-          600: '#059669',
-          700: '#047857',
-          800: '#065f46',
-          900: '#064e3b',
-          950: '#022c22',
+        chalk: '#F3F5F1',
+        paper: '#FFFFFF',
+        ink: {
+          DEFAULT: '#2B1E33', // aubergine
+          soft: '#5E5466',
+          faint: '#8E8795',
         },
-        light: {
-          bg: '#f8fafc',
-          card: '#ffffff',
-          border: '#e2e8f0',
-        }
+        line: '#D9DED3',
+        wash: '#E8ECE4',
+        // food roles and macros (BR-CMP-02): one colour per role, everywhere
+        harissa: { DEFAULT: '#C2362B', wash: '#F6E1DE' }, // protein
+        semolina: { DEFAULT: '#D49B16', wash: '#F7EDD2' }, // carbs
+        cucumber: { DEFAULT: '#2F8C6B', wash: '#DCEEE6' }, // fruit and vegetables
+        olive: { DEFAULT: '#8A8A1F', wash: '#EDEDD3' }, // fat
+        // states
+        alert: { DEFAULT: '#B4232A', wash: '#FBE7E6' },
+        caution: { DEFAULT: '#8A5A00', wash: '#FFF3D6' },
+        // kept for older class names; maps onto the aubergine ink
+        brand: {
+          50: '#F4F1F6', 100: '#E9E3EE', 200: '#D3C7DC', 300: '#B3A1C0',
+          400: '#8B739B', 500: '#5E4A6E', 600: '#43334F', 700: '#2B1E33',
+          800: '#21172A', 900: '#18101F', 950: '#100A15',
+        },
       },
       fontFamily: {
-        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        heading: ['Outfit', 'system-ui', 'sans-serif'],
+        sans: ['"Instrument Sans"', 'system-ui', 'sans-serif'],
+        heading: ['"Bricolage Grotesque"', '"Instrument Sans"', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        ctl: '10px', // controls
+        panel: '18px', // the few surfaces that are panels
       },
       boxShadow: {
-        card:       '0 10px 40px -10px rgba(0, 0, 0, 0.08)',
-        'card-md':  '0 20px 40px -10px rgba(0, 0, 0, 0.1)',
-        brand:      '0 8px 24px -4px rgba(16, 185, 129, 0.3)',
-        glass:      '0 8px 32px 0 rgba(0, 0, 0, 0.1)',
-      },
-      animation: {
-        'fade-in':  'fadeIn 0.35s ease-out forwards',
-        'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'scale-in': 'scaleIn 0.3s ease-out forwards',
-        'float':    'float 6s ease-in-out infinite',
-        'pulse-glow': 'pulseGlow 3s ease-in-out infinite',
+        lift: '0 1px 0 rgba(43,30,51,0.04), 0 8px 24px -16px rgba(43,30,51,0.35)',
       },
       keyframes: {
-        fadeIn:  { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-        scaleIn: { '0%': { opacity: '0', transform: 'scale(0.95)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
-        float:   { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-12px)' } },
-        pulseGlow: { '0%, 100%': { opacity: 1, boxShadow: '0 0 0 0 rgba(16,185,129,0)' }, '50%': { opacity: .8, boxShadow: '0 0 0 12px rgba(16,185,129,0.15)' } },
+        rise: { '0%': { opacity: '0', transform: 'translateY(6px)' }, '100%': { opacity: '1', transform: 'none' } },
+      },
+      animation: {
+        'fade-in': 'rise 0.25s ease-out both',
+        rise: 'rise 0.25s ease-out both',
       },
     },
   },

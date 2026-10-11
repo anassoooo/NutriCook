@@ -127,6 +127,6 @@ describe('ProgressPage', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Some fields are invalid.')
-    expect(alert).toHaveTextContent('waterMl: must be between 0 and 10000')
+    expect(alert).toHaveTextContent('Water (ml): must be between 0 and 10000')
   })
 })

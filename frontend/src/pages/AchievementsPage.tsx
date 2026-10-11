@@ -1,109 +1,74 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import api from '../lib/api'
 import { toApiError } from '../lib/errors'
 import { useAuth } from '../contexts/AuthContext'
 import type { Achievement, AchievementType } from '../types'
+import { CheckIcon, DropIcon, FlameIcon, PlateIcon, ScaleIcon, TrendIcon } from '../components/Icons'
 
-const TYPE_META: Record<AchievementType, { icon: string; color: string; unit: string }> = {
-  LOGGING_STREAK: { icon: '🔥', color: '#f97316', unit: 'days in a row' },
-  PLANS_GENERATED: { icon: '🥗', color: '#16a34a', unit: 'days planned' },
-  CALORIE_GOAL: { icon: '🎯', color: '#3b82f6', unit: 'days on target' },
-  HYDRATION: { icon: '💧', color: '#06b6d4', unit: 'hydrated days' },
-  WEIGHT_MILESTONE: { icon: '⚖️', color: '#a855f7', unit: 'kg' },
+const TYPE_META: Record<AchievementType, { Icon: typeof PlateIcon; unit: string }> = {
+  LOGGING_STREAK: { Icon: FlameIcon, unit: 'days in a row' },
+  PLANS_GENERATED: { Icon: PlateIcon, unit: 'days planned' },
+  CALORIE_GOAL: { Icon: TrendIcon, unit: 'days on target' },
+  HYDRATION: { Icon: DropIcon, unit: 'hydrated days' },
+  WEIGHT_MILESTONE: { Icon: ScaleIcon, unit: 'kg' },
 }
 
-const metaOf = (type: AchievementType) => TYPE_META[type] ?? { icon: '⭐', color: '#f59e0b', unit: '' }
+const metaOf = (type: AchievementType) => TYPE_META[type] ?? { Icon: PlateIcon, unit: '' }
 
-function EarnedCard({ a, i }: { a: Achievement; i: number }) {
-  const meta = metaOf(a.type)
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: i * 0.04 }}
-      className="achievement-earned"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl"
-             style={{ background: `${meta.color}20` }}>
-          {meta.icon}
-        </div>
-        <span className="badge-gold flex items-center gap-1">
-          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-          </svg>
-          Earned
-        </span>
-      </div>
+const formatDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 
-      <p className="font-bold text-slate-900 text-base leading-tight">{a.name}</p>
-      <p className="text-sm text-slate-600 mt-1 leading-relaxed">{a.description}</p>
-
-      {a.earnedAt && (
-        <p className="text-xs font-semibold mt-3 flex items-center gap-1" style={{ color: meta.color }}>
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/>
-          </svg>
-          {new Date(a.earnedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </p>
-      )}
-
-      <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-2xl"
-           style={{ background: `linear-gradient(90deg, transparent, ${meta.color}60, transparent)` }} />
-    </motion.div>
-  )
-}
-
-/** Progress comes from the server (`currentValue / threshold`); nothing is computed here. */
-function LockedCard({ a, i }: { a: Achievement; i: number }) {
-  const meta = metaOf(a.type)
+/** One achievement. Progress comes from the server (`currentValue / threshold`); nothing is computed here. */
+function AchievementRow({ a }: { a: Achievement }) {
+  const { Icon, unit } = metaOf(a.type)
   const current = a.currentValue ?? 0
   const pct = a.threshold > 0 ? Math.min(current / a.threshold, 1) * 100 : 0
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: i * 0.04 }}
-      className="achievement-locked"
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl grayscale"
-             style={{ background: 'rgba(255,255,255,0.07)' }}>
-          {meta.icon}
+    <li className="grid grid-cols-[52px_1fr] gap-x-4 py-5">
+      <span
+        className={`grid h-[52px] w-[52px] place-items-center rounded-full ${
+          a.earned ? 'bg-ink text-chalk' : 'border-2 border-dashed border-line text-ink-faint'
+        }`}
+        aria-hidden
+      >
+        <Icon size={22} />
+      </span>
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+          <h3 className="font-heading text-lg font-semibold">{a.name}</h3>
+          {a.earned && (
+            <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
+              <CheckIcon size={15} strokeWidth={2.5} />
+              <span>Earned</span>
+              {a.earnedAt && <span className="font-normal text-ink-soft">{formatDate(a.earnedAt)}</span>}
+            </p>
+          )}
         </div>
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-base"
-             style={{ background: 'rgba(255,255,255,0.07)' }}>🔒</div>
+        <p className="mt-0.5 max-w-[60ch] text-sm text-ink-soft">{a.description}</p>
+        {!a.earned && (
+          <div className="mt-3 max-w-md">
+            <div
+              className="h-1.5 overflow-hidden rounded-full bg-wash"
+              role="progressbar"
+              aria-label={`${a.name} progress`}
+              aria-valuemin={0}
+              aria-valuemax={a.threshold}
+              aria-valuenow={current}
+            >
+              <div className="h-full rounded-full bg-ink" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="mt-1.5 text-xs text-ink-soft num">{current} / {a.threshold} {unit}</p>
+          </div>
+        )}
       </div>
-
-      <p className="font-bold text-slate-700 text-base leading-tight">{a.name}</p>
-      <p className="text-sm text-slate-400 mt-1 leading-relaxed">{a.description}</p>
-
-      <div className="mt-4 pt-3 border-t border-slate-100">
-        <div className="flex justify-between text-xs font-medium text-slate-400 mb-1.5">
-          <span>Progress</span>
-          <span className="tabular-nums">{current} / {a.threshold} {meta.unit}</span>
-        </div>
-        <div
-          className="h-1.5 rounded-full overflow-hidden"
-          style={{ background: 'rgba(255,255,255,0.08)' }}
-          role="progressbar"
-          aria-label={`${a.name} progress`}
-          aria-valuemin={0}
-          aria-valuemax={a.threshold}
-          aria-valuenow={current}
-        >
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: meta.color }} />
-        </div>
-      </div>
-    </motion.div>
+    </li>
   )
 }
 
 export default function AchievementsPage() {
   const { userId } = useAuth()
-  const [all,   setAll]   = useState<Achievement[]>([])
+  const [all, setAll] = useState<Achievement[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -111,84 +76,51 @@ export default function AchievementsPage() {
     api.get<Achievement[]>(`/users/${userId}/achievements`)
       .then(r => setAll(r.data))
       .catch(err => setError(toApiError(err).message))
+      .finally(() => setLoaded(true))
   }, [userId])
 
-  const earned      = all.filter(a => a.earned)
-  const locked      = all.filter(a => !a.earned)
-  const earnedCount = earned.length
-  const pct         = all.length > 0 ? Math.round((earnedCount / all.length) * 100) : 0
+  const earned = all.filter(a => a.earned)
+  const locked = all.filter(a => !a.earned)
 
   return (
-    <div className="space-y-6 animate-fade-in">
-
-      {/* ── Hero header ─────────────────────────── */}
-      <div className="relative overflow-hidden rounded-3xl text-white p-7"
-           style={{ background: 'linear-gradient(135deg,#78350f 0%,#92400e 40%,#b45309 100%)' }}>
-        <div className="absolute inset-0 opacity-10"
-             style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
-
-        <div className="relative z-10 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-amber-300 text-sm font-medium mb-1">Your achievements</p>
-            <h1 className="text-3xl font-black tracking-tight">
-              {earnedCount} <span className="text-amber-300 font-light text-2xl">/ {all.length} unlocked</span>
-            </h1>
-            <p className="text-amber-200 text-sm mt-1">
-              {pct === 100 ? 'You\'ve unlocked everything — legend!' :
-               pct >= 50   ? 'Great progress — keep it up!' :
-               pct > 0     ? 'You\'re on your way. Keep going!' :
-                             'Start logging to earn your first achievement.'}
-            </p>
-          </div>
-          <div className="text-6xl filter drop-shadow-lg select-none">🏆</div>
+    <div>
+      <header className="flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="page-title">Achievements</h1>
+          <p className="page-subtitle">Each one states its exact rule. Once earned, it stays earned.</p>
         </div>
-
         {all.length > 0 && (
-          <div className="relative z-10 mt-5">
-            <div className="flex justify-between text-xs text-amber-300 mb-1.5">
-              <span>Overall progress</span>
-              <span className="text-white font-semibold">{pct}%</span>
-            </div>
-            <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${pct}%` }}
-                transition={{ duration: 1.2, ease: [.4,0,.2,1] }}
-                className="h-full rounded-full bg-white"
-              />
-            </div>
-          </div>
+          <p className="font-heading text-2xl font-semibold num" aria-label={`${earned.length} of ${all.length} earned`}>
+            {earned.length}
+            <span className="text-base font-normal text-ink-soft"> of {all.length} earned</span>
+          </p>
         )}
-      </div>
+      </header>
 
-      {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
+      {error && <p role="alert" className="banner-error mt-6">{error}</p>}
 
-      {/* ── Earned section ─────────────────────── */}
-      {earnedCount > 0 && (
-        <div>
-          <p className="section-label mb-3">Earned — {earnedCount}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {earned.map((a, i) => <EarnedCard key={a.id} a={a} i={i} />)}
-          </div>
-        </div>
-      )}
-
-      {/* ── Locked section ─────────────────────── */}
       {locked.length > 0 && (
-        <div>
-          <p className="section-label mb-3">Locked — {locked.length}</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {locked.map((a, i) => <LockedCard key={a.id} a={a} i={i} />)}
-          </div>
-        </div>
+        <section className="mt-8" aria-labelledby="progress-heading">
+          <h2 id="progress-heading" className="section-title">In progress ({locked.length})</h2>
+          <ul className="mt-2 divide-y divide-line border-y border-line">
+            {locked.map(a => <AchievementRow key={a.id} a={a} />)}
+          </ul>
+        </section>
       )}
 
-      {all.length === 0 && !error && (
-        <div className="card text-center py-16">
-          <div className="text-5xl mb-3">🏆</div>
-          <p className="font-bold text-slate-700">No achievements configured yet</p>
-          <p className="text-slate-400 text-sm mt-1">Start logging progress and generating meal plans to earn them.</p>
-        </div>
+      {earned.length > 0 && (
+        <section className="mt-10" aria-labelledby="earned-heading">
+          <h2 id="earned-heading" className="section-title">Earned ({earned.length})</h2>
+          <ul className="mt-2 divide-y divide-line border-y border-line">
+            {earned.map(a => <AchievementRow key={a.id} a={a} />)}
+          </ul>
+        </section>
+      )}
+
+      {loaded && all.length === 0 && !error && (
+        <p className="mt-8 rounded-ctl border border-dashed border-line px-4 py-10 text-center text-ink-soft">
+          No achievements are set up yet.
+        </p>
       )}
     </div>
   )

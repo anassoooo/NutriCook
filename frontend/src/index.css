@@ -2,347 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Keyframes ─────────────────────────────────────────── */
-@keyframes gradientShift {
-  0%, 100% { background-position: 0% 50%; }
-  50%       { background-position: 100% 50%; }
-}
-@keyframes floatUp {
-  0%   { transform: translateY(0px) rotate(0deg);   opacity: 0.6; }
-  50%  { transform: translateY(-20px) rotate(8deg); opacity: 1;   }
-  100% { transform: translateY(0px) rotate(0deg);   opacity: 0.6; }
-}
+/* NutriCook — "the market plate". Tokens live in tailwind.config.js. */
 
-/* ─── Base ────────────────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
-  html { -webkit-font-smoothing: antialiased; scroll-behavior: smooth; }
-  body { 
-    @apply bg-light-bg text-slate-800 font-sans; 
-    margin: 0; min-height: 100vh; 
-    background-image: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent 40%),
-                      radial-gradient(circle at bottom left, rgba(13, 148, 136, 0.05), transparent 40%);
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body {
+    @apply bg-chalk text-ink font-sans;
+    margin: 0;
+    min-height: 100vh;
+    font-size: 15px;
+    line-height: 1.55;
   }
   #root { min-height: 100vh; }
-  h1, h2, h3, h4, h5, h6 { @apply font-heading font-bold tracking-tight text-slate-900; }
+  h1, h2, h3, h4 { @apply font-heading text-ink; letter-spacing: -0.02em; line-height: 1.1; text-wrap: balance; }
+  p { text-wrap: pretty; }
+  ::selection { background: #2B1E33; color: #F3F5F1; }
+
+  /* keyboard focus is always visible */
+  :focus-visible { outline: 2px solid #2B1E33; outline-offset: 2px; border-radius: 6px; }
+
+  .num { font-variant-numeric: tabular-nums; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
 }
 
-/* ─── Components ──────────────────────────────────────────── */
 @layer components {
+  /* Surfaces: one white panel style; most content sits directly on chalk */
+  .card        { @apply bg-paper rounded-panel border border-line p-6; }
+  .card-hover  { @apply card transition-colors hover:border-ink-faint; }
+  .card-brand  { @apply rounded-panel bg-ink text-chalk p-6; }
+  .stat-tile   { @apply relative bg-paper rounded-panel border border-line p-5 cursor-pointer transition-colors hover:border-ink-faint; }
 
-  /* ── Surfaces ─────────────────────────────────────── */
-  .card {
-    @apply bg-white rounded-2xl p-6 relative overflow-hidden;
-    border: 1px solid rgba(0,0,0,0.03);
-    box-shadow: theme('boxShadow.card');
-  }
-  
-  .card-hover {
-    @apply card transition-all duration-300 cursor-pointer;
-    &:hover {
-      box-shadow: theme('boxShadow.card-md');
-      transform: translateY(-4px);
-      border-color: rgba(16,185,129,0.15);
-    }
-  }
-  
-  .card-brand {
-    @apply rounded-2xl p-6 relative overflow-hidden;
-    background: linear-gradient(135deg, theme('colors.brand.50') 0%, theme('colors.brand.100') 100%);
-    border: 1px solid theme('colors.brand.200');
-    box-shadow: 0 4px 16px rgba(16,185,129,0.08);
-  }
-
-  /* Premium stat tile */
-  .stat-tile {
-    @apply bg-white rounded-2xl p-5 relative overflow-hidden;
-    border: 1px solid rgba(0,0,0,0.03);
-    box-shadow: theme('boxShadow.card');
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    &:hover { 
-      transform: translateY(-3px) scale(1.02); 
-      box-shadow: theme('boxShadow.card-md');
-    }
-  }
-  .stat-tile::after {
-    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: var(--tile-color, theme('colors.brand.500'));
-  }
-
-  /* Glass (auth page) */
-  .glass {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255,255,255,0.8);
-    box-shadow: theme('boxShadow.glass');
-  }
-
-  /* Achievement cards */
-  .achievement-earned {
-    @apply rounded-2xl p-5 relative overflow-hidden;
-    background: linear-gradient(135deg, rgba(251,191,36,0.15) 0%, rgba(245,158,11,0.15) 100%);
-    border: 1px solid rgba(245,158,11,0.4);
-    box-shadow: 0 4px 16px rgba(245,158,11,0.15);
-  }
-  .achievement-locked {
-    @apply bg-slate-50 rounded-2xl p-5;
-    border: 1px solid rgba(0,0,0,0.05);
-    opacity: 0.6;
-  }
-
-  /* ── Buttons ──────────────────────────────────────── */
+  /* Buttons: aubergine primary, outlined secondary, quiet ghost */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 font-heading font-bold px-6 py-3 rounded-xl
-           text-white transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-brand-500/50
-           disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden;
-    background: linear-gradient(135deg, theme('colors.brand.500') 0%, theme('colors.brand.600') 100%);
-    box-shadow: theme('boxShadow.brand');
+    @apply inline-flex items-center justify-center gap-2 rounded-ctl bg-ink text-chalk
+           px-5 py-2.5 text-sm font-semibold transition-colors
+           hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed;
   }
-  .btn-primary:hover:not(:disabled) {
-    box-shadow: 0 6px 20px rgba(16,185,129,0.5);
-    transform: translateY(-2px);
-  }
-  .btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); }
-
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 font-heading font-bold px-6 py-3 rounded-xl
-           bg-white text-slate-800 border border-slate-200 shadow-sm
-           transition-all duration-300 hover:bg-slate-50 hover:border-slate-300
-           focus:outline-none focus:ring-2 focus:ring-slate-200;
+    @apply inline-flex items-center justify-center gap-2 rounded-ctl border border-ink/25 bg-paper text-ink
+           px-5 py-2.5 text-sm font-semibold transition-colors hover:border-ink disabled:opacity-50;
   }
-  .btn-secondary:hover:not(:disabled) { transform: translateY(-2px); }
-
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-1.5 font-medium px-4 py-2 rounded-xl
-           text-slate-500 hover:text-slate-800 hover:bg-slate-100
-           transition-all duration-200 focus:outline-none;
+    @apply inline-flex items-center gap-2 rounded-ctl px-3 py-2 text-sm font-semibold text-ink-soft
+           transition-colors hover:bg-wash hover:text-ink;
   }
-  
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 font-bold px-5 py-2.5 rounded-xl
-           text-white transition-all duration-200 bg-red-500 hover:bg-red-600 shadow-sm shadow-red-500/30;
+    @apply inline-flex items-center justify-center gap-2 rounded-ctl bg-alert text-white px-5 py-2.5 text-sm font-semibold;
   }
 
-  /* ── Forms ────────────────────────────────────────── */
+  /* Forms */
   .input {
-    @apply w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm
-           text-slate-900 placeholder-slate-400
-           focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
-           transition-all duration-300;
-    box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.02);
+    @apply w-full rounded-ctl border border-line bg-paper px-3.5 py-2.5 text-[15px] text-ink
+           placeholder:text-ink-faint transition-colors
+           focus:outline-none focus:border-ink focus:ring-2 focus:ring-ink/10
+           disabled:opacity-60;
   }
-  .label { @apply block text-sm font-semibold text-slate-700 mb-2; }
+  .label { @apply block text-sm font-semibold text-ink mb-1.5; }
 
-  /* ── Badges ───────────────────────────────────────── */
-  .badge        { @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide; }
-  .badge-green  { @apply badge bg-emerald-100 text-emerald-800; }
-  .badge-blue   { @apply badge bg-blue-100 text-blue-800; }
-  .badge-orange { @apply badge bg-orange-100 text-orange-800; }
-  .badge-amber  { @apply badge bg-amber-100 text-amber-800; }
-  .badge-purple { @apply badge bg-purple-100 text-purple-800; }
-  .badge-gray   { @apply badge bg-slate-100 text-slate-700; }
-  .badge-red    { @apply badge bg-red-100 text-red-800; }
-  .badge-gold   { @apply badge bg-yellow-100 text-yellow-800; }
+  /* Small text marks */
+  .badge        { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold; }
+  .badge-gray   { @apply badge bg-wash text-ink-soft; }
+  .badge-green  { @apply badge bg-cucumber-wash text-cucumber; }
+  .badge-gold   { @apply badge bg-semolina-wash text-caution; }
+  .badge-red    { @apply badge bg-alert-wash text-alert; }
+  .badge-blue, .badge-orange, .badge-amber, .badge-purple { @apply badge-gray; }
 
-  /* ── Typography ───────────────────────────────────── */
-  .page-title    { @apply text-3xl md:text-4xl font-heading font-black text-slate-900 tracking-tight; }
-  .page-subtitle { @apply text-base text-slate-500 mt-2; }
-  .section-label { @apply text-[11px] font-bold text-brand-600 uppercase tracking-widest mb-1; }
-  .section-title { @apply text-xl font-heading font-bold text-slate-800; }
+  /* Type roles */
+  .page-title    { @apply font-heading text-[2.25rem] md:text-[2.75rem] font-bold leading-[1.05] text-ink; }
+  .page-subtitle { @apply text-base text-ink-soft mt-2 max-w-[60ch]; }
+  .section-title { @apply font-heading text-xl font-semibold text-ink; }
+  .section-label { @apply text-sm font-semibold text-ink-soft mb-1; }
 
-  /* ── Gradient text ────────────────────────────────── */
-  .text-gradient {
-    background: linear-gradient(135deg, theme('colors.brand.500') 0%, theme('colors.teal.600') 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .text-gradient-amber {
-    background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+  /* Progress */
+  .progress-bar  { @apply h-2 bg-wash rounded-full overflow-hidden; }
+  .progress-fill { @apply h-full rounded-full transition-[width] duration-700 ease-out; }
 
-  /* ── Progress ─────────────────────────────────────── */
-  .progress-bar  { @apply h-2 bg-slate-100 rounded-full overflow-hidden; }
-  .progress-fill { @apply h-full rounded-full transition-all duration-1000 ease-out; }
+  /* Banners: say what happened and what to do */
+  .banner-warning { @apply flex items-start gap-3 rounded-panel border border-semolina/40 bg-caution-wash px-4 py-3 text-sm text-caution; }
+  .banner-error   { @apply flex items-start gap-3 rounded-panel border border-alert/30 bg-alert-wash px-4 py-3 text-sm text-alert; }
+  .banner-success { @apply flex items-start gap-3 rounded-panel border border-cucumber/30 bg-cucumber-wash px-4 py-3 text-sm text-cucumber; }
 
-  /* ── Info / warning banners ───────────────────────── */
-  .banner-warning {
-    @apply flex items-center gap-3 rounded-2xl px-5 py-4;
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-    border: 1px solid #fbbf24;
-    color: theme('colors.amber.800');
-  }
-  .banner-error {
-    @apply flex items-center gap-2 rounded-2xl px-4 py-3;
-    @apply bg-red-50 border border-red-200 text-red-700 text-sm;
-  }
-  .banner-success {
-    @apply flex items-center gap-2 rounded-2xl px-4 py-3;
-    @apply bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm;
-  }
+  /* Achievements */
+  .achievement-earned { @apply relative bg-paper rounded-panel border border-ink p-5; }
+  .achievement-locked { @apply relative bg-transparent rounded-panel border border-dashed border-line p-5; }
 }
-
-/* ── Auth page background ─────────────────────────────── */
-.gradient-bg {
-  background: linear-gradient(135deg, #064e3b 0%, #065f46 35%, #047857 65%, #0d9488 100%);
-}
-
-/* ── Liquid glass (landing page) ─────────────────────── */
-.liquid-glass {
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-/* ── Scrollbar ────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors; }
-
-/* ── Floating food (auth) ─────────────────────────────── */
-.food-float { animation: floatUp var(--dur, 5s) ease-in-out infinite var(--delay, 0s); }
-
-/* ══════════════════════════════════════════════════════
-   DARK LAYOUT — full theme overrides
-   ══════════════════════════════════════════════════════ */
-
-/* ── Typography ───────────────────────────────────────── */
-.dark-layout .page-title    { color: white; }
-.dark-layout .page-subtitle { color: rgba(255,255,255,0.5); }
-.dark-layout .section-title { color: rgba(255,255,255,0.9); }
-.dark-layout .section-label { color: rgba(134,239,172,0.9); }
-
-/* ── Card surfaces → dark glass ───────────────────────── */
-.dark-layout .card,
-.dark-layout .card-hover {
-  background: rgba(0,0,0,0.42);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-color: rgba(255,255,255,0.1);
-  box-shadow: 0 4px 24px rgba(0,0,0,.3);
-}
-.dark-layout .card-hover:hover {
-  background: rgba(0,0,0,0.52);
-  border-color: rgba(255,255,255,0.18);
-}
-.dark-layout .card-brand {
-  background: rgba(16,185,129,0.12);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-color: rgba(16,185,129,0.22);
-}
-.dark-layout .stat-tile {
-  background: rgba(0,0,0,0.42);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-color: rgba(255,255,255,0.1);
-  box-shadow: 0 4px 24px rgba(0,0,0,.3);
-}
-.dark-layout .achievement-earned {
-  background: rgba(245,158,11,0.12);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-color: rgba(245,158,11,0.25);
-}
-.dark-layout .achievement-locked {
-  background: rgba(255,255,255,0.04);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-color: rgba(255,255,255,0.08);
-}
-
-/* ── Text inside cards ────────────────────────────────── */
-.dark-layout .card            .text-slate-900,
-.dark-layout .card-hover      .text-slate-900,
-.dark-layout .stat-tile       .text-slate-900,
-.dark-layout .achievement-earned .text-slate-900 { color: rgba(255,255,255,0.92) }
-
-.dark-layout .card            .text-slate-800,
-.dark-layout .card-hover      .text-slate-800 { color: rgba(255,255,255,0.82) }
-
-.dark-layout .card            .text-slate-700,
-.dark-layout .card-hover      .text-slate-700,
-.dark-layout .achievement-earned .text-slate-700,
-.dark-layout .achievement-locked .text-slate-700 { color: rgba(255,255,255,0.72) }
-
-.dark-layout .card            .text-slate-600,
-.dark-layout .card-hover      .text-slate-600,
-.dark-layout .achievement-earned .text-slate-600 { color: rgba(255,255,255,0.62) }
-
-.dark-layout .card            .text-slate-500,
-.dark-layout .card-hover      .text-slate-500,
-.dark-layout .stat-tile       .text-slate-500 { color: rgba(255,255,255,0.62) }
-
-.dark-layout .card            .text-slate-400,
-.dark-layout .card-hover      .text-slate-400,
-.dark-layout .stat-tile       .text-slate-400,
-.dark-layout .achievement-earned .text-slate-400,
-.dark-layout .achievement-locked .text-slate-400 { color: rgba(255,255,255,0.55) }
-
-/* ── Borders inside cards ─────────────────────────────── */
-.dark-layout .card .border-slate-50,
-.dark-layout .card .border-slate-100,
-.dark-layout .card .border-slate-200,
-.dark-layout .card-hover .border-slate-100,
-.dark-layout .card-hover .border-slate-200,
-.dark-layout .achievement-locked .border-slate-100 { border-color: rgba(255,255,255,0.08) }
-
-/* ── Light bg patches inside cards ───────────────────── */
-.dark-layout .card .bg-slate-50,
-.dark-layout .card .bg-slate-100,
-.dark-layout .card-hover .bg-slate-50,
-.dark-layout .card-hover .bg-slate-100,
-.dark-layout .achievement-locked .bg-slate-100 { background-color: rgba(255,255,255,0.06) }
-
-.dark-layout .card .bg-brand-50,
-.dark-layout .card-hover .bg-brand-50 { background-color: rgba(16,185,129,0.15) }
-
-/* ── Inputs & forms ───────────────────────────────────── */
-.dark-layout .input {
-  background-color: rgba(255,255,255,0.07);
-  border-color: rgba(255,255,255,0.12);
-  color: white;
-  box-shadow: none;
-}
-.dark-layout .input::placeholder { color: rgba(255,255,255,0.35) }
-.dark-layout .input:focus {
-  background-color: rgba(255,255,255,0.11);
-  border-color: rgba(16,185,129,0.5);
-  box-shadow: 0 0 0 3px rgba(16,185,129,0.1);
-}
-.dark-layout .label { color: rgba(255,255,255,0.65) }
-
-/* ── Banners ──────────────────────────────────────────── */
-.dark-layout .banner-warning {
-  background: rgba(245,158,11,0.12);
-  border-color: rgba(245,158,11,0.3);
-  color: #fde68a;
-}
-.dark-layout .banner-error {
-  background: rgba(239,68,68,0.1);
-  border-color: rgba(239,68,68,0.28);
-  color: #fca5a5;
-}
-.dark-layout .banner-success {
-  background: rgba(16,185,129,0.1);
-  border-color: rgba(16,185,129,0.28);
-  color: #6ee7b7;
-}
-
-/* ── Badges ───────────────────────────────────────────── */
-.dark-layout .badge-green  { background: rgba(16,185,129,0.15); color: #6ee7b7;  border: none }
-.dark-layout .badge-blue   { background: rgba(59,130,246,0.15);  color: #93c5fd;  border: none }
-.dark-layout .badge-orange { background: rgba(249,115,22,0.15);  color: #fdba74;  border: none }
-.dark-layout .badge-amber  { background: rgba(245,158,11,0.15);  color: #fde68a;  border: none }
-.dark-layout .badge-purple { background: rgba(168,85,247,0.15);  color: #d8b4fe;  border: none }
-.dark-layout .badge-gray   { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); border: none }
-.dark-layout .badge-red    { background: rgba(239,68,68,0.15);   color: #fca5a5;  border: none }
-.dark-layout .badge-gold   { background: rgba(245,158,11,0.15);  color: #fde68a;  border: none }

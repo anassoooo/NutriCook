@@ -1,201 +1,155 @@
-import { Link, NavLink } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { Wordmark } from '../components/Brand'
+import DayPlate, { RoleKey } from '../components/DayPlate'
+import { CheckIcon } from '../components/Icons'
+import { SAMPLE_MEALS } from '../lib/samplePlan'
 
-const VIDEO_SRC =
-  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260403_050628_c4e32401-fab4-4a27-b7a8-6e9291cd5959.mp4'
-
-const NAV_LINKS = [
-  { label: 'Features',     to: '/features'      },
-  { label: 'How it works', to: '/how-it-works'  },
-  { label: 'Nutrition AI', to: '/features#nutrition-ai' },
+const STEPS = [
+  { title: 'Tell it about you', body: 'Age, body, activity and goal set your daily target. Allergies, diets and health conditions set what may be planned.' },
+  { title: 'Get five meals', body: 'Breakfast to dinner, each portioned from real foods so the day lands within 5% of your target.' },
+  { title: 'Swap what you don’t fancy', body: 'Pick another food of the same kind, or ask the assistant. Every swap is checked against your limits before it is saved.' },
+  { title: 'Check off what you eat', body: 'Your day counts itself. Progress and achievements follow what you actually ate, not what was planned.' },
 ]
 
-const HEADING = ['Fuel your body,', 'shape your future.']
+const SAFEGUARDS = [
+  { title: 'Allergies are never a guess', body: 'Foods carry the 14 allergens of EU labelling law. A food whose allergens are not verified is left out, not assumed safe.' },
+  { title: 'The assistant proposes, the planner decides', body: 'The AI writes explanations and suggests swaps. Calories, portions and safety checks always come from the planner itself.' },
+  { title: 'Every rule is written down and tested', body: '76 business rules, from the calorie floor to how streaks count, each with automated tests named after it.' },
+]
 
-/* ── Framer-motion variants ─────────────────────────── */
-const navVariant = {
-  hidden: { opacity: 0, y: -12 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
-}
+/** The real plate component on a sample day: tick a meal and the plate fills in. */
+function PlateDemo() {
+  const [eaten, setEaten] = useState<Set<number>>(() => new Set(SAMPLE_MEALS.filter(m => m.completed).map(m => m.id)))
+  const meals = SAMPLE_MEALS.map(m => ({ ...m, completed: eaten.has(m.id) }))
+  const total = meals.reduce((s, m) => s + m.calories, 0)
+  const eatenKcal = meals.filter(m => m.completed).reduce((s, m) => s + m.calories, 0)
+  const flip = (id: number) => setEaten(prev => { const s = new Set(prev); if (s.has(id)) s.delete(id); else s.add(id); return s })
 
-const charContainer = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.028, delayChildren: 0.25 } },
-}
-
-const charItem = {
-  hidden: { opacity: 0, x: -16 },
-  show: { opacity: 1, x: 0, transition: { duration: 0.45, ease: 'easeOut' } },
-}
-
-const fadeUp = (delay = 0) => ({
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.7, ease: 'easeOut', delay } },
-})
-
-/* ── Animated heading ───────────────────────────────── */
-function AnimatedHeading() {
   return (
-    <motion.h1
-      variants={charContainer}
-      initial="hidden"
-      animate="show"
-      className="text-5xl md:text-6xl lg:text-7xl text-white mb-5 font-heading font-black"
-      style={{ letterSpacing: '-0.02em', lineHeight: 1.08 }}
-    >
-      {HEADING.map((line, li) => (
-        <span key={li} style={{ display: 'block' }}>
-          {line.split('').map((char, ci) => (
-            <motion.span
-              key={ci}
-              variants={charItem}
-              style={{ display: 'inline-block', whiteSpace: char === ' ' ? 'pre' : 'normal' }}
+    <div className="grid items-center gap-8 sm:grid-cols-[minmax(0,1fr)_200px]">
+      <div>
+        <DayPlate meals={meals} eatenKcal={eatenKcal} plannedKcal={total} targetKcal={null} />
+        <div className="mt-4"><RoleKey /></div>
+      </div>
+      <ul className="space-y-1.5" aria-label="Sample day">
+        {meals.map(m => (
+          <li key={m.id}>
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={m.completed}
+              onClick={() => flip(m.id)}
+              className="flex w-full items-center gap-3 rounded-ctl px-2 py-1.5 text-left transition-colors hover:bg-wash"
             >
-              {char === ' ' ? ' ' : char}
-            </motion.span>
-          ))}
-        </span>
-      ))}
-    </motion.h1>
+              <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${m.completed ? 'border-ink bg-ink text-chalk' : 'border-ink-faint'}`} aria-hidden>
+                {m.completed && <CheckIcon size={11} strokeWidth={3} />}
+              </span>
+              <span className="flex-1 text-sm font-semibold">{m.name}</span>
+              <span className="text-xs text-ink-soft num">{m.calories}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
-/* ── Main component ─────────────────────────────────── */
 export default function LandingPage() {
   const { isAuthenticated } = useAuth()
 
-  const ctaTo = isAuthenticated ? '/dashboard' : '/auth'
-
   return (
-    <div className="relative w-full h-screen flex flex-col overflow-hidden bg-black">
+    <div className="min-h-screen">
+      <header className="mx-auto flex max-w-[1180px] items-center justify-between gap-6 px-6 py-6">
+        <Wordmark />
+        <nav aria-label="Page" className="hidden items-center gap-1 md:flex">
+          <a href="#how" className="btn-ghost">How it works</a>
+          <a href="#safe" className="btn-ghost">Safety</a>
+        </nav>
+        {isAuthenticated ? (
+          <Link to="/dashboard" className="btn-primary">Open today</Link>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Link to="/auth" className="btn-ghost">Sign in</Link>
+            <Link to="/auth" className="btn-primary hidden sm:inline-flex">Get started</Link>
+          </div>
+        )}
+      </header>
 
-      {/* Video background */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        style={{
-          position: 'absolute', inset: 0,
-          width: '100%', height: '100%',
-          objectFit: 'cover',
-          zIndex: 0,
-        }}
-      >
-        <source src={VIDEO_SRC} type="video/mp4" />
-      </video>
-
-      {/* Dark veil so text is always readable */}
-      <div className="absolute inset-0 bg-black/30 z-[1]" />
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col h-full px-6 md:px-12 lg:px-16 pt-6">
-
-        {/* Navbar */}
-        <motion.nav
-          variants={navVariant}
-          initial="hidden"
-          animate="show"
-          className="liquid-glass rounded-xl px-5 py-2.5 flex items-center justify-between"
-        >
-          {/* Logo */}
-          <div className="flex items-center gap-2.5 select-none">
-            <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg,#16a34a,#0d9488)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(22,163,74,.4)',
-            }}>
-              <span style={{ color: 'white', fontWeight: 900, fontSize: 13 }}>N</span>
+      <main>
+        {/* Hero: the product itself */}
+        <section className="mx-auto grid max-w-[1180px] items-center gap-12 px-6 pb-20 pt-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] lg:pt-16">
+          <div>
+            <h1 className="font-heading text-[2.9rem] font-bold leading-[1.02] tracking-[-0.03em] sm:text-[4rem] lg:text-[4.6rem]">
+              Five meals a day, planned around you.
+            </h1>
+            <p className="mt-6 max-w-[48ch] text-lg text-ink-soft">
+              NutriCook builds your day from your body, your goal, your allergies and your diet. Then it counts what you
+              actually eat.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link to={isAuthenticated ? '/dashboard' : '/auth'} className="btn-primary px-6 py-3 text-[15px]">
+                {isAuthenticated ? 'Open today' : 'Plan my first day'}
+              </Link>
+              <a href="#how" className="btn-secondary px-6 py-3 text-[15px]">See how it works</a>
             </div>
-            <span className="text-xl font-black tracking-tight text-white"
-              style={{ letterSpacing: '-0.02em' }}>
-              NutriCook
-            </span>
+            <p className="mt-6 text-sm text-ink-faint">Free. Built on USDA food data. Not medical advice.</p>
           </div>
-
-          {/* Centre links */}
-          <div className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map(({ label, to }) => (
-              <NavLink key={to} to={to}
-                className="text-sm text-white/80 hover:text-white transition-colors duration-200">
-                {label}
-              </NavLink>
-            ))}
+          <div className="rounded-panel border border-line bg-paper p-6 sm:p-8">
+            <p className="mb-6 text-sm text-ink-soft">A sample day. Tick a meal to see the plate fill in.</p>
+            <PlateDemo />
           </div>
+        </section>
 
-          {/* CTA */}
-          <Link
-            to={ctaTo}
-            className="text-white px-6 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity duration-200"
-            style={{
-              background: 'linear-gradient(135deg,#16a34a,#0d9488)',
-              boxShadow: '0 2px 8px rgba(22,163,74,.45)',
-            }}
-          >
-            {isAuthenticated ? 'Go to Dashboard →' : 'Get Started Free'}
-          </Link>
-        </motion.nav>
+        {/* How a day works: a real sequence, so it is numbered */}
+        <section id="how" className="scroll-mt-8 border-t border-line">
+          <div className="mx-auto max-w-[1180px] px-6 py-20">
+            <h2 className="font-heading text-3xl font-bold sm:text-4xl">How a day works</h2>
+            <ol className="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+              {STEPS.map((s, i) => (
+                <li key={s.title}>
+                  <span className="grid h-9 w-9 place-items-center rounded-full border-2 border-ink font-heading font-bold num">{i + 1}</span>
+                  <h3 className="mt-4 font-heading text-xl font-semibold">{s.title}</h3>
+                  <p className="mt-2 text-ink-soft">{s.body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
 
-        {/* Hero content — pinned to bottom */}
-        <div className="flex-1 flex flex-col justify-end pb-12 lg:pb-16">
-          <div className="lg:grid lg:grid-cols-2 lg:items-end gap-8">
+        {/* Safety */}
+        <section id="safe" className="scroll-mt-8 bg-ink text-chalk">
+          <div className="mx-auto grid max-w-[1180px] gap-12 px-6 py-20 lg:grid-cols-[minmax(0,380px)_1fr]">
+            <h2 className="font-heading text-3xl font-bold text-chalk sm:text-4xl">Careful with what goes on your plate</h2>
+            <div className="divide-y divide-chalk/15">
+              {SAFEGUARDS.map(s => (
+                <div key={s.title} className="py-6 first:pt-0 last:pb-0">
+                  <h3 className="font-heading text-xl font-semibold text-chalk">{s.title}</h3>
+                  <p className="mt-2 max-w-[62ch] text-chalk/75">{s.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
-            {/* Left */}
+        <section className="mx-auto max-w-[1180px] px-6 py-20">
+          <div className="flex flex-col items-start gap-6 border-y border-line py-12 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <AnimatedHeading />
-
-              <motion.p
-                variants={fadeUp(0.85)}
-                initial="hidden"
-                animate="show"
-                className="text-base md:text-lg text-gray-300 mb-6"
-              >
-                AI-personalised meal plans, macro tracking, and real nutrition
-                insights — built for the way you live.
-              </motion.p>
-
-              <motion.div
-                variants={fadeUp(1.15)}
-                initial="hidden"
-                animate="show"
-                className="flex flex-wrap gap-4"
-              >
-                <Link
-                  to={ctaTo}
-                  className="btn-primary animate-pulse-glow text-lg px-8 py-4"
-                >
-                  {isAuthenticated ? 'Go to Dashboard →' : 'Generate My Plan ✨'}
-                </Link>
-
-                <Link
-                  to={isAuthenticated ? '/progress' : '#how-it-works'}
-                  className="liquid-glass border border-white/20 px-8 py-3 rounded-lg font-medium text-white
-                             hover:bg-white hover:text-black transition-all duration-200"
-                >
-                  {isAuthenticated ? 'View Progress' : 'See How It Works'}
-                </Link>
-              </motion.div>
+              <h2 className="font-heading text-3xl font-bold">Your first day takes a minute.</h2>
+              <p className="mt-2 text-ink-soft">Three questions, then five meals.</p>
             </div>
-
-            {/* Right — tagline pill */}
-            <motion.div
-              variants={fadeUp(1.4)}
-              initial="hidden"
-              animate="show"
-              className="flex items-end justify-start lg:justify-end mt-8 lg:mt-0"
-            >
-              <div className="liquid-glass border border-white/20 px-6 py-3 rounded-xl">
-                <span className="text-lg md:text-xl lg:text-2xl font-light text-white">
-                  AI Meal Plans. Macro Tracking. Real Results.
-                </span>
-              </div>
-            </motion.div>
-
+            <Link to={isAuthenticated ? '/dashboard' : '/auth'} className="btn-primary px-6 py-3 text-[15px]">
+              {isAuthenticated ? 'Open today' : 'Plan my first day'}
+            </Link>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
+
+      <footer className="mx-auto flex max-w-[1180px] flex-wrap items-center justify-between gap-4 px-6 pb-10 text-sm text-ink-faint">
+        <span>NutriCook, an engineering project. Plans are not medical advice.</span>
+        <a href="https://github.com/anassoooo/NutriCook" className="underline underline-offset-2 hover:text-ink">Source on GitHub</a>
+      </footer>
     </div>
   )
 }

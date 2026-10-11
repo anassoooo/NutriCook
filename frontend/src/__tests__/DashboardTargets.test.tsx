@@ -3,13 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DietPlan, UserProfile } from '../types'
 
-// Tooltips expose the ring's "value / max" text, which is what we assert on
-vi.mock('@mui/material/Tooltip', () => ({
-  default: ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div data-tooltip={title}>{children}</div>
-  ),
-}))
-vi.mock('../components/3d/NutritionOrb', () => ({ default: () => null }))
+// Each macro line carries its "value / max" text in data-tooltip, which is what we assert on
 vi.mock('../components/ChatPanel', () => ({ default: () => null }))
 vi.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ userId: 7 }) }))
 
