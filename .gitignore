@@ -1,7 +1,3 @@
-# ── Claude Code / AI tooling ─────────────────────────────────────────────────
-# .specify/ (Spec Kit constitution, templates) is versioned on purpose.
-.claude/
-
 # ── Local run scripts (contain machine paths & secrets) ──────────────────────
 backend/run.bat
 
