@@ -7,6 +7,7 @@ import com.nutricook.domain.model.DietFlag;
 import com.nutricook.domain.model.FoodRole;
 import com.nutricook.domain.model.Nutrients;
 import com.nutricook.entity.FoodItem;
+import com.nutricook.entity.enums.FoodOrigin;
 import com.nutricook.repository.FoodItemRepository;
 import com.nutricook.support.AbstractIntegrationTest;
 import java.io.IOException;
@@ -34,7 +35,9 @@ class CatalogQualityIT extends AbstractIntegrationTest {
 
   @BeforeEach
   void load() {
-    active = foods.findByActiveTrue();
+    // Other integration tests share this database and add foods through the admin API
+    active =
+        foods.findByActiveTrue().stream().filter(f -> f.getOrigin() == FoodOrigin.SEED).toList();
   }
 
   private static Nutrients per100g(FoodItem f) {
