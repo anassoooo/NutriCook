@@ -24,7 +24,10 @@ spring:
       base-url: https://api.groq.com/openai
       chat:
         options:
-          model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+          # Groq retired llama-3.3-70b-versatile on 2026-08-16 (free and developer tiers)
+          model: ${GROQ_MODEL:openai/gpt-oss-120b}
+          # gpt-oss reasons before answering; low effort keeps calls well inside ai-timeout and max-tokens
+          reasoning-effort: ${GROQ_REASONING_EFFORT:low}
           temperature: 0.7
           max-tokens: 1024
 

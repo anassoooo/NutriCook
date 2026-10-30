@@ -238,7 +238,7 @@ half-working one on a CV and in a defense.
 | Layer | Technology | Notes |
 |---|---|---|
 | Backend | Java 21, Spring Boot 3.3, Maven | `backend/` |
-| AI | Spring AI 1.0 (OpenAI adapter) → Groq `llama-3.3-70b-versatile` | model configurable |
+| AI | Spring AI 1.0 (OpenAI adapter) → Groq `openai/gpt-oss-120b` | model configurable |
 | Security | Spring Security 6, JJWT 0.12 | stateless |
 | Persistence | Spring Data JPA, **PostgreSQL 16**, Flyway | all environments; H2 retired |
 | Caching / limits | Caffeine, Bucket4j | OSM cache, AI quotas |

@@ -22,7 +22,7 @@ flowchart TB
         AI["AI adapter: GroqAiService, PromptLibrary<br/>versioned prompts, timeouts"]
     end
     DB[("PostgreSQL 16<br/>schema owned by Flyway")]
-    LLM["Groq LLM<br/>(llama-3.3-70b)"]
+    LLM["Groq LLM<br/>(gpt-oss-120b)"]
     OSM["OpenStreetMap<br/>Overpass API"]
 
     FE -->|REST, JSON, JWT| SEC --> WEB --> APP

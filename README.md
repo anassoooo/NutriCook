@@ -4,7 +4,7 @@
 
 NutriCook builds a personal daily meal plan from your profile, your allergies, your diet and your
 health conditions. You can then swap foods, check off what you ate, and track your progress. The
-plan is computed by a deterministic, tested domain core. An LLM (Groq, Llama 3.3) only explains
+plan is computed by a deterministic, tested domain core. An LLM (Groq, GPT-OSS 120B) only explains
 the plan and proposes changes, and the domain validates every proposal before anything is saved.
 Every business rule has an ID, a written definition and at least one test named after it, and CI
 fails if a rule loses its test.
