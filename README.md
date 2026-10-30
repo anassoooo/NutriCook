@@ -12,7 +12,7 @@ fails if a rule loses its test.
 **Live demo:** [nutricook-pied.vercel.app](https://nutricook-pied.vercel.app). The backend runs on a
 free plan that sleeps when idle, so the first request can take about a minute.
 
-![Signing in, checking off lunch, swapping a food, then progress and achievements](.github/readme/demo.gif)
+![Today's plate, checking off lunch, then asking the assistant for a lighter dinner](.github/readme/demo.gif)
 
 ---
 
@@ -38,6 +38,29 @@ free plan that sleeps when idle, so the first request can take about a minute.
   <img src=".github/readme/today-desktop.png" alt="Today on desktop: the day as a plate, macro targets and the meal timeline" width="76%">
   <img src=".github/readme/today-mobile.png" alt="Today's plan on a phone" width="22%">
 </p>
+
+---
+
+## The assistant proposes, the domain decides
+
+![A user with a nut allergy asks for peanut butter (refused), tries a prompt injection (refused), then asks for a lighter dinner (swapped, re-portioned and re-checked)](.github/readme/assistant.gif)
+
+The chat runs on Groq (GPT-OSS 120B) through Spring AI. The model never changes a plan directly:
+
+- **Only safe foods reach the prompt.** The candidate list is built from the user's allergies,
+  diet and conditions, and any food the model names outside it is refused (BR-AI-02).
+- **User text is data.** It is wrapped in delimiters and capped at 500 characters (BR-AI-06).
+- **Structured output.** The reply is parsed into a typed intent, retried once on bad JSON, then
+  shown as plain text (BR-AI-04).
+- **The domain does the maths.** A proposed swap is re-portioned to the meal's target and re-checked
+  by the same safety validator as a manual swap; numbers in the reply are never stored (BR-AI-01,
+  BR-AI-03).
+- **Failures degrade.** A 10-second timeout or a provider error returns `AI_UNAVAILABLE`, never a
+  500, and each user can send 30 messages per hour (BR-AI-05, BR-AI-07).
+
+[`ChatServiceIT`](backend/src/test/java/com/nutricook/service/ChatServiceIT.java) tests each rule
+against a scripted fake model that misbehaves on purpose: it suggests peanut butter to a user with a
+nut allergy, claims "9999 kcal", sends broken JSON, times out and fails.
 
 ---
 
